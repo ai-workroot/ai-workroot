@@ -1,0 +1,26 @@
+{
+  "schema_id": "read-order.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "read-order",
+  "required_fields": [
+    "contract_id",
+    "default_read_order",
+    "conditional_read_order",
+    "never_default_read"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "default_read_order": "array",
+    "conditional_read_order": "array",
+    "never_default_read": "array"
+  },
+  "enum_values": {
+    "contract_id": [
+      "read-order"
+    ]
+  },
+  "path_fields": [
+    "default_read_order",
+    "never_default_read"
+  ]
+}

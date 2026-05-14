@@ -1,0 +1,68 @@
+{
+  "schema_id": "layout.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "layout",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "status",
+    "owner",
+    "updated_at",
+    "required_paths",
+    "optional_paths",
+    "user_space_paths",
+    "kernel_space_paths",
+    "extension_space_paths",
+    "runtime_space_paths",
+    "generated_paths",
+    "public_seed_root_paths"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "schema_version": "string",
+    "status": "string",
+    "owner": "string",
+    "updated_at": "string",
+    "required_paths": "array",
+    "optional_paths": "array",
+    "user_space_paths": "array",
+    "kernel_space_paths": "array",
+    "extension_space_paths": "array",
+    "runtime_space_paths": "array",
+    "generated_paths": "array",
+    "public_seed_root_paths": "array"
+  },
+  "enum_values": {
+    "contract_id": [
+      "layout"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "owner": [
+      "kernel"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "schema_version"
+  ],
+  "timestamp_fields": [
+    "updated_at"
+  ],
+  "path_fields": [
+    "required_paths",
+    "optional_paths",
+    "user_space_paths",
+    "kernel_space_paths",
+    "extension_space_paths",
+    "runtime_space_paths",
+    "generated_paths",
+    "public_seed_root_paths"
+  ]
+}

@@ -1,0 +1,26 @@
+name: Documentation improvement
+description: Improve docs, first-use guidance, examples, or explanatory language.
+title: "[Docs] "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is unclear?
+      description: Describe the part of AI Workroot documentation that confused you or could be clearer.
+    validations:
+      required: true
+  - type: textarea
+    id: audience
+    attributes:
+      label: Who is the audience?
+      description: For example ordinary users, contributors, agent adapter builders, team users, or maintainers.
+    validations:
+      required: true
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Suggested improvement
+      description: Share the wording, structure, example, diagram, or page you think would help.
+    validations:
+      required: false

@@ -1,0 +1,76 @@
+{
+  "contract_id": "layout",
+  "contract_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "status": "candidate",
+  "owner": "kernel",
+  "updated_at": "2026-05-15T00:00:00Z",
+  "required_paths": [
+    "space",
+    "space/profile",
+    "space/work",
+    "space/mind",
+    "space/inbox",
+    "space/files",
+    ".workroot",
+    ".workroot/kernel",
+    ".workroot/kernel/boot",
+    ".workroot/kernel/contracts",
+    ".workroot/kernel/interfaces",
+    ".workroot/kernel/schemas",
+    ".workroot/extensions",
+    ".workroot/runtime",
+    ".workroot/runtime/context",
+    ".workroot/runtime/index"
+  ],
+  "optional_paths": [
+    ".workroot/runtime/data",
+    ".workroot/runtime/cache",
+    ".workroot/runtime/logs",
+    ".workroot/extensions/capabilities",
+    ".workroot/extensions/skills",
+    ".workroot/extensions/mcp",
+    ".workroot/extensions/adapters",
+    ".workroot/extensions/drivers"
+  ],
+  "user_space_paths": [
+    "space"
+  ],
+  "kernel_space_paths": [
+    ".workroot/kernel"
+  ],
+  "extension_space_paths": [
+    ".workroot/extensions"
+  ],
+  "runtime_space_paths": [
+    ".workroot/runtime"
+  ],
+  "generated_paths": [
+    ".workroot/runtime/data",
+    ".workroot/runtime/cache",
+    ".workroot/runtime/logs"
+  ],
+  "public_seed_root_paths": [
+    ".github",
+    ".gitignore",
+    ".workroot",
+    "AGENTS.md",
+    "AUTHOR.md",
+    "CHANGELOG.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "DCO.md",
+    "LICENSE",
+    "NOTICE",
+    "PROJECT_BRIEF.md",
+    "README.md",
+    "ROADMAP.md",
+    "START_HERE_FOR_HUMANS.md",
+    "TRADEMARKS.md",
+    "assets",
+    "docs",
+    "scripts",
+    "space",
+    "tests"
+  ]
+}

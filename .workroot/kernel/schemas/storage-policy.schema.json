@@ -1,0 +1,65 @@
+{
+  "schema_id": "storage-policy.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "storage-policy",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "status",
+    "owner",
+    "updated_at",
+    "source_of_truth",
+    "required_contract_format",
+    "registry_format",
+    "generated_stores",
+    "generated_stores_are_rebuildable",
+    "generated_stores_committed_by_default",
+    "release_redaction_tombstone_deletion_must_propagate"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "schema_version": "string",
+    "status": "string",
+    "owner": "string",
+    "updated_at": "string",
+    "source_of_truth": "string",
+    "required_contract_format": "string",
+    "registry_format": "string",
+    "generated_stores": "array",
+    "generated_stores_are_rebuildable": "boolean",
+    "generated_stores_committed_by_default": "boolean",
+    "release_redaction_tombstone_deletion_must_propagate": "boolean"
+  },
+  "enum_values": {
+    "contract_id": [
+      "storage-policy"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "owner": [
+      "kernel"
+    ],
+    "source_of_truth": [
+      "files"
+    ],
+    "required_contract_format": [
+      "json"
+    ],
+    "registry_format": [
+      "csv"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "schema_version"
+  ],
+  "timestamp_fields": [
+    "updated_at"
+  ]
+}

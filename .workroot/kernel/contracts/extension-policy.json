@@ -1,0 +1,39 @@
+{
+  "contract_id": "extension-policy",
+  "contract_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "status": "candidate",
+  "owner": "kernel",
+  "updated_at": "2026-05-15T00:00:00Z",
+  "extension_root": ".workroot/extensions",
+  "registry_path": ".workroot/extensions/capability_registry.csv",
+  "extension_types": [
+    "capability",
+    "skill",
+    "mcp_bridge",
+    "agent_adapter",
+    "storage_driver",
+    "retrieval_driver",
+    "export_import_driver"
+  ],
+  "manifest_required_when": [
+    "adds_scripts",
+    "adds_tools",
+    "uses_network",
+    "uses_secrets",
+    "writes_runtime",
+    "writes_durable_memory",
+    "creates_generated_store",
+    "defines_repeatable_workflow"
+  ],
+  "must_not_redefine": [
+    "identity",
+    "memory_lifecycle",
+    "knowledge_promotion",
+    "task_lifecycle",
+    "privacy_release_semantics",
+    "file_first_source_of_truth",
+    "kernel_versioning",
+    "compatibility_semantics"
+  ]
+}

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Long-term maintainer or pilot conversation
+    url: mailto:aiworkroot@protonmail.com
+    about: Contact the maintainer for long-term collaboration or enterprise pilot conversations.

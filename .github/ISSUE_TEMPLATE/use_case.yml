@@ -1,0 +1,33 @@
+name: Use case
+description: Share a personal, team, role, or organization use case for AI Workroot.
+title: "[Use Case] "
+labels: ["use-case"]
+body:
+  - type: textarea
+    id: subject
+    attributes:
+      label: Who or what does the Workroot serve?
+      description: A person, team, role, project, or organization.
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: What workflow should AI Workroot support?
+      description: Describe the task, memory, knowledge, decision, or handoff need.
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: What is hard today?
+      description: Explain what current AI tools or chat histories fail to preserve.
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy notes
+      description: Do not include secrets, private identity details, or sensitive raw data.
+    validations:
+      required: false

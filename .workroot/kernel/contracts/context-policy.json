@@ -1,0 +1,53 @@
+{
+  "contract_id": "context-policy",
+  "contract_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "status": "candidate",
+  "owner": "kernel",
+  "updated_at": "2026-05-15T00:00:00Z",
+  "levels": [
+    {
+      "level": "L0",
+      "name": "boot",
+      "default": true
+    },
+    {
+      "level": "L1",
+      "name": "active",
+      "default": true
+    },
+    {
+      "level": "L2",
+      "name": "indexes",
+      "default": false
+    },
+    {
+      "level": "L3",
+      "name": "focused_kernel_docs",
+      "default": false
+    },
+    {
+      "level": "L4",
+      "name": "extensions",
+      "default": false
+    },
+    {
+      "level": "L5",
+      "name": "deep_history",
+      "default": false
+    }
+  ],
+  "default_forbidden_paths": [
+    ".workroot/runtime/cache",
+    ".workroot/runtime/data",
+    ".workroot/runtime/logs",
+    ".workroot/runtime/work/closed",
+    "space/files/raw",
+    "**/scratch.md",
+    "**/archive"
+  ],
+  "max_startup_files": 12,
+  "max_startup_characters": 50000,
+  "deep_context_requires_reason": true,
+  "record_loaded_context": true
+}

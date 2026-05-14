@@ -1,0 +1,34 @@
+{
+  "contract_id": "permission-hints",
+  "contract_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "status": "candidate",
+  "owner": "kernel",
+  "updated_at": "2026-05-15T00:00:00Z",
+  "defaults": {
+    "read_scope": [
+      "none"
+    ],
+    "write_scope": [
+      "none"
+    ],
+    "privacy_level": "internal",
+    "requires_confirmation": "when_sensitive",
+    "network_access": "none",
+    "secret_access": "none",
+    "destructive_action": false,
+    "external_account_access": "none",
+    "durable_memory_write": false,
+    "runtime_cache_write": false,
+    "generated_store_write": false
+  },
+  "confirmation_required_when": [
+    "requires_confirmation_always",
+    "privacy_level_sensitive_or_secret",
+    "network_required_without_user_request",
+    "secret_access_optional_or_required",
+    "external_account_access_optional_or_required",
+    "destructive_action_true",
+    "write_scope_kernel_space"
+  ]
+}

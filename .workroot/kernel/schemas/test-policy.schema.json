@@ -1,0 +1,46 @@
+{
+  "schema_id": "test-policy.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "test-policy",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "status",
+    "owner",
+    "updated_at",
+    "required_test_commands",
+    "release_blocks_on"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "schema_version": "string",
+    "status": "string",
+    "owner": "string",
+    "updated_at": "string",
+    "required_test_commands": "array",
+    "release_blocks_on": "array"
+  },
+  "enum_values": {
+    "contract_id": [
+      "test-policy"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "owner": [
+      "kernel"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "schema_version"
+  ],
+  "timestamp_fields": [
+    "updated_at"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "contract_id": "read-order",
+  "default_read_order": [
+    "AGENTS.md",
+    "START_HERE_FOR_HUMANS.md",
+    ".workroot/kernel/boot/boot.md",
+    ".workroot/kernel/boot/read-order.json",
+    "docs/user-interaction-contract.md"
+  ],
+  "conditional_read_order": [
+    {
+      "when": "continuing_active_work",
+      "paths": [
+        ".workroot/runtime/context/current.md",
+        ".workroot/runtime/context/handoff.md",
+        ".workroot/runtime/index/task_registry.csv"
+      ]
+    },
+    {
+      "when": "formal_work_or_preservation",
+      "paths": [
+        "docs/workroot-operating-protocol.md"
+      ]
+    },
+    {
+      "when": "architecture_or_kernel_work",
+      "paths": [
+        "docs/ai-workspace-operating-system-design.md",
+        "docs/kernel-implementation-specification.md"
+      ]
+    }
+  ],
+  "never_default_read": [
+    ".workroot/runtime/cache",
+    ".workroot/runtime/data",
+    ".workroot/runtime/logs",
+    ".workroot/runtime/work/closed",
+    "space/files/raw",
+    "**/scratch.md",
+    "**/archive"
+  ]
+}

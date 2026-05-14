@@ -1,0 +1,87 @@
+{
+  "schema_id": "globalization-policy.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "globalization-policy",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "status",
+    "owner",
+    "updated_at",
+    "public_docs_language",
+    "machine_keys_language",
+    "user_interaction_language",
+    "text_encoding",
+    "path_format",
+    "machine_time_standard",
+    "machine_time_format",
+    "local_time_requires_timezone",
+    "accepted_user_time_inputs",
+    "store_precise_instants_as_utc",
+    "allow_date_only_lifecycle_values",
+    "forbidden_time_inputs",
+    "cross_platform_path_policy"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "schema_version": "string",
+    "status": "string",
+    "owner": "string",
+    "updated_at": "string",
+    "public_docs_language": "string",
+    "machine_keys_language": "string",
+    "user_interaction_language": "string",
+    "text_encoding": "string",
+    "path_format": "string",
+    "machine_time_standard": "string",
+    "machine_time_format": "string",
+    "local_time_requires_timezone": "boolean",
+    "accepted_user_time_inputs": "array",
+    "store_precise_instants_as_utc": "boolean",
+    "allow_date_only_lifecycle_values": "boolean",
+    "forbidden_time_inputs": "array",
+    "cross_platform_path_policy": "string"
+  },
+  "enum_values": {
+    "contract_id": [
+      "globalization-policy"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "owner": [
+      "kernel"
+    ],
+    "public_docs_language": [
+      "en"
+    ],
+    "machine_keys_language": [
+      "en"
+    ],
+    "user_interaction_language": [
+      "user_preferred",
+      "latest_user_message_or_explicit_request"
+    ],
+    "text_encoding": [
+      "utf-8"
+    ],
+    "machine_time_standard": [
+      "iso8601_utc"
+    ],
+    "machine_time_format": [
+      "YYYY-MM-DDTHH:MM:SSZ"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "schema_version"
+  ],
+  "timestamp_fields": [
+    "updated_at"
+  ]
+}

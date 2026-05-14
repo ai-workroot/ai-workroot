@@ -1,0 +1,22 @@
+{
+  "contract_id": "storage-policy",
+  "contract_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "status": "candidate",
+  "owner": "kernel",
+  "updated_at": "2026-05-15T00:00:00Z",
+  "source_of_truth": "files",
+  "required_contract_format": "json",
+  "registry_format": "csv",
+  "generated_stores": [
+    "sqlite",
+    "duckdb",
+    "full_text",
+    "vector",
+    "graph",
+    "cache"
+  ],
+  "generated_stores_are_rebuildable": true,
+  "generated_stores_committed_by_default": false,
+  "release_redaction_tombstone_deletion_must_propagate": true
+}

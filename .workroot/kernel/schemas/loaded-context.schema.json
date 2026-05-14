@@ -1,0 +1,24 @@
+{
+  "schema_id": "loaded-context.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "loaded-context",
+  "required_fields": [
+    "session_id",
+    "updated_at",
+    "loaded"
+  ],
+  "field_types": {
+    "session_id": [
+      "string",
+      "null"
+    ],
+    "updated_at": [
+      "string",
+      "null"
+    ],
+    "loaded": "array"
+  },
+  "timestamp_fields": [
+    "updated_at"
+  ]
+}

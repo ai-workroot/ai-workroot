@@ -1,0 +1,26 @@
+{
+  "schema_id": "context-budget.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "context-budget",
+  "required_fields": [
+    "contract_id",
+    "max_startup_files",
+    "max_startup_characters",
+    "max_loaded_context_records",
+    "deep_context_requires_reason",
+    "record_loaded_context"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "max_startup_files": "integer",
+    "max_startup_characters": "integer",
+    "max_loaded_context_records": "integer",
+    "deep_context_requires_reason": "boolean",
+    "record_loaded_context": "boolean"
+  },
+  "enum_values": {
+    "contract_id": [
+      "context-budget"
+    ]
+  }
+}

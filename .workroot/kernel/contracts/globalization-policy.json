@@ -1,0 +1,29 @@
+{
+  "contract_id": "globalization-policy",
+  "contract_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "status": "candidate",
+  "owner": "kernel",
+  "updated_at": "2026-05-15T00:00:00Z",
+  "public_docs_language": "en",
+  "machine_keys_language": "en",
+  "user_interaction_language": "latest_user_message_or_explicit_request",
+  "text_encoding": "utf-8",
+  "path_format": "repo_relative_forward_slash",
+  "machine_time_standard": "iso8601_utc",
+  "machine_time_format": "YYYY-MM-DDTHH:MM:SSZ",
+  "local_time_requires_timezone": true,
+  "accepted_user_time_inputs": [
+    "YYYY-MM-DDTHH:MM:SSZ",
+    "YYYY-MM-DDTHH:MM:SS+08:00",
+    "YYYY-MM-DDTHH:MM:SS-05:00"
+  ],
+  "store_precise_instants_as_utc": true,
+  "allow_date_only_lifecycle_values": true,
+  "forbidden_time_inputs": [
+    "ambiguous_local_dates",
+    "natural_language_time_in_registries",
+    "timezone_free_precise_instants"
+  ],
+  "cross_platform_path_policy": "no_absolute_paths_no_backslashes_no_parent_traversal"
+}

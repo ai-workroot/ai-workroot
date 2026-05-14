@@ -1,0 +1,92 @@
+{
+  "schema_id": "forgetting-policy.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "forgetting-policy",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "status",
+    "owner",
+    "updated_at",
+    "philosophy",
+    "user_choice_required",
+    "default_release_level",
+    "deletion_requires_explicit_user_choice",
+    "lesson_first",
+    "tombstone_is_first_class",
+    "tombstone_implementation_stage",
+    "tombstone_purpose",
+    "future_tombstone_evolution_expected",
+    "release_levels",
+    "mind_types",
+    "temperatures",
+    "released_destination",
+    "registry_path",
+    "relationship_registry_path",
+    "tombstone_allowed_fields",
+    "tombstone_forbidden_content",
+    "normal_retrieval_excludes",
+    "allowed_retrieval_reasons",
+    "generated_store_policy",
+    "must_not"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "schema_version": "string",
+    "status": "string",
+    "owner": "string",
+    "updated_at": "string",
+    "philosophy": "string",
+    "user_choice_required": "boolean",
+    "default_release_level": "string",
+    "deletion_requires_explicit_user_choice": "boolean",
+    "lesson_first": "boolean",
+    "tombstone_is_first_class": "boolean",
+    "tombstone_implementation_stage": "string",
+    "tombstone_purpose": "string",
+    "future_tombstone_evolution_expected": "boolean",
+    "release_levels": "array",
+    "mind_types": "array",
+    "temperatures": "array",
+    "released_destination": "string",
+    "registry_path": "string",
+    "relationship_registry_path": "string",
+    "tombstone_allowed_fields": "array",
+    "tombstone_forbidden_content": "array",
+    "normal_retrieval_excludes": "array",
+    "allowed_retrieval_reasons": "array",
+    "generated_store_policy": "string",
+    "must_not": "array"
+  },
+  "enum_values": {
+    "contract_id": [
+      "forgetting-policy"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "owner": [
+      "kernel"
+    ],
+    "default_release_level": [
+      "quiet"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "schema_version"
+  ],
+  "timestamp_fields": [
+    "updated_at"
+  ],
+  "path_fields": [
+    "released_destination",
+    "registry_path",
+    "relationship_registry_path"
+  ]
+}

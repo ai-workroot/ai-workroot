@@ -1,0 +1,57 @@
+{
+  "schema_id": "context-policy.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "context-policy",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "status",
+    "owner",
+    "updated_at",
+    "levels",
+    "default_forbidden_paths",
+    "max_startup_files",
+    "max_startup_characters",
+    "deep_context_requires_reason",
+    "record_loaded_context"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "schema_version": "string",
+    "status": "string",
+    "owner": "string",
+    "updated_at": "string",
+    "levels": "array",
+    "default_forbidden_paths": "array",
+    "max_startup_files": "integer",
+    "max_startup_characters": "integer",
+    "deep_context_requires_reason": "boolean",
+    "record_loaded_context": "boolean"
+  },
+  "enum_values": {
+    "contract_id": [
+      "context-policy"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "owner": [
+      "kernel"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "schema_version"
+  ],
+  "timestamp_fields": [
+    "updated_at"
+  ],
+  "path_fields": [
+    "default_forbidden_paths"
+  ]
+}

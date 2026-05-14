@@ -1,0 +1,65 @@
+{
+  "schema_id": "agent-startup.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "agent-startup",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "status",
+    "owner",
+    "updated_at",
+    "entrypoint",
+    "requires_identity_gate",
+    "identity_source",
+    "default_read_order_path",
+    "context_budget_path",
+    "user_interaction_contract",
+    "ordinary_user_must_not_manage_kernel",
+    "default_language_policy"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "schema_version": "string",
+    "status": "string",
+    "owner": "string",
+    "updated_at": "string",
+    "entrypoint": "string",
+    "requires_identity_gate": "boolean",
+    "identity_source": "string",
+    "default_read_order_path": "string",
+    "context_budget_path": "string",
+    "user_interaction_contract": "string",
+    "ordinary_user_must_not_manage_kernel": "boolean",
+    "default_language_policy": "string"
+  },
+  "enum_values": {
+    "contract_id": [
+      "agent-startup"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "owner": [
+      "kernel"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "schema_version"
+  ],
+  "timestamp_fields": [
+    "updated_at"
+  ],
+  "path_fields": [
+    "entrypoint",
+    "identity_source",
+    "default_read_order_path",
+    "context_budget_path",
+    "user_interaction_contract"
+  ]
+}

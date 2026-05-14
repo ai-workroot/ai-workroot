@@ -1,0 +1,14 @@
+capability_id: workroot-operating-protocol
+name: Workroot Operating Protocol
+type: core_protocol
+version: 0.9.527
+status: required
+authority:
+  memory_model: space/mind/
+  task_lifecycle: .workroot/runtime/work/
+  indexes: .workroot/runtime/index/
+  governance: .workroot/kernel/config/
+adapters:
+  codex: adapters/codex/SKILL.md
+  claude_code: adapters/claude-code/README.md
+  generic: adapters/generic/instructions.md

@@ -1,0 +1,16 @@
+{
+  "contract_id": "agent-startup",
+  "contract_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "status": "candidate",
+  "owner": "kernel",
+  "updated_at": "2026-05-15T00:00:00Z",
+  "entrypoint": "AGENTS.md",
+  "requires_identity_gate": true,
+  "identity_source": "space/profile",
+  "default_read_order_path": ".workroot/kernel/boot/read-order.json",
+  "context_budget_path": ".workroot/kernel/boot/context-budget.json",
+  "user_interaction_contract": "docs/user-interaction-contract.md",
+  "ordinary_user_must_not_manage_kernel": true,
+  "default_language_policy": "respond_in_latest_user_language_or_explicit_request_keep_repo_docs_english"
+}

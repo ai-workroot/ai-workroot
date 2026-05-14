@@ -1,0 +1,46 @@
+{
+  "schema_id": "permission-hints.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "permission-hints",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "status",
+    "owner",
+    "updated_at",
+    "defaults",
+    "confirmation_required_when"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "schema_version": "string",
+    "status": "string",
+    "owner": "string",
+    "updated_at": "string",
+    "defaults": "object",
+    "confirmation_required_when": "array"
+  },
+  "enum_values": {
+    "contract_id": [
+      "permission-hints"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "owner": [
+      "kernel"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "schema_version"
+  ],
+  "timestamp_fields": [
+    "updated_at"
+  ]
+}

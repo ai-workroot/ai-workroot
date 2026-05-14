@@ -1,0 +1,91 @@
+# v0.9.527 Public Release Checklist
+
+Use this checklist before publishing or tagging AI Workroot as a public open-source seed.
+
+Release tag:
+
+```text
+v0.9.527
+```
+
+## Repository Cleanliness
+
+- No private identity, personal address, phone number, email, token, secret, or private account data.
+- No real user task, note, report, dataset, work artifact, or conversation residue.
+- No generated local databases or caches.
+- No IDE metadata, operating-system metadata, or temporary files.
+- No unfinished logo, image, or brand asset.
+- No domain-specific assumption in the core seed.
+- No local runtime secret, MCP server definition, private agent setting, or credential file.
+- `LICENSE` is Apache-2.0.
+- `NOTICE` preserves project name, domain, and brand boundaries.
+- `TRADEMARKS.md` explains allowed and restricted brand use.
+- `DCO.md` explains contribution rights.
+- Name and trademark clearance has been checked for `AI Workroot`, `Workroot`, and planned official variants.
+- GitHub repository description and topics follow `docs/launch-and-discovery.md`.
+- Contributor contact and maintainer expectations are clear in `CONTRIBUTING.md`.
+- `docs/good-first-issues.md` gives concrete starter contributions.
+- `docs/who-we-are-looking-for.md` explains contributor roles and long-term maintainer expectations.
+- GitHub issue and pull request templates exist under `.github/`.
+
+## User Experience
+
+- README stays short enough for ordinary users to begin.
+- `START_HERE_FOR_HUMANS.md` gives a clear first message.
+- `docs/user-sop.md` provides a practical operating manual without adding demo data to the core template.
+- `docs/product-experience.md` defines first run, intent routing, continue, and save-what-matters behavior.
+- `docs/ai-workspace-operating-system-design.md` documents the v0.9.527 user-space/kernel-space architecture.
+- `docs/kernel-implementation-specification.md` defines the kernel versioning, contracts, schemas, validation behavior, tests, and release gates for implementation.
+- `docs/user-interaction-contract.md` defines the ordinary-user interaction contract.
+- `docs/architecture-map.md` provides a visual explanation of the protocol.
+- `docs/daily-loop.md` explains the everyday operating rhythm.
+- New users are invited to rename only the outer folder into their own AI workspace before first use.
+- New users are told not to rename internal protocol folders.
+- Identity setup is required before formal work, but it remains lightweight.
+- Users can ask quick questions without understanding the internal architecture.
+- Agents infer when work should become an internal task record; ordinary users are not asked to manage task files or indexes.
+- Users can say `Help me continue.` and `Save what matters.` without learning internal structures.
+- Users can ask what tasks have been done before and receive a local task summary.
+- Agents respond in the user's latest language unless the user explicitly requests another language.
+- A new user can start from the README without reading architecture documents first.
+- The v0.9.527 public seed uses the `space/ + .workroot/` architecture.
+- Root-level paths outside the public seed surface are absent.
+- Ordinary user docs describe `space/` as the visible workspace and do not instruct users to manage `.workroot/`.
+
+## Global Readiness
+
+- Task creation supports multilingual titles.
+- File names and registry values use UTF-8.
+- Machine-readable precise instants use ISO-8601 UTC text.
+- User-provided local instants with explicit offsets can be normalized to UTC.
+- Timezone-free precise instants are rejected in registries and contracts.
+- The starter does not assume one country, language, job type, operating system, or AI agent.
+
+## Protocol Integrity
+
+- Files remain the source of truth.
+- SQLite, DuckDB, vector indexes, and graph indexes remain optional rebuildable accelerators.
+- Released, tombstone, redacted, and deleted material is not part of default retrieval.
+- Durable lessons can survive even when painful source context is released.
+- Tombstone remains a first-class kernel term and is not collapsed into generic archive semantics.
+- Agent-specific memory does not replace Workroot files.
+- Core registries are not weakened to fit a role-specific workflow.
+- Capability-specific registries are documented by the owning capability.
+- Extensions follow `docs/extension-contract.md`.
+- Agents follow `docs/user-interaction-contract.md`.
+
+## Validation
+
+Run:
+
+```bash
+python3 -m py_compile scripts/*.py
+python3 -m unittest discover tests
+python3 scripts/validate_kernel.py
+python3 scripts/validate_kernel.py --release
+python3 scripts/test_new_task.py
+python3 scripts/setup_workroot.py --help
+git diff --check
+```
+
+The final status should contain only intentional release changes.

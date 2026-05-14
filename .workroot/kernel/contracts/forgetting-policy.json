@@ -1,0 +1,81 @@
+{
+  "contract_id": "forgetting-policy",
+  "contract_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "status": "candidate",
+  "owner": "kernel",
+  "updated_at": "2026-05-15T00:00:00Z",
+  "philosophy": "preserve_the_lesson_release_unnecessary_pain_keep_tombstones_by_choice",
+  "user_choice_required": true,
+  "default_release_level": "quiet",
+  "deletion_requires_explicit_user_choice": true,
+  "lesson_first": true,
+  "tombstone_is_first_class": true,
+  "tombstone_implementation_stage": "concept_and_interface_reservation",
+  "tombstone_purpose": "intentional_remembrance_without_normal_reactivation",
+  "future_tombstone_evolution_expected": true,
+  "release_levels": [
+    "active",
+    "quiet",
+    "archived",
+    "tombstone",
+    "redacted",
+    "deleted"
+  ],
+  "mind_types": [
+    "memory",
+    "knowledge",
+    "principle",
+    "decision",
+    "pattern",
+    "reflection",
+    "invalidated",
+    "released",
+    "tombstone"
+  ],
+  "temperatures": [
+    "hot",
+    "warm",
+    "cold",
+    "archived",
+    "released",
+    "tombstone",
+    "deleted"
+  ],
+  "released_destination": "space/mind/released",
+  "registry_path": ".workroot/runtime/index/mind_registry.csv",
+  "relationship_registry_path": ".workroot/runtime/index/link_registry.csv",
+  "tombstone_allowed_fields": [
+    "short_title",
+    "symbolic_note",
+    "lesson_link",
+    "optional_date",
+    "retrieval_rule"
+  ],
+  "tombstone_forbidden_content": [
+    "full_raw_painful_detail",
+    "hidden_archive",
+    "secret",
+    "unconfirmed_sensitive_identity"
+  ],
+  "normal_retrieval_excludes": [
+    "released",
+    "tombstone",
+    "deleted"
+  ],
+  "allowed_retrieval_reasons": [
+    "user_explicit_request",
+    "safety_reason",
+    "legal_reason",
+    "integrity_reason",
+    "explicit_review_task"
+  ],
+  "generated_store_policy": "released_redacted_tombstone_deleted_changes_must_propagate_to_generated_stores",
+  "must_not": [
+    "delete_without_explicit_user_choice",
+    "convert_deletion_to_tombstone_without_user_choice",
+    "hide_full_painful_detail_inside_cache",
+    "resurface_released_or_tombstone_material_in_normal_startup",
+    "treat_past_mistakes_as_active_identity_after_release"
+  ]
+}

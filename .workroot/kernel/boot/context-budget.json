@@ -1,0 +1,8 @@
+{
+  "contract_id": "context-budget",
+  "max_startup_files": 12,
+  "max_startup_characters": 50000,
+  "max_loaded_context_records": 100,
+  "deep_context_requires_reason": true,
+  "record_loaded_context": true
+}

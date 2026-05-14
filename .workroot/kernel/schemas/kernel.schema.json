@@ -1,0 +1,57 @@
+{
+  "schema_id": "kernel.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "kernel",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "kernel_version",
+    "schema_version",
+    "layout_version",
+    "interface_version",
+    "minimum_supported_kernel",
+    "status",
+    "source_of_truth",
+    "created_at",
+    "updated_at"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "kernel_version": "string",
+    "schema_version": "string",
+    "layout_version": "string",
+    "interface_version": "string",
+    "minimum_supported_kernel": "string",
+    "status": "string",
+    "source_of_truth": "string",
+    "created_at": "string",
+    "updated_at": "string"
+  },
+  "enum_values": {
+    "contract_id": [
+      "kernel"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "source_of_truth": [
+      "files"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "kernel_version",
+    "schema_version",
+    "layout_version",
+    "interface_version",
+    "minimum_supported_kernel"
+  ],
+  "timestamp_fields": [
+    "created_at",
+    "updated_at"
+  ]
+}

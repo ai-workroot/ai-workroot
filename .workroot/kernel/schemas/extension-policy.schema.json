@@ -1,0 +1,56 @@
+{
+  "schema_id": "extension-policy.schema",
+  "schema_version": "1.0.0",
+  "target_contract": "extension-policy",
+  "required_fields": [
+    "contract_id",
+    "contract_version",
+    "schema_version",
+    "status",
+    "owner",
+    "updated_at",
+    "extension_root",
+    "registry_path",
+    "extension_types",
+    "manifest_required_when",
+    "must_not_redefine"
+  ],
+  "field_types": {
+    "contract_id": "string",
+    "contract_version": "string",
+    "schema_version": "string",
+    "status": "string",
+    "owner": "string",
+    "updated_at": "string",
+    "extension_root": "string",
+    "registry_path": "string",
+    "extension_types": "array",
+    "manifest_required_when": "array",
+    "must_not_redefine": "array"
+  },
+  "enum_values": {
+    "contract_id": [
+      "extension-policy"
+    ],
+    "status": [
+      "draft",
+      "candidate",
+      "stable",
+      "deprecated"
+    ],
+    "owner": [
+      "kernel"
+    ]
+  },
+  "semver_fields": [
+    "contract_version",
+    "schema_version"
+  ],
+  "timestamp_fields": [
+    "updated_at"
+  ],
+  "path_fields": [
+    "extension_root",
+    "registry_path"
+  ]
+}
