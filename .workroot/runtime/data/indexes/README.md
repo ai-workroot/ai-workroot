@@ -14,7 +14,7 @@ They are allowed to become more sophisticated over time, including incremental u
 
 ## SQLite
 
-SQLite is the recommended first local index database for v0.9.527 practice.
+SQLite is the recommended first local index database for current AI Workroot practice.
 
 Use it for:
 

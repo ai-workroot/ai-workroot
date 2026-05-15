@@ -252,6 +252,14 @@ def optional_str(value: object, default: str = "") -> str:
     return str(value)
 
 
+def optional_path_list(value: object, default: str = "") -> str:
+    if value is None:
+        return default
+    if isinstance(value, list):
+        return ";".join(str(item) for item in value if item is not None and str(item))
+    return str(value)
+
+
 @contextlib.contextmanager
 def file_lock(path: Path, timeout: float = 10.0):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -297,6 +305,13 @@ def restore_tree_or_file(src: Path, dst: Path) -> None:
     elif dst.exists():
         dst.unlink()
     copy_tree_or_file(src, dst)
+
+
+def remove_tree_or_file(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    elif path.exists():
+        path.unlink()
 
 
 def replace_in_file(path: Path, replacements: dict[str, str]) -> None:
@@ -796,17 +811,58 @@ class WorkrootClient:
             encoding="utf-8",
         )
 
-    def rebuild_continue(self, recent: int = 5) -> None:
+    def select_session_rows_from_registry(self, recent: int = 5) -> list[dict[str, str]]:
         _, rows = read_registry(self.root / TASK_REGISTRY)
         active = [row for row in rows if row.get("status") in {"active", "paused", "blocked"}]
         closed = [row for row in rows if row.get("status") in {"closed", "released"}]
         closed.sort(key=lambda row: row.get("updated_at", ""), reverse=True)
-        selected = active + closed[:recent]
+        return active + closed[:recent]
+
+    def select_session_task_ids_from_registry(self, recent: int = 5) -> list[str]:
+        return [row["task_id"] for row in self.select_session_rows_from_registry(recent) if row.get("task_id")]
+
+    def rebuild_continue(self, recent: int = 5) -> None:
+        selected = self.select_session_rows_from_registry(recent)
         task_ids = [row["task_id"] for row in selected if row.get("task_id")]
         if not task_ids:
             self.summarize_session([], "No active or recent tasks found.", "Start a task when ready.")
             return
-        self.summarize_session(task_ids, "Continuation rebuilt from the task registry.", "Review the listed tasks and choose the next action.")
+        active_count = len([row for row in selected if row.get("status") in {"active", "paused", "blocked"}])
+        recent_count = len(selected) - active_count
+        self.summarize_session(
+            task_ids,
+            f"Continuation rebuilt from the task registry: {active_count} active/paused/blocked task(s) and {recent_count} recent closed/released task(s).",
+            "Review the listed tasks and choose the next action.",
+        )
+
+    def batch_touched_paths(self, operations: list[object]) -> list[Path]:
+        paths = [
+            self.root / ".workroot/runtime/index",
+            self.root / ".workroot/runtime/work/tasks",
+            self.root / ".workroot/runtime/context",
+            self.root / "space/work",
+            self.root / "space/mind",
+        ]
+        for operation in operations:
+            if not isinstance(operation, dict):
+                continue
+            op = operation.get("op")
+            if op == "artifact.add" and isinstance(operation.get("path"), str):
+                paths.append(self.repo_path(str(operation["path"])))
+            elif op == "mind.add":
+                rel = operation.get("path") or operation.get("source_path")
+                if isinstance(rel, str) and rel:
+                    paths.append(self.repo_path(rel))
+            elif op == "invalidation.add" and isinstance(operation.get("path"), str) and operation.get("path"):
+                paths.append(self.repo_path(str(operation["path"])))
+
+        deduped: list[Path] = []
+        for path in paths:
+            if any(existing == path or existing in path.parents for existing in deduped):
+                continue
+            deduped = [existing for existing in deduped if not (path == existing or path in existing.parents)]
+            deduped.append(path)
+        return deduped
 
     def apply_batch(self, file_path: str) -> None:
         payload = json.loads(Path(file_path).read_text(encoding="utf-8"))
@@ -820,14 +876,14 @@ class WorkrootClient:
             transaction_dir = self.root / ".workroot/runtime/transactions"
             backup_dir = transaction_dir / transaction_id
             journal = transaction_dir / f"{transaction_id}.json"
-            touched = [
-                self.root / ".workroot/runtime/index",
-                self.root / ".workroot/runtime/work/tasks",
-                self.root / "space/work",
-            ]
+            snapshots: list[tuple[Path, Path, bool]] = []
             backup_dir.mkdir(parents=True, exist_ok=True)
-            for path in touched:
-                copy_tree_or_file(path, backup_dir / path.relative_to(self.root))
+            for path in self.batch_touched_paths(operations):
+                backup = backup_dir / path.relative_to(self.root)
+                existed = path.exists()
+                snapshots.append((path, backup, existed))
+                if existed:
+                    copy_tree_or_file(path, backup)
             journal.write_text(
                 json.dumps(
                     {
@@ -846,10 +902,11 @@ class WorkrootClient:
                 for operation in operations:
                     self.apply_batch_operation(operation)
             except BaseException as exc:
-                for path in reversed(touched):
-                    backup = backup_dir / path.relative_to(self.root)
-                    if backup.exists():
+                for path, backup, existed in reversed(snapshots):
+                    if existed:
                         restore_tree_or_file(backup, path)
+                    else:
+                        remove_tree_or_file(path)
                 journal.write_text(
                     json.dumps(
                         {
@@ -902,6 +959,22 @@ class WorkrootClient:
                 priority=optional_str(operation.get("priority")),
                 created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
                 user_visible_output_path=operation.get("user_visible_output_path") if isinstance(operation.get("user_visible_output_path"), str) else None,
+            )
+        elif op == "run.add":
+            self.add_run(
+                task_id=str(operation["task_id"]),
+                run_id=str(operation["run_id"]),
+                title=str(operation["title"]),
+                status=optional_str(operation.get("status"), "active"),
+                validity=optional_str(operation.get("validity")),
+                validity_reason=optional_str(operation.get("validity_reason")),
+                superseded_by=optional_str(operation.get("superseded_by")),
+                started_at=operation.get("started_at") if isinstance(operation.get("started_at"), str) else None,
+                completed_at=optional_str(operation.get("completed_at")),
+                output_dir=optional_str(operation.get("output_dir")),
+                primary_artifact=optional_str(operation.get("primary_artifact")),
+                validation=optional_str(operation.get("validation")),
+                conclusion_preview=optional_str(operation.get("conclusion_preview")),
             )
         elif op == "task.update":
             self.sync_task_state(
@@ -960,7 +1033,7 @@ class WorkrootClient:
                 current_status=str(operation["current_status"]),
                 last_valid_run_id=optional_str(operation.get("last_valid_run_id")),
                 next_action=optional_str(operation.get("next_action")),
-                required_context_paths=optional_str(operation.get("required_context_paths")),
+                required_context_paths=optional_path_list(operation.get("required_context_paths")),
                 created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
             )
         elif op == "retrieval_card.add":
@@ -968,7 +1041,58 @@ class WorkrootClient:
                 task_id=str(operation["task_id"]),
                 card_id=str(operation["card_id"]),
                 freshness=optional_str(operation.get("freshness"), "hot"),
-                source_paths=optional_str(operation.get("source_paths")),
+                source_paths=optional_path_list(operation.get("source_paths")),
+                created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
+            )
+        elif op == "invalidation.add":
+            self.add_invalidation(
+                task_id=str(operation["task_id"]),
+                invalidation_id=str(operation["invalidation_id"]),
+                run_id=optional_str(operation.get("run_id")),
+                artifact_id=optional_str(operation.get("artifact_id")),
+                invalidated_claim=optional_str(operation.get("invalidated_claim")),
+                reason=optional_str(operation.get("reason")),
+                replacement_ref=optional_str(operation.get("replacement_ref")),
+                path=optional_str(operation.get("path")),
+                created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
+            )
+        elif op == "mind.add":
+            from_paths = operation.get("from_paths")
+            if from_paths is None and isinstance(operation.get("from_path"), str):
+                from_paths = [operation["from_path"]]
+            if from_paths is None:
+                from_paths = []
+            if not isinstance(from_paths, list):
+                raise SystemExit("mind.add from_paths must be a list")
+            from_task_ids = operation.get("from_task_ids")
+            if from_task_ids is None and isinstance(operation.get("from_task_id"), str):
+                from_task_ids = [operation["from_task_id"]]
+            if from_task_ids is None:
+                from_task_ids = []
+            if not isinstance(from_task_ids, list):
+                raise SystemExit("mind.add from_task_ids must be a list")
+            set_task_output = operation.get("set_task_output")
+            if set_task_output is None:
+                set_task_output = False
+            if not isinstance(set_task_output, bool):
+                raise SystemExit("mind.add set_task_output must be a boolean")
+            self.add_mind(
+                mind_id=str(operation["mind_id"]),
+                title=str(operation["title"]),
+                type=str(operation["type"]),
+                status=optional_str(operation.get("status"), "active"),
+                temperature=optional_str(operation.get("temperature"), "warm"),
+                privacy_level=optional_str(operation.get("privacy_level"), "internal"),
+                release_level=optional_str(operation.get("release_level"), "active"),
+                retrieval_rule=optional_str(operation.get("retrieval_rule")),
+                summary=optional_str(operation.get("summary")),
+                path=optional_str(operation.get("path")),
+                from_paths=[str(value) for value in from_paths],
+                from_task_ids=[str(value) for value in from_task_ids],
+                set_task_output=set_task_output,
+                source_path=optional_str(operation.get("source_path")),
+                related_task_id=optional_str(operation.get("related_task_id")),
+                replaces_mind_id=optional_str(operation.get("replaces_mind_id")),
                 created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
             )
         elif op == "session.summarize":

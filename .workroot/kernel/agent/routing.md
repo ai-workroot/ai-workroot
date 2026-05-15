@@ -6,11 +6,13 @@ Answer directly. If the answer may matter later, offer to preserve it.
 
 ## Temporary Work
 
-Use `space/inbox/` for rough capture or `.workroot/runtime/work/active/` for internal work records.
+Use `space/inbox/` for rough capture or `.workroot/runtime/work/tasks/<task-id>/` for internal work records.
 
 ## Formal Tasks
 
-Create an internal task under `.workroot/runtime/work/active/`.
+Create an internal task under `.workroot/runtime/work/tasks/<task-id>/`.
+
+Task status belongs in `task.json` and `.workroot/runtime/index/task_registry.csv`, not in directory names.
 
 ## Durable Understanding
 

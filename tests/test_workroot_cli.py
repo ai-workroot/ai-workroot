@@ -336,6 +336,7 @@ class WorkrootCliTest(unittest.TestCase):
                                 "checkpoint_id": "batch-checkpoint",
                                 "task_id": "batch-a",
                                 "current_status": "Batch checkpoint created.",
+                                "required_context_paths": ["space/work/reports/batch-report.md", "space/work/reports/extra-context.md"],
                             },
                             {
                                 "op": "retrieval_card.add",
@@ -359,9 +360,103 @@ class WorkrootCliTest(unittest.TestCase):
             self.assertIn("batch-a", (work / ".workroot/runtime/index/task_registry.csv").read_text(encoding="utf-8"))
             self.assertIn("batch-artifact", (work / ".workroot/runtime/index/artifact_registry.csv").read_text(encoding="utf-8"))
             self.assertIn("batch-action", (work / ".workroot/runtime/index/action_registry.csv").read_text(encoding="utf-8"))
-            self.assertIn("batch-checkpoint", (work / ".workroot/runtime/index/checkpoint_registry.csv").read_text(encoding="utf-8"))
+            checkpoint_registry = (work / ".workroot/runtime/index/checkpoint_registry.csv").read_text(encoding="utf-8")
+            self.assertIn("batch-checkpoint", checkpoint_registry)
+            self.assertIn("space/work/reports/batch-report.md;space/work/reports/extra-context.md", checkpoint_registry)
+            self.assertNotIn("['space/work/reports/batch-report.md'", checkpoint_registry)
+            checkpoint = (work / ".workroot/runtime/work/tasks/batch-a/checkpoints/batch-checkpoint.md").read_text(encoding="utf-8")
+            self.assertIn("space/work/reports/batch-report.md;space/work/reports/extra-context.md", checkpoint)
             self.assertIn("batch-card", (work / ".workroot/runtime/index/retrieval_card_registry.csv").read_text(encoding="utf-8"))
             self.assertIn("Batch operation complete.", (work / "space/work/continue.md").read_text(encoding="utf-8"))
+
+    def test_batch_apply_supports_process_mind_and_invalidation_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            batch = work / "batch.json"
+            batch.write_text(
+                json.dumps(
+                    {
+                        "operations": [
+                            {"op": "task.create", "title": "Rich Batch", "task_id": "rich-batch", "process_level": "L2"},
+                            {
+                                "op": "run.add",
+                                "run_id": "rich-run",
+                                "task_id": "rich-batch",
+                                "title": "Rich batch run",
+                                "status": "completed",
+                                "validation": "Validated in batch.",
+                                "conclusion_preview": "Run finished.",
+                                "started_at": "2026-05-15T00:01:00Z",
+                                "completed_at": "2026-05-15T00:02:00Z",
+                            },
+                            {
+                                "op": "mind.add",
+                                "mind_id": "rich-batch-knowledge",
+                                "title": "Rich batch knowledge",
+                                "type": "knowledge",
+                                "summary": "Batch can promote reusable knowledge.",
+                                "related_task_id": "rich-batch",
+                                "from_task_ids": ["rich-batch"],
+                                "created_at": "2026-05-15T00:03:00Z",
+                            },
+                            {
+                                "op": "invalidation.add",
+                                "invalidation_id": "rich-invalidated",
+                                "task_id": "rich-batch",
+                                "run_id": "rich-run",
+                                "invalidated_claim": "Old claim",
+                                "reason": "New evidence replaced it.",
+                                "created_at": "2026-05-15T00:04:00Z",
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_cli(work, "batch", "apply", "--file", str(batch))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("rich-run", (work / ".workroot/runtime/index/run_registry.csv").read_text(encoding="utf-8"))
+            self.assertIn("rich-batch-knowledge", (work / ".workroot/runtime/index/mind_registry.csv").read_text(encoding="utf-8"))
+            self.assertIn("rich-invalidated", (work / ".workroot/runtime/index/invalidation_registry.csv").read_text(encoding="utf-8"))
+            self.assertTrue((work / "space/mind/knowledge/rich-batch-knowledge.md").exists())
+            self.assertTrue((work / ".workroot/runtime/work/tasks/rich-batch/invalidations/rich-invalidated.md").exists())
+
+    def test_batch_apply_rolls_back_mind_file_when_later_operation_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            batch = work / "batch.json"
+            batch.write_text(
+                json.dumps(
+                    {
+                        "operations": [
+                            {"op": "task.create", "title": "Rollback Mind", "task_id": "rollback-mind", "process_level": "L1"},
+                            {
+                                "op": "mind.add",
+                                "mind_id": "rollback-knowledge",
+                                "title": "Rollback knowledge",
+                                "type": "knowledge",
+                                "summary": "This should be rolled back.",
+                                "related_task_id": "rollback-mind",
+                            },
+                            {
+                                "op": "artifact.add",
+                                "artifact_id": "missing-after-mind",
+                                "task_id": "rollback-mind",
+                                "path": "space/work/reports/missing-after-mind.md",
+                                "compute_metadata": True,
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_cli(work, "batch", "apply", "--file", str(batch))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("artifact path does not exist", result.stderr)
+            self.assertNotIn("rollback-mind", (work / ".workroot/runtime/index/task_registry.csv").read_text(encoding="utf-8"))
+            self.assertNotIn("rollback-knowledge", (work / ".workroot/runtime/index/mind_registry.csv").read_text(encoding="utf-8"))
+            self.assertFalse((work / ".workroot/runtime/work/tasks/rollback-mind").exists())
+            self.assertFalse((work / "space/mind/knowledge/rollback-knowledge.md").exists())
 
     def test_batch_apply_rolls_back_when_later_operation_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -392,6 +487,31 @@ class WorkrootCliTest(unittest.TestCase):
             result = self.run_cli(work, "task", "update", "--task-id", "task-cli", "--continue-summary", "This should not be ignored.")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("session summarize", result.stderr)
+
+    def test_session_summarize_from_registry_avoids_long_task_id_list(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            for task_id in ("registry-a", "registry-b", "registry-c"):
+                result = self.run_cli(work, "task", "create", f"Task {task_id}", "--id", task_id)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            result = self.run_cli(
+                work,
+                "session",
+                "summarize",
+                "--from-registry",
+                "--recent",
+                "3",
+                "--summary",
+                "Registry-selected tasks were summarized.",
+                "--next-action",
+                "Review registry-selected work.",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = (work / "space/work/continue.md").read_text(encoding="utf-8")
+            self.assertIn("Task registry-a", text)
+            self.assertIn("Task registry-b", text)
+            self.assertIn("Task registry-c", text)
+            self.assertIn("Registry-selected tasks were summarized.", text)
 
     def test_batch_apply_does_not_write_json_null_as_none_string(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -48,12 +48,23 @@ The file-first Workroot remains the source of truth.
 The new Agent Operation Layer is a convenience and safety layer made of:
 
 - compact startup instructions
+- a machine-readable Agent Operation Manifest
 - high-level CLI commands
 - a registry storage helper with locking and atomic writes
 - batch operations for common task flows
 - session-level continuation commands
 
 The layer must reduce agent reasoning and file reading, not hide durable state in a service.
+
+Normal agents should read:
+
+```bash
+python3 scripts/workroot_cli.py manifest --format json
+python3 scripts/workroot_cli.py schema --format json
+python3 scripts/workroot_cli.py recipe batch-12-tasks --format json
+```
+
+They should not read `scripts/workroot_client.py` unless debugging or changing AI Workroot itself.
 
 ## Agent Fast Start
 
@@ -144,14 +155,19 @@ Add commands:
 
 ```bash
 python3 scripts/workroot_cli.py quickstart
+python3 scripts/workroot_cli.py manifest --format json
 python3 scripts/workroot_cli.py schema
+python3 scripts/workroot_cli.py schema --format json
 python3 scripts/workroot_cli.py recipe task-l0-report
 python3 scripts/workroot_cli.py recipe task-l1-report
 python3 scripts/workroot_cli.py recipe task-l2-evidence
+python3 scripts/workroot_cli.py recipe batch-12-tasks --format json
 python3 scripts/workroot_cli.py doctor
 ```
 
 `quickstart` prints the smallest useful command sequence for common agent work.
+
+`manifest --format json` prints the operation contract agents should use instead of reading implementation source.
 
 `schema` prints machine-readable and human-readable constraints:
 
@@ -207,21 +223,40 @@ It must not update global `space/work/continue.md` unless explicitly requested.
 
 It is the preferred path for multi-record updates because it reduces repeated process startup and avoids partial registry writes.
 
+The v0.9.528 implementation uses a transaction journal under:
+
+```text
+.workroot/runtime/transactions/
+```
+
+Before applying operations, it backs up the file-first areas that batch operations can touch:
+
+- `.workroot/runtime/index`
+- `.workroot/runtime/work/tasks`
+- `.workroot/runtime/context`
+- `space/work`
+- `space/mind`
+- explicit artifact, Mind, or invalidation paths named in the batch plan
+
+If any later operation fails, the batch restores those areas and records journal status `rolled_back`. If all operations succeed, the journal records `committed`.
+
 For v0.9.528, `batch apply` should support common lightweight operations:
 
 - `task.create`
 - `task.update`
+- `run.add`
 - `artifact.add`
 - `action.add`
 - `checkpoint.add`
 - `retrieval_card.add`
+- `invalidation.add`
+- `mind.add`
 - `session.summarize`
 
 It is not a workflow engine. It must not add branching, retries, scheduling, dependency graphs, or background execution.
 
 The following heavier semantic operations remain outside batch support for v0.9.528:
 
-- `mind.add`
 - `decision.add`
 - release operations
 - forget/tombstone operations
@@ -235,6 +270,8 @@ The following heavier semantic operations remain outside batch support for v0.9.
 - `.workroot/runtime/context/handoff.md`
 
 It accepts explicit task ids and produces a multi-task summary.
+
+For multi-task sessions, agents can pass `--from-registry --recent N` to select active, paused, blocked, and recent closed/released tasks without constructing a long command line.
 
 ### `continue rebuild`
 

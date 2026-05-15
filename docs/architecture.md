@@ -364,6 +364,14 @@ outputs/
 handoff.md
 ```
 
+Internal task records live under:
+
+```text
+.workroot/runtime/work/tasks/<task-id>/
+```
+
+Task status belongs in `task.json` and `.workroot/runtime/index/task_registry.csv`, not in directory names.
+
 Responsibilities:
 
 - `task.json`: identity, goal, scope, owner, status
@@ -374,6 +382,28 @@ Responsibilities:
 - `index.md`: task-local index of outputs, references, decisions, and promoted entries
 - `outputs/`: task-local working outputs before user-visible material is copied or summarized into `space/work/`
 - `handoff.md`: continuation card for future sessions
+
+Process levels keep the process layer proportional to the work:
+
+- `L0`: simple task state for small work
+- `L1`: process records with plans, Runs, Retrieval Cards, and Checkpoints
+- `L2`: evidence records with Actions, recipes, validation, and Invalidations
+
+The Work Process Layer is deliberately file-first. A task can grow from a light state record into a richer chain of Runs, Actions, Artifacts, Checkpoints, Retrieval Cards, Decisions, and Invalidations without changing its identity or moving its directory.
+
+### Agent Operation Layer
+
+The Agent Operation Layer is a thin convenience and safety layer above the file-first source of truth.
+
+It includes:
+
+- compact startup guidance in `.workroot/kernel/boot/agent-fast-start.md`
+- an Agent Operation Manifest exposed by `scripts/workroot_cli.py manifest --format json`
+- CLI discovery and recipes for common agent work
+- high-level commands such as `task complete`, `batch apply`, `session summarize`, and `continue rebuild`
+- registry locking, atomic CSV writes, and batch transaction journals
+
+This layer reduces repeated file reading and CLI trial-and-error. Normal agents should read the operation manifest and JSON recipes instead of reverse-engineering `scripts/workroot_client.py`. It does not hide durable state in a daemon, database, workflow engine, or agent-private memory.
 
 Upgrade path:
 

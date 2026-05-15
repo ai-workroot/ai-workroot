@@ -36,12 +36,16 @@ flowchart TB
   Space --> Files[files and inbox<br/>source material and capture]
 
   Agent[AI agent<br/>product interface] --> Kernel[.workroot/kernel<br/>stable law]
+  Agent --> Ops[Agent Operation Layer<br/>fast-start, CLI, batch, continuation]
   Kernel --> Boot[boot<br/>small startup context]
   Kernel --> Product[product<br/>ordinary user behavior]
   Kernel --> Protocol[protocol<br/>work, memory, release, handoff]
   Kernel --> Contracts[contracts and schemas<br/>machine-readable policy]
   Kernel --> Interfaces[interfaces<br/>extension boundaries]
 
+  Ops --> Boot
+  Ops --> Registries
+  Ops --> Runtime
   Interfaces --> Extensions[.workroot/extensions<br/>replaceable capabilities]
   Extensions --> Runtime[.workroot/runtime<br/>generated state]
   Runtime --> Context[context<br/>current and handoff]

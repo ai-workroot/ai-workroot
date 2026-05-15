@@ -2,11 +2,17 @@
 
 ## 0.9.528 - 2026-05-15
 
+- Rewrote the README around the expert-facing value proposition: context sovereignty, work lifecycle, cross-agent continuation, layered memory, and deliberate forgetting.
 - Centralized current-version references so ordinary documentation does not need patch-version edits on every release.
 - Added the Work Process Layer with stable task paths under `.workroot/runtime/work/tasks/`.
 - Added `L0`, `L1`, and `L2` process levels for proportional task records.
 - Added run, action, retrieval-card, checkpoint, and invalidation registries.
-- Added a lightweight file-first Workroot Client and thin CLI for task-process writes.
+- Added a lightweight file-first Workroot Client and thin CLI for task-process writes, with task status stored in records instead of directory names.
+- Added the Agent Operation Layer: compact fast-start guidance, operation manifest, JSON schema, and directly usable batch recipes.
+- Added batch transaction journals and rollback coverage for task records, registries, continuation files, `space/work`, `space/mind`, artifacts, and invalidations.
+- Extended batch operations to support runs, Mind entries, invalidations, session summaries, and path-list normalization.
+- Added registry-driven session summaries so agents can update continuation without passing long task id lists.
+- Split task-local state updates from session/global continuation updates to avoid multi-task overwrite conflicts.
 - Kept legacy `active/` and `closed/` task paths readable while removing status paths from the public seed.
 
 ## 0.9.527 - 2026-05-15

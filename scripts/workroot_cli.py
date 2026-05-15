@@ -4,9 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 
+from workroot_operation_manifest import manifest as operation_manifest
+from workroot_operation_manifest import recipe as operation_recipe
+from workroot_operation_manifest import schema as operation_schema
+from workroot_operation_manifest import recipes as operation_recipes
 from workroot_client import (
     MIND_TYPES,
     OWNER_SCOPES,
@@ -23,9 +28,13 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="resource", required=True)
 
     subparsers.add_parser("quickstart")
-    subparsers.add_parser("schema")
+    manifest_parser = subparsers.add_parser("manifest")
+    manifest_parser.add_argument("--format", choices=["text", "json"], default="text")
+    schema_parser = subparsers.add_parser("schema")
+    schema_parser.add_argument("--format", choices=["text", "json"], default="text")
     recipe = subparsers.add_parser("recipe")
-    recipe.add_argument("name", choices=["task-l0-report", "task-l1-report", "task-l2-evidence"])
+    recipe.add_argument("name", choices=sorted(operation_recipes()))
+    recipe.add_argument("--format", choices=["text", "json"], default="text")
     subparsers.add_parser("doctor")
 
     task = subparsers.add_parser("task")
@@ -184,7 +193,9 @@ def build_parser() -> argparse.ArgumentParser:
     session = subparsers.add_parser("session")
     session_sub = session.add_subparsers(dest="action", required=True)
     session_summarize = session_sub.add_parser("summarize")
-    session_summarize.add_argument("--task-id", action="append", required=True)
+    session_summarize.add_argument("--task-id", action="append", default=[])
+    session_summarize.add_argument("--from-registry", action="store_true")
+    session_summarize.add_argument("--recent", type=int, default=5)
     session_summarize.add_argument("--summary", required=True)
     session_summarize.add_argument("--next-action", required=True)
 
@@ -207,13 +218,34 @@ def main() -> None:
     client = WorkrootClient()
 
     if args.resource == "quickstart":
+        print("For normal agent operations, read manifest first:")
+        print("python3 scripts/workroot_cli.py manifest --format json")
+        print("Use JSON schema for exact fields:")
+        print("python3 scripts/workroot_cli.py schema --format json")
+        print("Use a directly usable batch example:")
+        print("python3 scripts/workroot_cli.py recipe batch-12-tasks --format json")
+        print("Use session summarize --from-registry --recent N to summarize selected registry tasks without a long task id list.")
         print("Use task complete for common task finalization.")
         print("Use schema to inspect enum and path rules.")
         print("Use recipe task-l0-report, task-l1-report, or task-l2-evidence for examples.")
         print("Use continue rebuild for human-facing continuation.")
         return
 
+    if args.resource == "manifest":
+        data = operation_manifest()
+        if args.format == "json":
+            print(json.dumps(data, ensure_ascii=False, indent=2))
+        else:
+            print("Agent Operation Manifest")
+            print("Use: python3 scripts/workroot_cli.py manifest --format json")
+            print("Normal mode: do not read scripts/workroot_client.py unless debugging or changing Workroot itself.")
+            print("Batch command: python3 scripts/workroot_cli.py batch apply --file plan.json")
+        return
+
     if args.resource == "schema":
+        if args.format == "json":
+            print(json.dumps(operation_schema(), ensure_ascii=False, indent=2))
+            return
         print("task statuses: active, paused, blocked, closed, released")
         print("process levels: L0, L1, L2")
         print("owner scopes: personal, team, role, organization")
@@ -227,15 +259,18 @@ def main() -> None:
         return
 
     if args.resource == "recipe":
+        if args.format == "json":
+            print(json.dumps(operation_recipe(args.name), ensure_ascii=False, indent=2))
+            return
         if args.name == "task-l2-evidence":
             print("python3 scripts/workroot_cli.py task create \"Evidence task\" --process-level L2 --id TASK")
-            print("python3 scripts/workroot_cli.py task complete --process-level L2 --task-id TASK --report-path space/work/reports/report.md --checkpoint")
+            print("python3 scripts/workroot_cli.py task complete --process-level L2 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md --checkpoint")
         elif args.name == "task-l1-report":
             print("python3 scripts/workroot_cli.py task create \"Report task\" --process-level L1 --id TASK")
-            print("python3 scripts/workroot_cli.py task complete --process-level L1 --task-id TASK --report-path space/work/reports/report.md")
+            print("python3 scripts/workroot_cli.py task complete --process-level L1 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md")
         else:
             print("python3 scripts/workroot_cli.py task create \"Simple task\" --process-level L0 --id TASK")
-            print("python3 scripts/workroot_cli.py task complete --process-level L0 --task-id TASK --report-path space/work/reports/report.md")
+            print("python3 scripts/workroot_cli.py task complete --process-level L0 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md")
         return
 
     if args.resource == "doctor":
@@ -437,7 +472,10 @@ def main() -> None:
         return
 
     if args.resource == "session" and args.action == "summarize":
-        client.summarize_session(args.task_id, args.summary, args.next_action)
+        task_ids = client.select_session_task_ids_from_registry(args.recent) if args.from_registry else args.task_id
+        if not task_ids and not args.from_registry:
+            parser.error("session summarize requires --task-id or --from-registry")
+        client.summarize_session(task_ids, args.summary, args.next_action)
         print("space/work/continue.md")
         return
 

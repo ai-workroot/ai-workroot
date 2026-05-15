@@ -95,7 +95,7 @@ Agents may maintain a richer team map under `space/work/` when useful, but the k
 
 When an AI agent creates or updates a meaningful result, decision, or Mind entry for a task, it must also update the task state enough for the next session to continue.
 
-At minimum, keep these aligned:
+Task-local state must stay aligned:
 
 - task `brief.md`
 - task `todo.md`
@@ -104,8 +104,14 @@ At minimum, keep these aligned:
 - task `task.json`
 - `task_registry.csv`
 - related run, action, artifact, retrieval-card, checkpoint, invalidation, decision, Mind, and link registry rows
+
+Session/global continuation must stay aligned when a session is summarized or rebuilt:
+
 - `space/work/continue.md`
 - `.workroot/runtime/context/handoff.md`
+- current or selected task rows from `task_registry.csv`
+
+Use `session summarize` for explicit multi-task continuation. Use `continue rebuild` to regenerate the human continuation view from registries. Task-local updates must not overwrite global continuation just because one task changed.
 
 The user should never see meaningful output while the related task still says:
 

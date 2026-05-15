@@ -284,14 +284,22 @@ For team work, include a simple collaboration map in ordinary language. The mach
 
 When creating or updating a meaningful result, decision, or Mind entry for a task, update the related task state in the same workflow:
 
+Task-local state:
+
 - `brief.md`
 - `todo.md`
 - `handoff.md`
 - `index.md`
 - `task.json`
 - relevant registry rows
-- `.workroot/runtime/context/handoff.md`
-- `space/work/continue.md`
+
+Session/global continuation:
+
+- update `.workroot/runtime/context/handoff.md` and `space/work/continue.md` only when summarizing or ending a session, rebuilding the human continuation view, or explicitly changing global continuation
+- prefer `session summarize` for multi-task session summaries
+- prefer `continue rebuild` when deriving the human continuation view from registries
+
+Task-local updates must not overwrite global continuation just because one task changed.
 
 Do not leave task files with template text such as `Task created; no work completed yet.`, `Nothing yet.`, `Short continuation status.`, or `What should happen next?` after the task has produced a meaningful output, decision, Mind entry, or relationship.
 
