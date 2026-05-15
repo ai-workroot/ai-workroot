@@ -60,7 +60,7 @@ This separation is intentional:
 
 ## Brand Assets
 
-AI Workroot v0.9.527 does not include a final logo or visual identity asset.
+AI Workroot does not currently include a final logo or visual identity asset.
 
 Future logos, icons, screenshots, design systems, or brand assets may have additional usage rules.
 

@@ -1,6 +1,6 @@
 # Product Hardening Rules
 
-This document defines product hardening rules for AI Workroot v0.9.527.
+This document defines product hardening rules for AI Workroot.
 
 It does not change the philosophy or the operating-system architecture. It tightens the product boundary so ordinary users can begin, continue, and trust the workspace without learning internal mechanics.
 
@@ -152,7 +152,7 @@ Agents may still update registries behind the scenes.
 
 ## Product Success Criteria
 
-AI Workroot v0.9.527 meets the product hardening bar when:
+AI Workroot meets the product hardening bar when:
 
 - a new user can find the first sentence within seconds
 - the first useful result can be preserved without architecture reading

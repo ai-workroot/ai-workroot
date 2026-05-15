@@ -6,4 +6,4 @@ The system must ask confirmation before reading secrets, using external accounts
 
 Released, redacted, tombstoned, and deleted material must be respected by runtime stores and caches.
 
-v0.9.527 uses permission hints, not a heavy permission system.
+AI Workroot uses permission hints, not a heavy permission system.

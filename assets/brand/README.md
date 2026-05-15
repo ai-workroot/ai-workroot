@@ -2,7 +2,7 @@
 
 ## Current Status
 
-AI Workroot does not include a final logo or visual image in the v0.9.527 release.
+AI Workroot does not currently include a final logo or visual image.
 
 The brand direction is still being explored. The future visual identity should express a real human standing before the sea and stars, preparing to move toward their own direction with AI as a long-term collaborator.
 

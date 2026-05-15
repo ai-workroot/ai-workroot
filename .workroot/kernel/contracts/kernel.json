@@ -1,7 +1,7 @@
 {
   "contract_id": "kernel",
   "contract_version": "1.0.0",
-  "kernel_version": "0.9.527",
+  "kernel_version": "0.9.528",
   "schema_version": "1.0.0",
   "layout_version": "1.0.0",
   "interface_version": "1.0.0",
@@ -9,5 +9,5 @@
   "status": "candidate",
   "source_of_truth": "files",
   "created_at": "2026-05-15T00:00:00Z",
-  "updated_at": "2026-05-15T00:00:00Z"
+  "updated_at": "2026-05-15T03:59:44Z"
 }

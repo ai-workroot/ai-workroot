@@ -2,7 +2,7 @@
 
 AI Workroot separates user work, kernel law, extensions, runtime state, indexes, and handoff so that AI work can continue across agents, models, tools, operating systems, and time.
 
-The v0.9.527 public architecture is:
+The public architecture is:
 
 ```text
 space/       user-visible workspace

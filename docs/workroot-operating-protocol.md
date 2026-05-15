@@ -10,7 +10,7 @@ For ordinary user experience, also follow:
 - `docs/user-interaction-contract.md`
 - `docs/kernel-implementation-specification.md`
 
-The v0.9.527 public seed uses the upgraded AI Workspace Operating System architecture:
+The public seed uses the upgraded AI Workspace Operating System architecture:
 
 ```text
 space/       user-visible workspace
@@ -216,7 +216,7 @@ Core registries should cover:
 - mind registry
 - link registry
 
-v0.9.527 can use Markdown, JSON, and CSV.
+The public seed can use Markdown, JSON, and CSV.
 
 Future local databases or vector/graph indexes are accelerators only.
 

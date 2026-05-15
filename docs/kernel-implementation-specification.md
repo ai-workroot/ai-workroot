@@ -1,15 +1,15 @@
 # Kernel Implementation Specification
 
-This document defines the AI Workroot v0.9.527 kernel implementation.
+This document defines the AI Workroot kernel implementation.
 
 It is the implementation-grade companion to `docs/ai-workspace-operating-system-design.md`. The OS design document explains the architecture and philosophy. This specification defines the concrete kernel layout, required files, contracts, schemas, registries, scripts, validation rules, and release gates.
 
 ## 1. Kernel Status
 
-Kernel version:
+Kernel version source:
 
 ```text
-0.9.527
+.workroot/kernel/VERSION
 ```
 
 Status:
@@ -33,7 +33,7 @@ The kernel is not an application server, hosted service, model provider, databas
 
 ## 2. Implementation Invariants
 
-The public v0.9.527 seed must expose the AI Workspace Operating System layout:
+The public seed must expose the AI Workspace Operating System layout:
 
 ```text
 space/ + .workroot/
@@ -56,7 +56,7 @@ The following invariants are binding:
 
 ## 3. Canonical Layout
 
-The v0.9.527 seed layout is:
+The public seed layout is:
 
 ```text
 ai-workroot/
@@ -331,7 +331,7 @@ Required version file:
 Required content:
 
 ```text
-0.9.527
+Current semantic version string, for example MAJOR.MINOR.PATCH.
 ```
 
 Required kernel contract:
@@ -346,7 +346,7 @@ Required fields:
 {
   "contract_id": "kernel",
   "contract_version": "1.0.0",
-  "kernel_version": "0.9.527",
+  "kernel_version": "MAJOR.MINOR.PATCH",
   "schema_version": "1.0.0",
   "layout_version": "1.0.0",
   "interface_version": "1.0.0",
@@ -371,7 +371,7 @@ Evolution rules:
 - major changes may change stable semantics and require an explicit compatibility plan
 - public kernel changes must protect user-owned continuity
 
-Stable v0.9.527 semantics:
+Stable kernel semantics:
 
 - user space boundary
 - kernel space boundary
@@ -444,7 +444,7 @@ Required rules:
 - forgetting is user-directed
 - deletion requires explicit user choice
 - `tombstone` is a first-class kernel term
-- v0.9.527 reserves tombstone as a concept and interface, not a complete product workflow
+- the current public seed reserves tombstone as a concept and interface, not a complete product workflow
 - released, tombstone, and deleted material is excluded from normal retrieval
 - generated stores must propagate release, tombstone, redaction, and deletion decisions
 
@@ -483,7 +483,7 @@ Rules:
 
 Defines lightweight risk metadata for extensions, scripts, tools, and drivers.
 
-v0.9.527 uses permission hints, not ACL, RBAC, sandboxing, encryption policy, identity provider integration, or an enterprise permission UI.
+AI Workroot uses permission hints, not ACL, RBAC, sandboxing, encryption policy, identity provider integration, or an enterprise permission UI.
 
 Confirmation is required when actions are sensitive, destructive, secret-related, external-account-related, networked without user request, or writing to kernel space.
 
@@ -541,7 +541,7 @@ Required schema files:
 .workroot/kernel/schemas/loaded-context.schema.json
 ```
 
-v0.9.527 schema files are lightweight JSON descriptors.
+Current schema files are lightweight JSON descriptors.
 
 Each schema may declare:
 
@@ -599,7 +599,7 @@ It must include:
 
 ## 12. Registries
 
-CSV is the default v0.9.527 registry format.
+CSV is the default registry format.
 
 Rules:
 
@@ -644,7 +644,7 @@ capability_registry.csv:
 capability_id,name,type,status,owner,version,purpose,read_scope,write_scope,required_tools,optional_tools,privacy_level,source_path,created_at,updated_at
 ```
 
-Registry headers are stable for the v0.9.527 public release line.
+Registry headers are stable for the current public release line.
 
 ## 13. Mind Registry Semantics
 
@@ -863,7 +863,7 @@ Release mode is intentionally stricter than normal validation.
 
 ## 18. Compatibility And Evolution
 
-The public v0.9.527 seed is a native `space/ + .workroot/` system.
+The public seed is a native `space/ + .workroot/` system.
 
 The kernel protects compatibility through stable boundaries:
 
@@ -971,7 +971,7 @@ YYYY-MM-DD
 
 ## 23. Definition Of Done
 
-The v0.9.527 kernel implementation is complete when:
+The kernel implementation is complete when:
 
 - the canonical layout exists
 - required contracts exist

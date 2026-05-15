@@ -8,10 +8,10 @@ The goal is not artificial promotion. The goal is to help the right people disco
 
 Most AI work disappears into chat history.
 
-First public release:
+Current public release line:
 
 ```text
-AI Workroot v0.9.527
+AI Workroot public seed
 ```
 
 AI Workroot gives that work a durable home:
@@ -143,7 +143,7 @@ Clone, rename only the outer folder, open with an AI agent, paste the starter pr
 - Do not imply official support from OpenAI, Anthropic, GitHub, or other companies.
 - Do not over-promise productivity or personal transformation.
 - Do not use fake stars, fake testimonials, or artificial engagement.
-- Be clear that v0.9.527 is the first public release and will improve through real usage.
+- Be clear that this is an early public seed and will improve through real usage.
 
 ## Content Pillars
 

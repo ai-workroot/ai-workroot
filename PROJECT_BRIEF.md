@@ -43,9 +43,9 @@ The Workroot is the durable continuity layer. AI agents are replaceable collabor
 - After useful lessons are preserved, painful past context can be released from active recall by user choice.
 - Other skills must operate inside the Workroot protocol.
 
-## v0.9.527 Purpose
+## Public Seed Purpose
 
-The v0.9.527 release establishes the AI Workspace Operating System seed:
+The public seed establishes the AI Workspace Operating System shape:
 
 - README and mission
 - upgraded `space/ + .workroot/` architecture
@@ -59,7 +59,7 @@ The v0.9.527 release establishes the AI Workspace Operating System seed:
 - scaling and longevity rules
 - optional future extension points for databases, vector indexes, and graph indexes
 
-## Not In v0.9.527
+## Not In The Public Seed
 
 - full application
 - mandatory database
@@ -70,4 +70,4 @@ The v0.9.527 release establishes the AI Workspace Operating System seed:
 
 ## Next Milestone
 
-Validate v0.9.527 through real personal, team, and role usage, then refine the first-use flow from actual feedback.
+Validate the public seed through real personal, team, and role usage, then refine the first-use flow from actual feedback.

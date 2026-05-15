@@ -95,8 +95,6 @@ Help me save what matters and leave a clear next step.
 
 AI Workroot is an open-source AI workspace protocol and starter structure for people, teams, and roles.
 
-Current release: `v0.9.527`.
-
 It is designed to grow into an AI Workspace Operating System: simple for ordinary users, rigorous for AI agents, portable across models and tools, and durable over long-term human work.
 
 It gives your AI work a durable home: tasks, memory, knowledge, decisions, handoffs, and reusable context that stay portable across AI agents, models, tools, and operating systems.
@@ -124,7 +122,7 @@ If you want to understand why this project exists:
 If you want to understand how it is designed:
 
 - [Product Hardening](docs/product-hardening.md): release hardening rules for first-use simplicity, state trust, continuation views, and product-quality validation
-- [AI Workspace Operating System Design](docs/ai-workspace-operating-system-design.md): the v0.9.527 user-space/kernel-space architecture and product blueprint
+- [AI Workspace Operating System Design](docs/ai-workspace-operating-system-design.md): the user-space/kernel-space architecture and product blueprint
 - [Kernel Implementation Specification](docs/kernel-implementation-specification.md): the concrete kernel versioning, contract, validation, testing, and release-gate specification for implementing the OS design
 - [User Interaction Contract](docs/user-interaction-contract.md): the user-facing behavior contract that keeps ordinary use simple while the kernel remains rigorous
 - [Product Experience](docs/product-experience.md): how ordinary users should start, work, save, and continue without learning the framework first
@@ -265,7 +263,7 @@ ai-workroot/
   DCO.md                            # Lightweight contribution rights rule
   space/                            # User-visible workspace
   .workroot/                        # Kernel, extensions, and rebuildable runtime state
-  assets/                           # Brand direction; no final visual assets in v0.9.527
+  assets/                           # Brand direction; no final visual assets in the public seed
   docs/                             # Deeper architecture and operating protocol
   scripts/                          # Helper scripts
   tests/                            # Validation and compatibility tests
@@ -306,8 +304,6 @@ For contribution:
 AI Workroot welcomes exceptional individual contributors with philosophical depth, AI engineering excellence, and strong consumer AI product judgment. For long-term contributor conversations, see `CONTRIBUTING.md`.
 
 ## Current Status
-
-AI Workroot is at `v0.9.527`.
 
 The current focus is to keep the first-use experience simple while preserving a rigorous protocol underneath for long-term AI-assisted work.
 

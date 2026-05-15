@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.9.527 Release
+## Initial Public Release
 
 - Keep README as a light entry point.
 - Keep deeper philosophy and architecture in `docs/`.
@@ -8,7 +8,7 @@
 - Validate first-use flow with personal, team, and role examples.
 - Publish the first open-source seed and validate it through real usage.
 
-## Completed In v0.9.527
+## Completed In The Initial Public Release
 
 - Define the AI Workroot architecture.
 - Define the Workroot operating protocol.
@@ -23,14 +23,14 @@
 - Add privacy guidance for public vs private Workroots.
 - Prepare launch and discovery metadata.
 
-## Immediate Validation After v0.9.527 Publication
+## Immediate Validation After Initial Publication
 
 - Run real internal adoption with personal, team, and role Workroots.
 - Collect friction from ordinary users who do not understand the architecture.
 - Improve first-use language, continuation behavior, and task-history review.
 - Validate that agents create and update internal task state without asking users to manage files.
 
-## After v0.9.527
+## After Initial Publication
 
 - Add starter templates for testing, product, operations, finance, research, writing, design, and coding roles.
 - Improve helper scripts based on real-world usage.

@@ -22,7 +22,7 @@ The kernel should not restrict what useful work a workspace can contain. Extensi
 
 ## Permission Hints
 
-AI Workroot v0.9.527 uses permission hints, not a heavy permission system.
+AI Workroot uses permission hints, not a heavy permission system.
 
 Every non-trivial extension should declare:
 

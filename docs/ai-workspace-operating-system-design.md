@@ -2,7 +2,7 @@
 
 AI Workroot is an AI Workspace Operating System seed for people, teams, roles, and projects.
 
-This document defines the public v0.9.527 architecture as a finished system shape. It describes the final product model, layer responsibilities, kernel boundaries, extension model, runtime model, and long-term design principles.
+This document defines the public architecture as a finished system shape. It describes the final product model, layer responsibilities, kernel boundaries, extension model, runtime model, and long-term design principles.
 
 For concrete file requirements, contracts, schemas, registry headers, scripts, and release gates, see `docs/kernel-implementation-specification.md`.
 
@@ -35,7 +35,7 @@ The user should be able to start by doing work. The kernel and agents should car
 
 ## 2. Scope
 
-AI Workroot v0.9.527 defines:
+AI Workroot defines:
 
 - a user-owned workspace layout
 - a kernel layout for contracts, schemas, interfaces, boot rules, and policies
@@ -47,7 +47,7 @@ AI Workroot v0.9.527 defines:
 - release, forgetting, redaction, deletion, and tombstone semantics
 - globalization rules for language, encoding, time, and path portability
 
-AI Workroot v0.9.527 does not define:
+AI Workroot does not define:
 
 - a hosted service
 - a model provider
@@ -120,7 +120,7 @@ User space and extensions may evolve in any domain-specific direction as long as
 
 ## 4. Final Architecture
 
-The public v0.9.527 layout is:
+The public layout is:
 
 ```text
 ai-workroot/
@@ -309,7 +309,7 @@ Path:
 
 Contracts are compact machine-readable kernel policy.
 
-Required v0.9.527 contracts:
+Required kernel contracts:
 
 ```text
 kernel.json
@@ -336,7 +336,7 @@ Path:
 
 Schemas define the required structure for contracts, boot files, and runtime context records.
 
-v0.9.527 uses lightweight JSON schema descriptors validated by standard-library Python. A full third-party JSON Schema engine may be added later as optional tooling without changing the public contract semantics.
+The current kernel uses lightweight JSON schema descriptors validated by standard-library Python. A full third-party JSON Schema engine may be added later as optional tooling without changing the public contract semantics.
 
 ### Interfaces
 
@@ -574,11 +574,11 @@ Move toward the future.
 
 Forgetting is user-directed. Deletion requires explicit user choice.
 
-`tombstone` is a first-class kernel term. In v0.9.527 it is a concept and interface reservation, not a complete product workflow.
+`tombstone` is a first-class kernel term. In the current public seed it is a concept and interface reservation, not a complete product workflow.
 
 A tombstone is an intentional marker for remembrance, mourning, closure, or responsibility without keeping the full raw context active.
 
-Future versions may deepen tombstone behavior through philosophy, product workflow, UI, lifecycle audits, export/import rules, and generated-store cleanup. That evolution must remain user-directed and backward-compatible with v0.9.527 tombstone markers.
+Future versions may deepen tombstone behavior through philosophy, product workflow, UI, lifecycle audits, export/import rules, and generated-store cleanup. That evolution must remain user-directed and backward-compatible with existing tombstone markers.
 
 ## 13. Context Economy
 
@@ -673,7 +673,7 @@ Breaking semantic changes require a version boundary, compatibility plan, and va
 
 ## 17. Success Criteria
 
-AI Workroot v0.9.527 is successful when:
+AI Workroot is successful when:
 
 - ordinary users can begin without reading architecture docs
 - agents can follow strict startup, identity, preservation, and handoff rules

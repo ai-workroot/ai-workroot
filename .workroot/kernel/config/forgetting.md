@@ -59,9 +59,9 @@ It should not become a hidden archive of painful detail.
 
 Tombstones are optional. The user may keep them, visit them intentionally, redact them further, or delete them completely.
 
-In v0.9.527, tombstone support is intentionally a concept, interface, registry, and retrieval boundary. It is not yet a deep product workflow.
+In the current public seed, tombstone support is intentionally a concept, interface, registry, and retrieval boundary. It is not yet a deep product workflow.
 
-Future versions may evolve tombstones through deeper philosophical, engineering, and product design. That evolution should remain backward-compatible with v0.9.527 tombstone markers and should not force every Workroot to adopt one universal ritual or emotional model.
+Future versions may evolve tombstones through deeper philosophical, engineering, and product design. That evolution should remain backward-compatible with existing tombstone markers and should not force every Workroot to adopt one universal ritual or emotional model.
 
 Tombstone entries should use:
 

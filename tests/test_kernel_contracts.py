@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 class KernelContractsTest(unittest.TestCase):
     def test_kernel_version(self) -> None:
         version = (ROOT / ".workroot/kernel/VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(version, "0.9.527")
+        kernel = json.loads((ROOT / ".workroot/kernel/contracts/kernel.json").read_text(encoding="utf-8"))
+        self.assertEqual(kernel["kernel_version"], version)
 
     def test_required_contracts_are_json(self) -> None:
         for path in (ROOT / ".workroot/kernel/contracts").glob("*.json"):

@@ -64,7 +64,7 @@ The user downloads or clones AI Workroot and puts it somewhere durable.
 
 The user may rename only the outer folder. Internal protocol folders stay unchanged.
 
-For the v0.9.527 public seed, the visible product workspace is `space/`. The system kernel lives under `.workroot/` and should not be part of ordinary first-use learning.
+For the public seed, the visible product workspace is `space/`. The system kernel lives under `.workroot/` and should not be part of ordinary first-use learning.
 
 ### 2. Open With AI
 

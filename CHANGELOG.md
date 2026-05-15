@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.528 - In progress
+
+- Centralized current-version references so ordinary documentation does not need patch-version edits on every release.
+
 ## 0.9.527 - 2026-05-15
 
 - Added a human-first quick start.

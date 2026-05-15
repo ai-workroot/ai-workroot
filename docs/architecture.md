@@ -11,7 +11,7 @@ The core architectural claim is:
 > The Workroot is the durable continuity layer.  
 > AI agents are replaceable collaborators.
 
-The v0.9.527 public seed must use the upgraded architecture:
+The public seed must use the upgraded architecture:
 
 ```text
 space/       user-visible workspace
@@ -442,7 +442,7 @@ AI Workroot should gradually connect:
 - capabilities
 - invalidated understandings
 
-v0.9.527 can use Markdown, JSON, and CSV. Future versions may add SQLite, DuckDB, vector retrieval, or graph indexes.
+The public seed can use Markdown, JSON, and CSV. Future versions may add SQLite, DuckDB, vector retrieval, or graph indexes.
 
 The conceptual model remains:
 
@@ -470,7 +470,7 @@ Recommended future categories:
 
 AI Workroot should support macOS, Windows, and Linux. Installation may differ by operating system; agents can help install tools according to this protocol.
 
-For v0.9.527 practice, SQLite is the recommended first database for point lookup, local indexes, and lightweight state because it is local, cross-platform, and easy to rebuild from file-based registries.
+For current practice, SQLite is the recommended first database for point lookup, local indexes, and lightweight state because it is local, cross-platform, and easy to rebuild from file-based registries.
 
 DuckDB is appropriate when a concrete Workroot needs local analytical work, such as tabular exploration, larger joins, profiling, or repeatable OLAP-style task analysis.
 

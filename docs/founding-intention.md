@@ -151,7 +151,7 @@ Behind the scenes, AI agents should follow strict rules:
 
 ## Files First, Databases Later
 
-Markdown, CSV, JSON, and local files are the source of truth in v0.9.527.
+Markdown, CSV, JSON, and local files are the source of truth in the current public seed.
 
 Databases, vector search, graph indexes, MCP servers, and specialized skills are optional accelerators. They should improve retrieval and scale, but they must not become the only place where a person's knowledge lives.
 

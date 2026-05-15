@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the AI Workroot v0.9.527 kernel layout, contracts, and release surface."""
+"""Validate the AI Workroot kernel layout, contracts, and release surface."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 
-KERNEL_VERSION = "0.9.527"
 CONTRACT_DIR = Path(".workroot/kernel/contracts")
 SCHEMA_DIR = Path(".workroot/kernel/schemas")
 VERSION_PATH = Path(".workroot/kernel/VERSION")
@@ -548,17 +547,19 @@ def validate_layout(root: Path, contracts: dict[str, dict[str, Any]], release: b
             if path.name == ".git":
                 continue
             if path.name not in allowed_roots:
-                add_error(errors, f"path is outside the public v0.9.527 seed surface: {path.name}")
+                add_error(errors, f"path is outside the public seed surface: {path.name}")
 
 
-def validate_version(root: Path, errors: list[str]) -> None:
+def validate_version(root: Path, contracts: dict[str, dict[str, Any]], errors: list[str]) -> None:
     path = root / VERSION_PATH
     if not path.exists():
         add_error(errors, f"missing version file: {VERSION_PATH.as_posix()}")
         return
     value = path.read_text(encoding="utf-8").strip()
-    if value != KERNEL_VERSION:
-        add_error(errors, f"kernel version must be {KERNEL_VERSION}, got {value!r}")
+    kernel = contracts.get("kernel", {})
+    contract_version = kernel.get("kernel_version")
+    if contract_version and contract_version != value:
+        add_error(errors, f"kernel contract version must match {VERSION_PATH.as_posix()}: {contract_version!r} != {value!r}")
 
 
 def validate_context_budget(root: Path, errors: list[str]) -> None:
@@ -615,8 +616,8 @@ def main() -> int:
     root = Path.cwd()
     errors: list[str] = []
 
-    validate_version(root, errors)
     contracts = validate_contracts(root, errors)
+    validate_version(root, contracts, errors)
     validate_layout(root, contracts, args.release, errors)
     validate_registry_headers(root, errors)
     validate_registry_time_values(root, errors)

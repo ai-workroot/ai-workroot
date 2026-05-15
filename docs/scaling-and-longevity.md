@@ -115,9 +115,9 @@ Recommended fields:
 - `review_after`
 - `source_paths`
 
-Not every v0.9.527 file needs every field on day one. But future schemas and tools should move toward this model.
+Not every public-seed file needs every field on day one. But future schemas and tools should move toward this model.
 
-See `.workroot/kernel/config/` for lifecycle and time policy in the v0.9.527 kernel architecture.
+See `.workroot/kernel/config/` for lifecycle and time policy in the kernel architecture.
 
 ## Knowledge Aging
 
@@ -188,7 +188,7 @@ All databases must be:
 Use the right format for the layer:
 
 - Markdown for doctrine, explanations, and human-readable summaries
-- JSON for required v0.9.527 kernel contracts
+- JSON for required kernel contracts
 - YAML or JSON for future human-authored extension manifests when explicitly supported
 - JSON Schema for validation
 - CSV for simple row-oriented registries
@@ -203,7 +203,7 @@ Every acceleration layer should support two paths:
 - full rebuild for recovery, portability, and trust
 - incremental update for daily performance
 
-v0.9.527 may use full rebuild for simplicity. Future versions should add incremental index update when registry size makes full rebuild expensive.
+The public seed may use full rebuild for simplicity. Future versions should add incremental index update when registry size makes full rebuild expensive.
 
 Full rebuild must remain available even after incremental update exists.
 
@@ -238,9 +238,9 @@ The minimum portable set is:
 
 Generated local databases can be rebuilt after export, import, restore, or relocation.
 
-## Practical v0.9.527 Rule
+## Practical Public Seed Rule
 
-AI Workroot v0.9.527 should be simple to start, but it must already encode the long-term rules:
+AI Workroot should be simple to start, but it must already encode the long-term rules:
 
 - never read all history by default
 - never load the full kernel by default
