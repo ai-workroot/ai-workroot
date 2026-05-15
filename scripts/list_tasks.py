@@ -27,7 +27,7 @@ def plain_next_step(row: dict[str, str]) -> str:
         handoff_path = Path(handoff)
         if handoff_path.exists():
             text = handoff_path.read_text(encoding="utf-8")
-            for marker in ("## Continue With", "## Next Useful Step", "## Next Step"):
+            for marker in ("## Continue With", "## Continue", "## Next Actions", "## Next Useful Step", "## Next Step"):
                 if marker not in text:
                     continue
                 after = text.split(marker, 1)[1].strip()

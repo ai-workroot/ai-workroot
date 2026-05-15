@@ -5,7 +5,15 @@ from __future__ import annotations
 
 import argparse
 
-from workroot_client import WorkrootClient, OWNER_SCOPES, PROCESS_LEVELS, VISIBILITIES, now_utc
+from workroot_client import (
+    MIND_TYPES,
+    OWNER_SCOPES,
+    PROCESS_LEVELS,
+    TASK_STATUSES,
+    VISIBILITIES,
+    WorkrootClient,
+    now_utc,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +35,19 @@ def build_parser() -> argparse.ArgumentParser:
     task_create.add_argument("--priority", default="")
     task_create.add_argument("--created-at", default=now_utc())
     task_create.add_argument("--user-visible-output-path", default="")
+    task_update = task_sub.add_parser("update")
+    task_update.add_argument("--task-id", required=True)
+    task_update.add_argument("--status", choices=sorted(TASK_STATUSES))
+    task_update.add_argument("--updated-at", default="")
+    task_update.add_argument("--next-action")
+    task_update.add_argument("--user-visible-output-path")
+    task_update.add_argument("--brief-current-state")
+    task_update.add_argument("--brief-latest-result")
+    task_update.add_argument("--handoff-status")
+    task_update.add_argument("--handoff-latest-result")
+    task_update.add_argument("--index-output", action="append", default=[])
+    task_update.add_argument("--mind-path", action="append", default=[])
+    task_update.add_argument("--continue-summary")
 
     run = subparsers.add_parser("run")
     run_sub = run.add_subparsers(dest="action", required=True)
@@ -44,6 +65,18 @@ def build_parser() -> argparse.ArgumentParser:
     run_add.add_argument("--primary-artifact", default="")
     run_add.add_argument("--validation", default="")
     run_add.add_argument("--conclusion-preview", default="")
+    run_update = run_sub.add_parser("update")
+    run_update.add_argument("--run-id", required=True)
+    run_update.add_argument("--status")
+    run_update.add_argument("--validity")
+    run_update.add_argument("--validity-reason")
+    run_update.add_argument("--superseded-by")
+    run_update.add_argument("--completed-at")
+    run_update.add_argument("--output-dir")
+    run_update.add_argument("--primary-artifact")
+    run_update.add_argument("--validation")
+    run_update.add_argument("--conclusion-preview")
+    run_update.add_argument("--updated-at")
 
     action = subparsers.add_parser("action")
     action_sub = action.add_subparsers(dest="action", required=True)
@@ -75,6 +108,9 @@ def build_parser() -> argparse.ArgumentParser:
     artifact_add.add_argument("--size", default="")
     artifact_add.add_argument("--checksum", default="")
     artifact_add.add_argument("--created-at", default=now_utc())
+    artifact_add.add_argument("--create-file", action="store_true")
+    artifact_add.add_argument("--content", default="")
+    artifact_add.add_argument("--compute-metadata", action="store_true")
 
     card = subparsers.add_parser("retrieval-card")
     card_sub = card.add_subparsers(dest="action", required=True)
@@ -109,6 +145,23 @@ def build_parser() -> argparse.ArgumentParser:
     invalidation_add.add_argument("--path", default="")
     invalidation_add.add_argument("--created-at", default=now_utc())
 
+    mind = subparsers.add_parser("mind")
+    mind_sub = mind.add_subparsers(dest="action", required=True)
+    mind_add = mind_sub.add_parser("add")
+    mind_add.add_argument("--mind-id", required=True)
+    mind_add.add_argument("--title", required=True)
+    mind_add.add_argument("--type", choices=sorted(MIND_TYPES), required=True)
+    mind_add.add_argument("--status", default="active")
+    mind_add.add_argument("--temperature", default="warm")
+    mind_add.add_argument("--privacy-level", default="internal")
+    mind_add.add_argument("--release-level", default="active")
+    mind_add.add_argument("--retrieval-rule", default="")
+    mind_add.add_argument("--summary", default="")
+    mind_add.add_argument("--source-path", default="")
+    mind_add.add_argument("--related-task-id", default="")
+    mind_add.add_argument("--replaces-mind-id", default="")
+    mind_add.add_argument("--created-at", default=now_utc())
+
     return parser
 
 
@@ -135,6 +188,24 @@ def main() -> None:
         print(created.source_path)
         return
 
+    if args.resource == "task" and args.action == "update":
+        client.sync_task_state(
+            task_id=args.task_id,
+            status=args.status,
+            updated_at=args.updated_at or None,
+            next_action=args.next_action,
+            user_visible_output_path=args.user_visible_output_path,
+            brief_current_state=args.brief_current_state,
+            brief_latest_result=args.brief_latest_result,
+            handoff_status=args.handoff_status,
+            handoff_latest_result=args.handoff_latest_result,
+            index_outputs=args.index_output,
+            mind_paths=args.mind_path,
+            continue_summary=args.continue_summary,
+        )
+        print(args.task_id)
+        return
+
     if args.resource == "run" and args.action == "add":
         record = client.add_run(
             task_id=args.task_id,
@@ -150,6 +221,23 @@ def main() -> None:
             primary_artifact=args.primary_artifact,
             validation=args.validation,
             conclusion_preview=args.conclusion_preview,
+        )
+        print(record.path)
+        return
+
+    if args.resource == "run" and args.action == "update":
+        record = client.update_run(
+            run_id=args.run_id,
+            status=args.status,
+            validity=args.validity,
+            validity_reason=args.validity_reason,
+            superseded_by=args.superseded_by,
+            completed_at=args.completed_at,
+            output_dir=args.output_dir,
+            primary_artifact=args.primary_artifact,
+            validation=args.validation,
+            conclusion_preview=args.conclusion_preview,
+            updated_at=args.updated_at,
         )
         print(record.path)
         return
@@ -185,6 +273,9 @@ def main() -> None:
             size=args.size,
             checksum=args.checksum,
             created_at=args.created_at,
+            create_missing=args.create_file,
+            content=args.content,
+            compute_metadata=args.compute_metadata,
         )
         print(record.path)
         return
@@ -223,6 +314,25 @@ def main() -> None:
             reason=args.reason,
             replacement_ref=args.replacement_ref,
             path=args.path,
+            created_at=args.created_at,
+        )
+        print(record.path)
+        return
+
+    if args.resource == "mind" and args.action == "add":
+        record = client.add_mind(
+            mind_id=args.mind_id,
+            title=args.title,
+            type=args.type,
+            status=args.status,
+            temperature=args.temperature,
+            privacy_level=args.privacy_level,
+            release_level=args.release_level,
+            retrieval_rule=args.retrieval_rule,
+            summary=args.summary,
+            source_path=args.source_path,
+            related_task_id=args.related_task_id,
+            replaces_mind_id=args.replaces_mind_id,
             created_at=args.created_at,
         )
         print(record.path)

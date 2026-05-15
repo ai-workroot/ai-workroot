@@ -110,6 +110,66 @@ class ListTasksScriptTest(unittest.TestCase):
             self.assertNotIn(".workroot", result.stdout)
             self.assertNotIn("handoff.md", result.stdout)
 
+    def test_reads_next_actions_heading(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "workroot"
+            shutil.copytree(
+                ROOT,
+                work,
+                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+            )
+            task_dir = work / ".workroot/runtime/work/tasks/task-next-actions"
+            task_dir.mkdir(parents=True)
+            (task_dir / "handoff.md").write_text(
+                "# Handoff\n\n## Next Actions\n\n- Review the new draft.\n",
+                encoding="utf-8",
+            )
+            registry = work / ".workroot/runtime/index/task_registry.csv"
+            registry.write_text(
+                "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
+                "task-next-actions,Next actions task,active,L1,personal,private,,2026-05-14T00:00:00Z,2026-05-14T02:00:00Z,space/work/next.md,.workroot/runtime/work/tasks/task-next-actions,.workroot/runtime/work/tasks/task-next-actions/brief.md,.workroot/runtime/work/tasks/task-next-actions/handoff.md,\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, "scripts/list_tasks.py"],
+                cwd=work,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Review the new draft.", result.stdout)
+
+    def test_reads_continue_heading(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "workroot"
+            shutil.copytree(
+                ROOT,
+                work,
+                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+            )
+            task_dir = work / ".workroot/runtime/work/tasks/task-continue"
+            task_dir.mkdir(parents=True)
+            (task_dir / "handoff.md").write_text(
+                "# Handoff\n\n## Continue\n\nResume the analysis.\n",
+                encoding="utf-8",
+            )
+            registry = work / ".workroot/runtime/index/task_registry.csv"
+            registry.write_text(
+                "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
+                "task-continue,Continue task,active,L1,personal,private,,2026-05-14T00:00:00Z,2026-05-14T02:00:00Z,space/work/continue-report.md,.workroot/runtime/work/tasks/task-continue,.workroot/runtime/work/tasks/task-continue/brief.md,.workroot/runtime/work/tasks/task-continue/handoff.md,\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, "scripts/list_tasks.py"],
+                cwd=work,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Resume the analysis.", result.stdout)
+
     def test_lists_legacy_active_path_rows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"

@@ -28,7 +28,7 @@ class NewTaskScriptTest(unittest.TestCase):
             "spec=importlib.util.spec_from_file_location('new_task','scripts/new_task.py');"
             "m=importlib.util.module_from_spec(spec);"
             "spec.loader.exec_module(m);"
-            "print(m.normalize_instant('2026-05-15T17:00:00+08:00'))"
+            "print(m.normalize_instant('2026-05-15T08:00:00+08:00'))"
         )
         result = subprocess.run(
             [sys.executable, "-c", code],
@@ -38,7 +38,7 @@ class NewTaskScriptTest(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), "2026-05-15T09:00:00Z")
+        self.assertEqual(result.stdout.strip(), "2026-05-15T00:00:00Z")
 
     def test_timezone_free_instant_is_rejected(self) -> None:
         code = (

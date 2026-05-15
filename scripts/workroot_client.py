@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import hashlib
 import json
 import re
 import shutil
@@ -20,6 +21,29 @@ TASK_REGISTRY = Path(".workroot/runtime/index/task_registry.csv")
 WORK_ROOT = Path(".workroot/runtime/work")
 TEMPLATE_DIR = WORK_ROOT / "_templates"
 MAX_SLUG_LENGTH = 64
+FUTURE_TIMESTAMP_TOLERANCE = dt.timedelta(minutes=5)
+MIND_TYPES = {
+    "memory",
+    "knowledge",
+    "principle",
+    "decision",
+    "pattern",
+    "reflection",
+    "invalidated",
+    "released",
+    "tombstone",
+}
+MIND_DIRS = {
+    "memory": "memory",
+    "knowledge": "knowledge",
+    "principle": "principles",
+    "decision": "decisions",
+    "pattern": "patterns",
+    "reflection": "reflections",
+    "invalidated": "invalidated",
+    "released": "released",
+    "tombstone": "released",
+}
 
 REGISTRY_HEADERS = {
     ".workroot/runtime/index/task_registry.csv": [
@@ -124,6 +148,21 @@ REGISTRY_HEADERS = {
         "created_at",
         "updated_at",
     ],
+    ".workroot/runtime/index/mind_registry.csv": [
+        "mind_id",
+        "title",
+        "type",
+        "status",
+        "temperature",
+        "privacy_level",
+        "release_level",
+        "retrieval_rule",
+        "created_at",
+        "updated_at",
+        "source_path",
+        "related_task_id",
+        "replaces_mind_id",
+    ],
 }
 
 
@@ -146,7 +185,7 @@ def now_utc() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def normalize_instant(value: str) -> str:
+def normalize_instant(value: str, reject_future: bool = True) -> str:
     if value.endswith("Z"):
         value = f"{value[:-1]}+00:00"
     try:
@@ -155,7 +194,10 @@ def normalize_instant(value: str) -> str:
         raise SystemExit(f"invalid instant; use ISO-8601 with timezone: {value}") from exc
     if parsed.tzinfo is None:
         raise SystemExit(f"invalid instant; timezone is required: {value}")
-    return parsed.astimezone(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    normalized = parsed.astimezone(dt.timezone.utc).replace(microsecond=0)
+    if reject_future and normalized - dt.datetime.now(dt.timezone.utc) > FUTURE_TIMESTAMP_TOLERANCE:
+        raise SystemExit(f"invalid instant; future timestamps are not allowed: {value}")
+    return normalized.isoformat().replace("+00:00", "Z")
 
 
 def timestamp_slug(instant: str) -> str:
@@ -194,6 +236,28 @@ def replace_in_file(path: Path, replacements: dict[str, str]) -> None:
     for old, new in replacements.items():
         text = text.replace(old, new)
     path.write_text(text, encoding="utf-8")
+
+
+def markdown_sections(title: str, sections: dict[str, str]) -> str:
+    lines = [f"# {title}", ""]
+    for heading, body in sections.items():
+        lines.extend([f"## {heading}", "", body or "", ""])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def append_unique_lines(path: Path, heading: str, values: list[str]) -> None:
+    values = [value for value in values if value]
+    if not values:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = path.read_text(encoding="utf-8") if path.exists() else f"# {path.stem.title()}\n"
+    if heading not in text:
+        text = text.rstrip() + f"\n\n{heading}\n"
+    existing = set(text.splitlines())
+    additions = [f"- `{value}`" for value in values if f"- `{value}`" not in existing]
+    if additions:
+        text = text.rstrip() + "\n\n" + "\n".join(additions) + "\n"
+        path.write_text(text, encoding="utf-8")
 
 
 class WorkrootClient:
@@ -245,6 +309,50 @@ class WorkrootClient:
         with path.open("a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=headers)
             writer.writerow(full_row)
+
+    def update_registry_row(self, rel: str, id_field: str, id_value: str, updates: dict[str, str]) -> dict[str, str]:
+        headers = REGISTRY_HEADERS[rel]
+        self.ensure_registry(rel)
+        path = self.registry_path(rel)
+        fieldnames, rows = read_registry(path)
+        if fieldnames != headers:
+            raise SystemExit(f"{rel}: header mismatch. expected {headers}, got {fieldnames}")
+        for key in updates:
+            if key not in headers:
+                raise SystemExit(f"unknown field for {rel}: {key}")
+
+        updated_row: dict[str, str] | None = None
+        for row in rows:
+            if row.get(id_field) != id_value:
+                continue
+            for key, value in updates.items():
+                if value is not None:
+                    row[key] = value
+            updated_row = row
+            break
+        if updated_row is None:
+            raise SystemExit(f"registry row not found: {id_field}={id_value}")
+
+        with path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(rows)
+        return updated_row
+
+    def task_row(self, task_id: str) -> dict[str, str]:
+        _, rows = read_registry(self.root / TASK_REGISTRY)
+        for row in rows:
+            if row.get("task_id") == task_id:
+                return row
+        raise SystemExit(f"task not found: {task_id}")
+
+    def repo_path(self, rel: str) -> Path:
+        if not rel:
+            raise SystemExit("path is required")
+        path = Path(rel)
+        if path.is_absolute() or ".." in path.parts:
+            raise SystemExit(f"path must be repository-relative: {rel}")
+        return self.root / path
 
     def existing_task_ids(self) -> set[str]:
         _, rows = read_registry(self.root / TASK_REGISTRY)
@@ -430,11 +538,173 @@ class WorkrootClient:
         raise SystemExit(f"task not found: {task_id}")
 
     def write_markdown_record(self, path: Path, title: str, fields: dict[str, str]) -> None:
-        lines = [f"# {title}", ""]
-        for key, value in fields.items():
-            lines.extend([f"## {key}", "", value or "", ""])
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        path.write_text(markdown_sections(title, fields), encoding="utf-8")
+
+    def update_task_json(
+        self,
+        task_dir: Path,
+        status: str | None,
+        updated_at: str,
+        user_visible_output_path: str | None,
+    ) -> None:
+        path = task_dir / "task.json"
+        if not path.exists():
+            return
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if status is not None:
+            payload["status"] = status
+        payload["updated_at"] = updated_at
+        if user_visible_output_path is not None:
+            payload["user_visible_output_path"] = user_visible_output_path or None
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    def sync_task_state(
+        self,
+        task_id: str,
+        status: str | None = None,
+        updated_at: str | None = None,
+        next_action: str | None = None,
+        user_visible_output_path: str | None = None,
+        brief_current_state: str | None = None,
+        brief_latest_result: str | None = None,
+        handoff_status: str | None = None,
+        handoff_latest_result: str | None = None,
+        index_outputs: list[str] | None = None,
+        mind_paths: list[str] | None = None,
+        continue_summary: str | None = None,
+    ) -> None:
+        if status is not None and status not in TASK_STATUSES:
+            raise SystemExit(f"invalid task status: {status}")
+        task_dir = self.require_task_dir(task_id)
+        instant = normalize_instant(updated_at) if updated_at else now_utc()
+
+        registry_updates: dict[str, str] = {"updated_at": instant}
+        if status is not None:
+            registry_updates["status"] = status
+        if next_action is not None:
+            registry_updates["next_action"] = next_action
+        if user_visible_output_path is not None:
+            registry_updates["user_visible_output_path"] = user_visible_output_path
+        row = self.update_registry_row(TASK_REGISTRY.as_posix(), "task_id", task_id, registry_updates)
+        self.update_task_json(task_dir, status, instant, user_visible_output_path)
+
+        current_state = brief_current_state
+        latest_result = brief_latest_result
+        if current_state is not None or latest_result is not None or next_action is not None:
+            self.write_markdown_record(
+                task_dir / "brief.md",
+                "Brief",
+                {
+                    "Current State": current_state or f"Task is {row.get('status') or status or 'active'}.",
+                    "Latest Result": latest_result or "No result recorded yet.",
+                    "Next Step": next_action or row.get("next_action", ""),
+                    "Context Policy": "This brief is the preferred task startup context. Keep it short.",
+                },
+            )
+
+        if handoff_status is not None or handoff_latest_result is not None or next_action is not None:
+            self.write_markdown_record(
+                task_dir / "handoff.md",
+                "Handoff",
+                {
+                    "Status": handoff_status or current_state or f"Task is {row.get('status') or status or 'active'}.",
+                    "Latest Result": handoff_latest_result or latest_result or "",
+                    "Decisions": "",
+                    "Next Actions": next_action or row.get("next_action", ""),
+                },
+            )
+
+        append_unique_lines(task_dir / "index.md", "## Outputs", index_outputs or [])
+        append_unique_lines(task_dir / "index.md", "## Related Mind Entries", mind_paths or [])
+
+        summary = continue_summary or handoff_status or brief_current_state or next_action
+        if summary:
+            continue_text = markdown_sections(
+                "Continue",
+                {
+                    "What Was Happening": f"{row.get('title') or task_id} ({task_id})",
+                    "What Matters Now": summary,
+                    "Next Step": next_action or row.get("next_action", ""),
+                },
+            )
+            continue_path = self.root / "space/work/continue.md"
+            continue_path.parent.mkdir(parents=True, exist_ok=True)
+            continue_path.write_text(continue_text, encoding="utf-8")
+
+            global_handoff = self.root / ".workroot/runtime/context/handoff.md"
+            global_handoff.parent.mkdir(parents=True, exist_ok=True)
+            global_handoff.write_text(
+                markdown_sections(
+                    "Handoff",
+                    {
+                        "Current Task": f"{row.get('title') or task_id} ({task_id})",
+                        "Status": summary,
+                        "Next Actions": next_action or row.get("next_action", ""),
+                    },
+                ),
+                encoding="utf-8",
+            )
+
+    def touch_task(self, task_id: str, instant: str) -> None:
+        task_dir = self.require_task_dir(task_id)
+        self.update_registry_row(TASK_REGISTRY.as_posix(), "task_id", task_id, {"updated_at": instant})
+        self.update_task_json(task_dir, None, instant, None)
+
+    def update_run(
+        self,
+        run_id: str,
+        status: str | None = None,
+        validity: str | None = None,
+        validity_reason: str | None = None,
+        superseded_by: str | None = None,
+        completed_at: str | None = None,
+        output_dir: str | None = None,
+        primary_artifact: str | None = None,
+        validation: str | None = None,
+        conclusion_preview: str | None = None,
+        updated_at: str | None = None,
+    ) -> ProcessRecord:
+        row = self.registry_row(".workroot/runtime/index/run_registry.csv", "run_id", run_id)
+        completed = normalize_instant(completed_at) if completed_at else None
+        instant = normalize_instant(updated_at) if updated_at else completed or now_utc()
+        updates = {"updated_at": instant}
+        for key, value in {
+            "status": status,
+            "validity": validity,
+            "validity_reason": validity_reason,
+            "superseded_by": superseded_by,
+            "completed_at": completed,
+            "output_dir": output_dir,
+            "primary_artifact": primary_artifact,
+            "validation": validation,
+            "conclusion_preview": conclusion_preview,
+        }.items():
+            if value is not None:
+                updates[key] = value
+        row = self.update_registry_row(".workroot/runtime/index/run_registry.csv", "run_id", run_id, updates)
+        task_dir = self.require_task_dir(row["task_id"])
+        path = task_dir / "runs" / f"{run_id}.md"
+        rel = path.relative_to(self.root).as_posix()
+        self.write_markdown_record(
+            path,
+            row.get("title") or run_id,
+            {
+                "Run ID": run_id,
+                "Task ID": row.get("task_id", ""),
+                "Status": row.get("status", ""),
+                "Validation": row.get("validation", ""),
+                "Conclusion": row.get("conclusion_preview", ""),
+            },
+        )
+        return ProcessRecord(run_id, rel, run_id=run_id)
+
+    def registry_row(self, rel: str, id_field: str, id_value: str) -> dict[str, str]:
+        _, rows = read_registry(self.root / rel)
+        for row in rows:
+            if row.get(id_field) == id_value:
+                return row
+        raise SystemExit(f"registry row not found: {id_field}={id_value}")
 
     def add_run(
         self,
@@ -488,6 +758,12 @@ class WorkrootClient:
                 "updated_at": completed or instant,
             },
         )
+        self.sync_task_state(
+            task_id=task_id,
+            updated_at=completed or instant,
+            brief_latest_result=conclusion_preview or f"Run recorded: {title}.",
+            handoff_latest_result=conclusion_preview,
+        )
         return ProcessRecord(run_id, rel, run_id=run_id)
 
     def add_action(
@@ -540,6 +816,12 @@ class WorkrootClient:
                 "updated_at": instant,
             },
         )
+        self.sync_task_state(
+            task_id=task_id,
+            updated_at=instant,
+            brief_latest_result=summary or f"Action recorded: {action_id}.",
+            handoff_latest_result=summary,
+        )
         return ProcessRecord(action_id, rel, action_id=action_id)
 
     def add_artifact(
@@ -555,9 +837,22 @@ class WorkrootClient:
         size: str = "",
         checksum: str = "",
         created_at: str | None = None,
+        create_missing: bool = False,
+        content: str = "",
+        compute_metadata: bool = False,
     ) -> ProcessRecord:
         self.require_task_dir(task_id)
         instant = normalize_instant(created_at) if created_at else now_utc()
+        artifact_path = self.repo_path(path)
+        if create_missing and not artifact_path.exists():
+            artifact_path.parent.mkdir(parents=True, exist_ok=True)
+            artifact_path.write_text(content, encoding="utf-8")
+        if compute_metadata:
+            if not artifact_path.exists() or not artifact_path.is_file():
+                raise SystemExit(f"artifact path does not exist as a file: {path}")
+            data = artifact_path.read_bytes()
+            size = str(len(data))
+            checksum = "sha256:" + hashlib.sha256(data).hexdigest()
         self.append_registry(
             ".workroot/runtime/index/artifact_registry.csv",
             ["artifact_id"],
@@ -575,6 +870,15 @@ class WorkrootClient:
                 "created_at": instant,
                 "updated_at": instant,
             },
+        )
+        self.sync_task_state(
+            task_id=task_id,
+            updated_at=instant,
+            user_visible_output_path=path,
+            brief_latest_result=f"Artifact recorded: {path}.",
+            handoff_latest_result=f"Artifact recorded: {path}.",
+            index_outputs=[path],
+            continue_summary=f"An output was saved at {path}.",
         )
         return ProcessRecord(artifact_id, path, artifact_id=artifact_id)
 
@@ -611,6 +915,12 @@ class WorkrootClient:
                 "created_at": instant,
                 "updated_at": instant,
             },
+        )
+        self.sync_task_state(
+            task_id=task_id,
+            updated_at=instant,
+            brief_latest_result=f"Retrieval card recorded: {card_id}.",
+            handoff_latest_result=f"Retrieval card recorded: {card_id}.",
         )
         return ProcessRecord(card_id, rel, card_id=card_id)
 
@@ -652,6 +962,13 @@ class WorkrootClient:
                 "next_action": next_action,
                 "required_context_paths": required_context_paths,
             },
+        )
+        self.sync_task_state(
+            task_id=task_id,
+            updated_at=instant,
+            next_action=next_action or None,
+            brief_current_state=current_status,
+            handoff_status=current_status,
         )
         return ProcessRecord(checkpoint_id, rel, checkpoint_id=checkpoint_id)
 
@@ -699,4 +1016,84 @@ class WorkrootClient:
                 "updated_at": instant,
             },
         )
+        self.sync_task_state(
+            task_id=task_id,
+            updated_at=instant,
+            brief_latest_result=f"Invalidation recorded: {invalidated_claim or invalidation_id}.",
+            handoff_latest_result=f"Invalidation recorded: {invalidated_claim or invalidation_id}.",
+        )
         return ProcessRecord(invalidation_id, rel, invalidation_id=invalidation_id)
+
+    def add_mind(
+        self,
+        mind_id: str,
+        title: str,
+        type: str,
+        status: str = "active",
+        temperature: str = "warm",
+        privacy_level: str = "internal",
+        release_level: str = "active",
+        retrieval_rule: str = "",
+        summary: str = "",
+        source_path: str = "",
+        related_task_id: str = "",
+        replaces_mind_id: str = "",
+        created_at: str | None = None,
+    ) -> ProcessRecord:
+        if type not in MIND_TYPES:
+            raise SystemExit(f"invalid mind type: {type}")
+        if related_task_id:
+            self.require_task_dir(related_task_id)
+        instant = normalize_instant(created_at) if created_at else now_utc()
+        rel = source_path or f"space/mind/{MIND_DIRS[type]}/{mind_id}.md"
+        path = self.repo_path(rel)
+        if path.exists():
+            raise SystemExit(f"mind file already exists: {rel}")
+        template_path = self.root / "space/mind/_templates" / f"{type}.md"
+        if template_path.exists():
+            text = template_path.read_text(encoding="utf-8")
+            text = text.replace(f"# {template_path.stem.title()}", f"# {title}", 1)
+        else:
+            text = markdown_sections(title, {"Summary": summary})
+        if summary:
+            text = markdown_sections(
+                title,
+                {
+                    "Summary": summary,
+                    "Source": f"- `{related_task_id}`" if related_task_id else "",
+                    "Lifecycle": f"- status: {status}\n- temperature: {temperature}",
+                },
+            )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+        self.append_registry(
+            ".workroot/runtime/index/mind_registry.csv",
+            ["mind_id"],
+            {
+                "mind_id": mind_id,
+                "title": title,
+                "type": type,
+                "status": status,
+                "temperature": temperature,
+                "privacy_level": privacy_level,
+                "release_level": release_level,
+                "retrieval_rule": retrieval_rule,
+                "created_at": instant,
+                "updated_at": instant,
+                "source_path": rel,
+                "related_task_id": related_task_id,
+                "replaces_mind_id": replaces_mind_id,
+            },
+        )
+        if related_task_id:
+            self.sync_task_state(
+                task_id=related_task_id,
+                updated_at=instant,
+                user_visible_output_path=rel,
+                brief_latest_result=f"Mind entry promoted: {title}.",
+                handoff_latest_result=f"Mind entry promoted: {title}.",
+                mind_paths=[rel],
+                continue_summary=f"A reusable entry was saved: {title}.",
+            )
+        return ProcessRecord(mind_id, rel, mind_id=mind_id)
