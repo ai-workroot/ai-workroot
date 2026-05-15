@@ -55,35 +55,103 @@ REGISTRY_HEADERS = {
         "task_id",
         "title",
         "status",
+        "process_level",
         "owner_scope",
         "visibility",
+        "priority",
         "created_at",
         "updated_at",
         "user_visible_output_path",
         "source_path",
+        "brief_path",
         "handoff_path",
+        "next_action",
+    ],
+    ".workroot/runtime/index/run_registry.csv": [
+        "run_id",
+        "task_id",
+        "title",
+        "status",
+        "validity",
+        "validity_reason",
+        "superseded_by",
+        "started_at",
+        "completed_at",
+        "output_dir",
+        "primary_artifact",
+        "validation",
+        "conclusion_preview",
+        "updated_at",
+    ],
+    ".workroot/runtime/index/action_registry.csv": [
+        "action_id",
+        "task_id",
+        "run_id",
+        "type",
+        "status",
+        "summary",
+        "tool",
+        "input_ref",
+        "output_ref",
+        "approval_ref",
+        "risk_level",
+        "created_at",
+        "updated_at",
     ],
     ".workroot/runtime/index/artifact_registry.csv": [
         "artifact_id",
-        "title",
+        "task_id",
+        "run_id",
+        "action_id",
         "type",
+        "path",
+        "audience",
         "status",
-        "privacy_level",
+        "size",
+        "checksum",
         "created_at",
         "updated_at",
-        "source_path",
-        "output_path",
-        "related_task_id",
     ],
     ".workroot/runtime/index/decision_registry.csv": [
         "decision_id",
+        "task_id",
+        "path",
         "title",
         "status",
         "created_at",
         "updated_at",
-        "decision_path",
-        "related_task_id",
-        "replaces_decision_id",
+        "promoted_path",
+    ],
+    ".workroot/runtime/index/retrieval_card_registry.csv": [
+        "card_id",
+        "task_id",
+        "path",
+        "freshness",
+        "source_paths",
+        "created_at",
+        "updated_at",
+    ],
+    ".workroot/runtime/index/checkpoint_registry.csv": [
+        "checkpoint_id",
+        "task_id",
+        "path",
+        "created_at",
+        "current_status",
+        "last_valid_run_id",
+        "next_action",
+        "required_context_paths",
+    ],
+    ".workroot/runtime/index/invalidation_registry.csv": [
+        "invalidation_id",
+        "task_id",
+        "run_id",
+        "artifact_id",
+        "invalidated_claim",
+        "reason",
+        "replacement_ref",
+        "path",
+        "created_at",
+        "updated_at",
     ],
     ".workroot/runtime/index/mind_registry.csv": [
         "mind_id",
@@ -151,8 +219,8 @@ TASK_PLACEHOLDER_PATTERNS = {
     "What should happen next?",
 }
 TASK_RELATIONSHIP_REGISTRIES = {
-    ".workroot/runtime/index/artifact_registry.csv": "related_task_id",
-    ".workroot/runtime/index/decision_registry.csv": "related_task_id",
+    ".workroot/runtime/index/artifact_registry.csv": "task_id",
+    ".workroot/runtime/index/decision_registry.csv": "task_id",
     ".workroot/runtime/index/mind_registry.csv": "related_task_id",
 }
 FUTURE_TIMESTAMP_TOLERANCE = dt.timedelta(minutes=5)
@@ -207,6 +275,21 @@ RELEASE_LEVELS = {
     "redacted",
     "deleted",
 }
+TASK_STATUSES = {"active", "paused", "blocked", "closed", "released"}
+PROCESS_LEVELS = {"L0", "L1", "L2"}
+ACTION_TYPES = {
+    "command",
+    "database_query",
+    "api_call",
+    "file_edit",
+    "browser_research",
+    "model_generation",
+    "test_run",
+    "deployment",
+    "manual_check",
+    "other",
+}
+ARTIFACT_AUDIENCES = {"internal", "user", "public", "evidence"}
 
 
 def add_error(errors: list[str], message: str) -> None:
@@ -309,8 +392,13 @@ def read_csv_rows(path: Path) -> list[dict[str, str]]:
 def registry_row_id(row: dict[str, str]) -> str:
     for key in (
         "task_id",
+        "run_id",
+        "action_id",
         "artifact_id",
         "decision_id",
+        "card_id",
+        "checkpoint_id",
+        "invalidation_id",
         "mind_id",
         "link_id",
         "capability_id",
@@ -420,8 +508,17 @@ def validate_registry_paths(root: Path, errors: list[str]) -> None:
         "source_path",
         "output_path",
         "handoff_path",
+        "brief_path",
         "decision_path",
+        "path",
+        "output_dir",
+        "primary_artifact",
+        "input_ref",
+        "output_ref",
+        "approval_ref",
+        "promoted_path",
     }
+    multi_path_columns = {"source_paths", "required_context_paths"}
     for rel in REGISTRY_HEADERS:
         path = root / rel
         if not path.exists():
@@ -432,14 +529,34 @@ def validate_registry_paths(root: Path, errors: list[str]) -> None:
                 row_id = registry_row_id(row)
                 for column in path_columns & set(row):
                     value = (row.get(column) or "").strip()
+                    validate_registry_path_value(root, rel, row_number, column, value, row_id, errors)
+                for column in multi_path_columns & set(row):
+                    value = (row.get(column) or "").strip()
                     if not value:
                         continue
-                    if value.startswith("/"):
-                        add_error(errors, f"{rel}:{row_number}: {column} must be repository-relative for {row_id}: {value}")
-                        continue
-                    target = root / value
-                    if not target.exists():
-                        add_error(errors, f"{rel}:{row_number}: {column} path does not exist for {row_id}: {value}")
+                    for item in [part.strip() for part in value.split(";") if part.strip()]:
+                        validate_registry_path_value(root, rel, row_number, column, item, row_id, errors)
+
+
+def validate_registry_path_value(
+    root: Path,
+    rel: str,
+    row_number: int,
+    column: str,
+    value: str,
+    row_id: str,
+    errors: list[str],
+) -> None:
+    if not value:
+        return
+    if value.startswith(("http://", "https://", "mailto:")):
+        return
+    if value.startswith("/"):
+        add_error(errors, f"{rel}:{row_number}: {column} must be repository-relative for {row_id}: {value}")
+        return
+    target = root / value
+    if not target.exists():
+        add_error(errors, f"{rel}:{row_number}: {column} path does not exist for {row_id}: {value}")
 
 
 def related_task_ids(root: Path) -> set[str]:
@@ -456,6 +573,86 @@ def related_task_ids(root: Path) -> set[str]:
                 if value:
                     related.add(value)
     return related
+
+
+def validate_work_process_tasks(root: Path, errors: list[str]) -> None:
+    rel = ".workroot/runtime/index/task_registry.csv"
+    for row_number, row in enumerate(read_csv_rows(root / rel), start=2):
+        task_id = (row.get("task_id") or "").strip()
+        status = (row.get("status") or "").strip()
+        process_level = (row.get("process_level") or "L0").strip()
+        source_path = (row.get("source_path") or "").strip()
+        if status and status not in TASK_STATUSES:
+            add_error(errors, f"{rel}:{row_number}: invalid task status for {task_id}: {status}")
+        if process_level not in PROCESS_LEVELS:
+            add_error(errors, f"{rel}:{row_number}: invalid process_level for {task_id}: {process_level}")
+            continue
+        if not source_path:
+            continue
+
+        task_dir = root / source_path
+        if not task_dir.exists():
+            continue
+
+        required = ["task.json", "task.md", "brief.md", "todo.md", "handoff.md", "outputs", "archive"]
+        if process_level in {"L1", "L2"}:
+            required.extend(["decisions.md", "index.md", "plans", "runs", "retrieval_cards", "checkpoints"])
+        if process_level == "L2":
+            required.extend(["actions", "recipes", "data", "validation", "invalidations"])
+        for name in required:
+            if not (task_dir / name).exists():
+                add_error(errors, f"task {task_id} missing {process_level} required path: {source_path}/{name}")
+        if (task_dir / "artifacts").exists():
+            add_error(errors, f"task {task_id} must not use artifacts/ directory; use artifact_registry.csv")
+
+        task_json = task_dir / "task.json"
+        if task_json.exists():
+            data = load_json(task_json, errors)
+            if data:
+                if data.get("task_id") != task_id:
+                    add_error(errors, f"{task_json.as_posix()}: task_id mismatch with registry")
+                if data.get("process_level", "L0") != process_level:
+                    add_error(errors, f"{task_json.as_posix()}: process_level mismatch with registry")
+                if data.get("status") and data.get("status") != status:
+                    add_error(errors, f"{task_json.as_posix()}: status mismatch with registry")
+
+
+def validate_work_process_references(root: Path, errors: list[str]) -> None:
+    task_ids = {row.get("task_id", "") for row in read_csv_rows(root / ".workroot/runtime/index/task_registry.csv")}
+    run_ids = {row.get("run_id", "") for row in read_csv_rows(root / ".workroot/runtime/index/run_registry.csv")}
+    action_ids = {row.get("action_id", "") for row in read_csv_rows(root / ".workroot/runtime/index/action_registry.csv")}
+    artifact_ids = {row.get("artifact_id", "") for row in read_csv_rows(root / ".workroot/runtime/index/artifact_registry.csv")}
+
+    checks = [
+        (".workroot/runtime/index/run_registry.csv", "task_id", task_ids),
+        (".workroot/runtime/index/action_registry.csv", "task_id", task_ids),
+        (".workroot/runtime/index/action_registry.csv", "run_id", run_ids),
+        (".workroot/runtime/index/artifact_registry.csv", "task_id", task_ids),
+        (".workroot/runtime/index/artifact_registry.csv", "run_id", run_ids),
+        (".workroot/runtime/index/artifact_registry.csv", "action_id", action_ids),
+        (".workroot/runtime/index/decision_registry.csv", "task_id", task_ids),
+        (".workroot/runtime/index/retrieval_card_registry.csv", "task_id", task_ids),
+        (".workroot/runtime/index/checkpoint_registry.csv", "task_id", task_ids),
+        (".workroot/runtime/index/checkpoint_registry.csv", "last_valid_run_id", run_ids),
+        (".workroot/runtime/index/invalidation_registry.csv", "task_id", task_ids),
+        (".workroot/runtime/index/invalidation_registry.csv", "run_id", run_ids),
+        (".workroot/runtime/index/invalidation_registry.csv", "artifact_id", artifact_ids),
+    ]
+    for rel, column, allowed in checks:
+        for row_number, row in enumerate(read_csv_rows(root / rel), start=2):
+            value = (row.get(column) or "").strip()
+            if value and value not in allowed:
+                add_error(errors, f"{rel}:{row_number}: unknown {column}: {value}")
+
+    for row_number, row in enumerate(read_csv_rows(root / ".workroot/runtime/index/action_registry.csv"), start=2):
+        action_type = (row.get("type") or "").strip()
+        if action_type and action_type not in ACTION_TYPES:
+            add_error(errors, f".workroot/runtime/index/action_registry.csv:{row_number}: invalid action type: {action_type}")
+
+    for row_number, row in enumerate(read_csv_rows(root / ".workroot/runtime/index/artifact_registry.csv"), start=2):
+        audience = (row.get("audience") or "").strip()
+        if audience and audience not in ARTIFACT_AUDIENCES:
+            add_error(errors, f".workroot/runtime/index/artifact_registry.csv:{row_number}: invalid artifact audience: {audience}")
 
 
 def task_has_placeholders(task_dir: Path) -> list[str]:
@@ -623,6 +820,8 @@ def main() -> int:
     validate_registry_time_values(root, errors)
     validate_registry_future_times(root, errors)
     validate_registry_paths(root, errors)
+    validate_work_process_tasks(root, errors)
+    validate_work_process_references(root, errors)
     validate_forgetting_registry(root, errors)
     validate_task_state_trust(root, errors)
     validate_context_budget(root, errors)

@@ -7,8 +7,13 @@ Indexes help AI agents find the right context without reading long historical lo
 AI Workroot core registries are:
 
 - `task_registry.csv`
+- `run_registry.csv`
+- `action_registry.csv`
 - `artifact_registry.csv`
 - `decision_registry.csv`
+- `retrieval_card_registry.csv`
+- `checkpoint_registry.csv`
+- `invalidation_registry.csv`
 - `mind_registry.csv`
 - `link_registry.csv`
 
@@ -30,13 +35,15 @@ Capability registries are allowed, but they are not part of the AI Workroot core
 
 Do not weaken the core registries to fit one role-specific workflow. Add a capability-specific registry instead.
 
-v0.9.527 uses simple CSV files.
+AI Workroot uses simple CSV files.
 
 Future local databases, vector indexes, or graph indexes should be rebuildable from these file-based sources.
 
 Long-lived registries should evolve toward lifecycle metadata such as `created_at`, `updated_at`, `status`, `temperature`, `confidence`, `last_used_at`, `review_after`, and `superseded_by`.
 
-`task_registry.csv` records durable work units with `owner_scope`, visibility, source path, user-visible output path, and handoff path.
+`task_registry.csv` records durable work units with `process_level`, `owner_scope`, visibility, source path, user-visible output path, brief path, handoff path, and next action.
+
+The Work Process Layer uses `run_registry.csv`, `action_registry.csv`, `artifact_registry.csv`, `retrieval_card_registry.csv`, `checkpoint_registry.csv`, and `invalidation_registry.csv` to keep task process details findable without forcing startup context to load every process file.
 
 Use `link_registry.csv` to connect tasks, artifacts, decisions, Mind entries, files, capabilities, and delegated sub-work. Do not add ownership or hierarchy columns to the core task registry for one workflow.
 

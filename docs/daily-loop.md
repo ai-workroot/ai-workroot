@@ -122,6 +122,12 @@ The next agent should not need to reconstruct state from chat history.
 
 The user-facing continuation should stay in plain language. Keep registry details behind the scenes unless the user asks for internal mechanics.
 
+When resuming a complex task, prefer this retrieval order:
+
+```text
+current context -> handoff -> task registry row -> task brief -> task handoff -> task index -> latest checkpoint -> latest valid run -> retrieval cards
+```
+
 ## Meaning And Execution
 
 AI Workroot separates meaning from execution, then reconnects them through reflection and promotion.

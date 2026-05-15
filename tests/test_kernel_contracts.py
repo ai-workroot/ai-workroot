@@ -46,7 +46,7 @@ class KernelContractsTest(unittest.TestCase):
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
-                + "task-x,Timezone free,active,personal,internal,2026-05-15T17:00:00,2026-05-15T17:00:00,,, \n",
+                + "task-x,Timezone free,active,L0,personal,internal,,2026-05-15T17:00:00,2026-05-15T17:00:00,,,,,\n",
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -74,7 +74,7 @@ class KernelContractsTest(unittest.TestCase):
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
-                + f"task-future,Future,active,personal,internal,{future},{future},,,\n",
+                + f"task-future,Future,active,L0,personal,internal,,{future},{future},,,,,\n",
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -98,7 +98,7 @@ class KernelContractsTest(unittest.TestCase):
             registry = work / ".workroot/runtime/index/artifact_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
-                + "artifact-missing,Missing,report,active,public,2026-05-14T00:00:00Z,2026-05-14T00:00:00Z,space/work/reports/missing.md,space/work/reports/missing.md,\n",
+                + "artifact-missing,,,,report,space/work/reports/missing.md,public,active,,,2026-05-14T00:00:00Z,2026-05-14T00:00:00Z\n",
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -120,7 +120,7 @@ class KernelContractsTest(unittest.TestCase):
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
             )
             task_id = "task-20260514-000000-demo"
-            task_dir = work / ".workroot/runtime/work/active" / task_id
+            task_dir = work / ".workroot/runtime/work/tasks" / task_id
             task_dir.mkdir(parents=True)
             for name, content in {
                 "brief.md": "# Brief\n\nTask created; no work completed yet.\n\nNothing yet.\n",
@@ -133,13 +133,13 @@ class KernelContractsTest(unittest.TestCase):
             report.parent.mkdir(parents=True, exist_ok=True)
             report.write_text("# Demo\n", encoding="utf-8")
             (work / ".workroot/runtime/index/task_registry.csv").write_text(
-                "task_id,title,status,owner_scope,visibility,created_at,updated_at,user_visible_output_path,source_path,handoff_path\n"
-                f"{task_id},Demo,active,personal,internal,2026-05-14T00:00:00Z,2026-05-14T00:00:00Z,,.workroot/runtime/work/active/{task_id},.workroot/runtime/work/active/{task_id}/handoff.md\n",
+                "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
+                f"{task_id},Demo,active,L0,personal,internal,,2026-05-14T00:00:00Z,2026-05-14T00:00:00Z,,.workroot/runtime/work/tasks/{task_id},.workroot/runtime/work/tasks/{task_id}/brief.md,.workroot/runtime/work/tasks/{task_id}/handoff.md,\n",
                 encoding="utf-8",
             )
             (work / ".workroot/runtime/index/artifact_registry.csv").write_text(
-                "artifact_id,title,type,status,privacy_level,created_at,updated_at,source_path,output_path,related_task_id\n"
-                f"artifact-demo,Demo,report,active,private,2026-05-14T00:00:00Z,2026-05-14T00:00:00Z,space/work/reports/demo.md,space/work/reports/demo.md,{task_id}\n",
+                "artifact_id,task_id,run_id,action_id,type,path,audience,status,size,checksum,created_at,updated_at\n"
+                f"artifact-demo,{task_id},,,report,space/work/reports/demo.md,internal,active,,,2026-05-14T00:00:00Z,2026-05-14T00:00:00Z\n",
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -152,6 +152,54 @@ class KernelContractsTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("empty user_visible_output_path", result.stderr)
             self.assertIn("template placeholders", result.stderr)
+
+    def test_invalid_process_level_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "workroot"
+            shutil.copytree(
+                ROOT,
+                work,
+                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+            )
+            registry = work / ".workroot/runtime/index/task_registry.csv"
+            registry.write_text(
+                registry.read_text(encoding="utf-8")
+                + "task-bad,Bad,active,L9,personal,internal,,2026-05-15T00:00:00Z,2026-05-15T00:00:00Z,,.workroot/runtime/work/tasks/task-bad,.workroot/runtime/work/tasks/task-bad/brief.md,.workroot/runtime/work/tasks/task-bad/handoff.md,\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, "scripts/validate_kernel.py"],
+                cwd=work,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid process_level", result.stderr)
+
+    def test_broken_work_process_reference_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "workroot"
+            shutil.copytree(
+                ROOT,
+                work,
+                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+            )
+            registry = work / ".workroot/runtime/index/action_registry.csv"
+            registry.write_text(
+                registry.read_text(encoding="utf-8")
+                + "action-bad,missing-task,,test_run,active,Bad action,,,,,low,2026-05-15T00:00:00Z,2026-05-15T00:00:00Z\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, "scripts/validate_kernel.py"],
+                cwd=work,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unknown task_id", result.stderr)
 
     def test_invalid_tombstone_registry_state_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

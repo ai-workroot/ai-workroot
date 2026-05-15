@@ -145,19 +145,31 @@ For first run, continuation, and "save what matters" behavior, follow `docs/user
 For formal work, internal task records live under:
 
 ```text
-.workroot/runtime/work/
+.workroot/runtime/work/tasks/<task-id>/
 ```
 
-Suggested internal files:
+Task status lives in `task.json` and `.workroot/runtime/index/task_registry.csv`, not in directory names.
+
+Use the lightest process level that preserves continuity:
+
+- `L0`: simple task state
+- `L1`: process records with plans, runs, retrieval cards, and checkpoints
+- `L2`: evidence records with actions, recipes, validation, and invalidations
+
+Older Workroots may contain `.workroot/runtime/work/active/` or `closed/`. Agents may read those legacy paths, but new tasks use `tasks/<task-id>/`.
+
+Common internal files:
 
 ```text
 task.json
+task.md
 brief.md
 decisions.md
 todo.md
 scratch.md
 index.md
 outputs/
+archive/
 handoff.md
 ```
 
@@ -211,8 +223,13 @@ Maintain registries under:
 Core registries should cover:
 
 - task registry
+- run registry
+- action registry
 - artifact registry
 - decision registry
+- retrieval card registry
+- checkpoint registry
+- invalidation registry
 - mind registry
 - link registry
 

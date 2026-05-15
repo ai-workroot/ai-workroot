@@ -150,6 +150,8 @@ Before closing a task, agents should:
 
 Future agents should prefer the task summary and indexes over old scratch history.
 
+The Work Process Layer keeps high-volume process material out of startup context. Old actions, outputs, validation notes, invalidations, and archives should remain reachable through task indexes and registries, but they should not be read on ordinary startup.
+
 ## File And Directory Scale
 
 Avoid putting unlimited files in one active directory.
@@ -157,7 +159,7 @@ Avoid putting unlimited files in one active directory.
 For high-volume Workroots, prefer date or topic partitioning:
 
 ```text
-.workroot/runtime/work/closed/2026/...
+.workroot/runtime/work/tasks/2026/...
 space/mind/knowledge/2026/...
 space/files/2026/...
 ```

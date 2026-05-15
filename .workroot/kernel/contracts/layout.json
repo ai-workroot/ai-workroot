@@ -21,7 +21,9 @@
     ".workroot/extensions",
     ".workroot/runtime",
     ".workroot/runtime/context",
-    ".workroot/runtime/index"
+    ".workroot/runtime/index",
+    ".workroot/runtime/work",
+    ".workroot/runtime/work/tasks"
   ],
   "optional_paths": [
     ".workroot/runtime/data",

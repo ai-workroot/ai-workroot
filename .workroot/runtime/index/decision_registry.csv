@@ -1,1 +1,1 @@
-decision_id,title,status,created_at,updated_at,decision_path,related_task_id,replaces_decision_id
+decision_id,task_id,path,title,status,created_at,updated_at,promoted_path

@@ -1,8 +1,13 @@
 # Changelog
 
-## 0.9.528 - In progress
+## 0.9.528 - 2026-05-15
 
 - Centralized current-version references so ordinary documentation does not need patch-version edits on every release.
+- Added the Work Process Layer with stable task paths under `.workroot/runtime/work/tasks/`.
+- Added `L0`, `L1`, and `L2` process levels for proportional task records.
+- Added run, action, retrieval-card, checkpoint, and invalidation registries.
+- Added a lightweight file-first Workroot Client and thin CLI for task-process writes.
+- Kept legacy `active/` and `closed/` task paths readable while removing status paths from the public seed.
 
 ## 0.9.527 - 2026-05-15
 

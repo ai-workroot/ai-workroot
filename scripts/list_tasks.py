@@ -13,8 +13,16 @@ TASK_REGISTRY = Path(".workroot/runtime/index/task_registry.csv")
 STATUSES = {"active", "paused", "blocked", "closed", "released"}
 
 
-def plain_next_step(row: dict[str, str]) -> str:
+def handoff_path_for(row: dict[str, str]) -> str:
     handoff = (row.get("handoff_path") or "").strip()
+    if handoff:
+        return handoff
+    source = (row.get("source_path") or "").strip()
+    return f"{source}/handoff.md" if source else ""
+
+
+def plain_next_step(row: dict[str, str]) -> str:
+    handoff = handoff_path_for(row)
     if handoff:
         handoff_path = Path(handoff)
         if handoff_path.exists():

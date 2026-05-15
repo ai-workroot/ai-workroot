@@ -227,7 +227,7 @@ space/work/
 Internal task mechanics:
 
 ```text
-.workroot/runtime/work/
+.workroot/runtime/work/tasks/<task-id>/
 ```
 
 Ordinary users should not manage internal task mechanics.
@@ -283,28 +283,50 @@ Minimum `loaded-context.json`:
 
 ### Internal Work
 
-Internal task records may include:
+New internal task records live under:
 
 ```text
-.workroot/runtime/work/active/<task-id>/task.json
-.workroot/runtime/work/active/<task-id>/task.md
-.workroot/runtime/work/active/<task-id>/brief.md
-.workroot/runtime/work/active/<task-id>/todo.md
-.workroot/runtime/work/active/<task-id>/decisions.md
-.workroot/runtime/work/active/<task-id>/index.md
-.workroot/runtime/work/active/<task-id>/handoff.md
-.workroot/runtime/work/active/<task-id>/scratch.md
-.workroot/runtime/work/active/<task-id>/outputs/
-.workroot/runtime/work/active/<task-id>/archive/
+.workroot/runtime/work/tasks/<task-id>/
 ```
 
 Rules:
 
 - agents create and update internal work records when needed
 - users do not need to request or manage task records
+- task status lives in `task.json` and `task_registry.csv`, not in directory names
 - `scratch.md` and archives are never default startup context
 - closed task details are deep context
 - user-facing outputs should be copied or summarized into `space/work/`
+- legacy `active/` and `closed/` task paths may be read for compatibility, but new tasks use `tasks/`
+
+Process levels:
+
+- `L0`: lightweight task state for simple work
+- `L1`: process records with plans, runs, retrieval cards, and checkpoints
+- `L2`: evidence records with actions, recipes, validation, and invalidations
+
+Internal task records may include:
+
+```text
+.workroot/runtime/work/tasks/<task-id>/task.json
+.workroot/runtime/work/tasks/<task-id>/task.md
+.workroot/runtime/work/tasks/<task-id>/brief.md
+.workroot/runtime/work/tasks/<task-id>/todo.md
+.workroot/runtime/work/tasks/<task-id>/decisions.md
+.workroot/runtime/work/tasks/<task-id>/index.md
+.workroot/runtime/work/tasks/<task-id>/handoff.md
+.workroot/runtime/work/tasks/<task-id>/scratch.md
+.workroot/runtime/work/tasks/<task-id>/plans/
+.workroot/runtime/work/tasks/<task-id>/runs/
+.workroot/runtime/work/tasks/<task-id>/actions/
+.workroot/runtime/work/tasks/<task-id>/recipes/
+.workroot/runtime/work/tasks/<task-id>/retrieval_cards/
+.workroot/runtime/work/tasks/<task-id>/checkpoints/
+.workroot/runtime/work/tasks/<task-id>/validation/
+.workroot/runtime/work/tasks/<task-id>/invalidations/
+.workroot/runtime/work/tasks/<task-id>/outputs/
+.workroot/runtime/work/tasks/<task-id>/archive/
+```
 
 ### Generated Data
 
@@ -615,8 +637,13 @@ Required registries:
 
 ```text
 .workroot/runtime/index/task_registry.csv
+.workroot/runtime/index/run_registry.csv
+.workroot/runtime/index/action_registry.csv
 .workroot/runtime/index/artifact_registry.csv
 .workroot/runtime/index/decision_registry.csv
+.workroot/runtime/index/retrieval_card_registry.csv
+.workroot/runtime/index/checkpoint_registry.csv
+.workroot/runtime/index/invalidation_registry.csv
 .workroot/runtime/index/mind_registry.csv
 .workroot/runtime/index/link_registry.csv
 .workroot/extensions/capability_registry.csv
@@ -626,13 +653,28 @@ Required headers:
 
 ```text
 task_registry.csv:
-task_id,title,status,owner_scope,visibility,created_at,updated_at,user_visible_output_path,source_path,handoff_path
+task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action
+
+run_registry.csv:
+run_id,task_id,title,status,validity,validity_reason,superseded_by,started_at,completed_at,output_dir,primary_artifact,validation,conclusion_preview,updated_at
+
+action_registry.csv:
+action_id,task_id,run_id,type,status,summary,tool,input_ref,output_ref,approval_ref,risk_level,created_at,updated_at
 
 artifact_registry.csv:
-artifact_id,title,type,status,privacy_level,created_at,updated_at,source_path,output_path,related_task_id
+artifact_id,task_id,run_id,action_id,type,path,audience,status,size,checksum,created_at,updated_at
 
 decision_registry.csv:
-decision_id,title,status,created_at,updated_at,decision_path,related_task_id,replaces_decision_id
+decision_id,task_id,path,title,status,created_at,updated_at,promoted_path
+
+retrieval_card_registry.csv:
+card_id,task_id,path,freshness,source_paths,created_at,updated_at
+
+checkpoint_registry.csv:
+checkpoint_id,task_id,path,created_at,current_status,last_valid_run_id,next_action,required_context_paths
+
+invalidation_registry.csv:
+invalidation_id,task_id,run_id,artifact_id,invalidated_claim,reason,replacement_ref,path,created_at,updated_at
 
 mind_registry.csv:
 mind_id,title,type,status,temperature,privacy_level,release_level,retrieval_rule,created_at,updated_at,source_path,related_task_id,replaces_mind_id
@@ -798,6 +840,8 @@ Required script set:
 
 ```text
 scripts/add_registry_row.py
+scripts/workroot_client.py
+scripts/workroot_cli.py
 scripts/new_task.py
 scripts/rebuild_sqlite.py
 scripts/setup_workroot.py

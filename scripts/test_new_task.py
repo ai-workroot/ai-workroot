@@ -29,13 +29,13 @@ def check_unique_identity() -> None:
         zh_task = "\u6d4b\u8bd5\u4efb\u52a1"
         instant = "2026-05-15T01:02:03Z"
         existing_id = f"task-20260515-010203-{zh_task}"
-        task_dir = root / ".workroot" / "runtime" / "work" / "active" / existing_id
+        task_dir = root / ".workroot" / "runtime" / "work" / "tasks" / existing_id
         task_dir.mkdir(parents=True)
         registry = root / ".workroot" / "runtime" / "index" / "task_registry.csv"
         registry.parent.mkdir(parents=True)
         registry.write_text(
-            "task_id,title,status,owner_scope,visibility,created_at,updated_at,user_visible_output_path,source_path,handoff_path\n"
-            f"{existing_id},{zh_task},active,personal,internal,{instant},{instant},,.workroot/runtime/work/active/{existing_id},.workroot/runtime/work/active/{existing_id}/handoff.md\n",
+            "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
+            f"{existing_id},{zh_task},active,L0,personal,internal,,{instant},{instant},,.workroot/runtime/work/tasks/{existing_id},.workroot/runtime/work/tasks/{existing_id}/brief.md,.workroot/runtime/work/tasks/{existing_id}/handoff.md,\n",
             encoding="utf-8",
         )
         task_id, path = new_task.unique_task_identity(
@@ -46,7 +46,7 @@ def check_unique_identity() -> None:
         )
         if task_id != f"{existing_id}-2":
             raise AssertionError(task_id)
-        if path.as_posix() != f"{tmp}/.workroot/runtime/work/active/{existing_id}-2":
+        if path.as_posix() != f"{tmp}/.workroot/runtime/work/tasks/{existing_id}-2":
             raise AssertionError(path)
 
         try:

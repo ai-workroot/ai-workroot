@@ -3,6 +3,8 @@ from __future__ import annotations
 import subprocess
 import sys
 import unittest
+import shutil
+import tempfile
 from pathlib import Path
 
 
@@ -55,6 +57,69 @@ class NewTaskScriptTest(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("timezone is required", result.stderr)
+
+    def test_new_task_cli_creates_l1_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "workroot"
+            shutil.copytree(
+                ROOT,
+                work,
+                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/new_task.py",
+                    "Process task",
+                    "--id",
+                    "task-process-cli",
+                    "--process-level",
+                    "L1",
+                    "--created-at",
+                    "2026-05-15T00:00:00Z",
+                ],
+                cwd=work,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            task_dir = work / ".workroot/runtime/work/tasks/task-process-cli"
+            self.assertTrue((task_dir / "plans").is_dir())
+            self.assertTrue((task_dir / "retrieval_cards").is_dir())
+            self.assertFalse((task_dir / "actions").exists())
+
+    def test_new_task_cli_creates_l2_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "workroot"
+            shutil.copytree(
+                ROOT,
+                work,
+                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/new_task.py",
+                    "Evidence task",
+                    "--id",
+                    "task-evidence-cli",
+                    "--process-level",
+                    "L2",
+                    "--created-at",
+                    "2026-05-15T00:00:00Z",
+                ],
+                cwd=work,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            task_dir = work / ".workroot/runtime/work/tasks/task-evidence-cli"
+            self.assertTrue((task_dir / "actions").is_dir())
+            self.assertTrue((task_dir / "recipes").is_dir())
+            self.assertTrue((task_dir / "validation").is_dir())
+            self.assertFalse((task_dir / "artifacts").exists())
 
 
 if __name__ == "__main__":

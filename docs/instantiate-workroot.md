@@ -54,8 +54,7 @@ This section is for advanced users and agents. Ordinary users should only descri
 
 Create an internal task record under one of:
 
-- `.workroot/runtime/work/active/`
-- `.workroot/runtime/work/closed/`
+- `.workroot/runtime/work/tasks/`
 
 Use the internal work structure defined in `docs/kernel-implementation-specification.md`.
 
@@ -64,6 +63,7 @@ Optional helper:
 ```bash
 python3 scripts/new_task.py "My first task" --goal "Start the first useful piece of work"
 python3 scripts/new_task.py "My project" --owner-scope personal --visibility internal
+python3 scripts/new_task.py "Evidence review" --process-level L2
 ```
 
 ## 5. Update Registries

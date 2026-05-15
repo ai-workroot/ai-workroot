@@ -20,10 +20,8 @@ FORBIDDEN_TEXT_PATTERNS = [
     "v" + ".".join(["0", "9", "0"]),
     "Un" + "released",
     "actor" + "_" + "registry",
-    "run" + "_" + "registry",
     "owner" + "_" + "id",
     "parent" + "_" + "task" + "_" + "id",
-    "artifacts" + "." + "csv",
     "migrate" + "_" + "workroot",
     "validate" + "_" + "workroot",
     "migration" + "_" + "registry",
@@ -68,6 +66,11 @@ class PublicSeedSurfaceTest(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_public_seed_does_not_use_status_task_directories(self) -> None:
+        self.assertFalse((ROOT / ".workroot/runtime/work/active").exists())
+        self.assertFalse((ROOT / ".workroot/runtime/work/closed").exists())
+        self.assertTrue((ROOT / ".workroot/runtime/work/tasks").is_dir())
 
     def test_no_stale_public_text_patterns(self) -> None:
         hits: list[str] = []

@@ -10,8 +10,13 @@ from pathlib import Path
 
 REGISTRY_KEYS = {
     "task": (".workroot/runtime/index/task_registry.csv", ["task_id"]),
+    "run": (".workroot/runtime/index/run_registry.csv", ["run_id"]),
+    "action": (".workroot/runtime/index/action_registry.csv", ["action_id"]),
     "artifact": (".workroot/runtime/index/artifact_registry.csv", ["artifact_id"]),
     "decision": (".workroot/runtime/index/decision_registry.csv", ["decision_id"]),
+    "retrieval-card": (".workroot/runtime/index/retrieval_card_registry.csv", ["card_id"]),
+    "checkpoint": (".workroot/runtime/index/checkpoint_registry.csv", ["checkpoint_id"]),
+    "invalidation": (".workroot/runtime/index/invalidation_registry.csv", ["invalidation_id"]),
     "mind": (".workroot/runtime/index/mind_registry.csv", ["mind_id"]),
     "link": (
         ".workroot/runtime/index/link_registry.csv",

@@ -1,1 +1,1 @@
-artifact_id,title,type,status,privacy_level,created_at,updated_at,source_path,output_path,related_task_id
+artifact_id,task_id,run_id,action_id,type,path,audience,status,size,checksum,created_at,updated_at

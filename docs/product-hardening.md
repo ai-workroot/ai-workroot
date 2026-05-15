@@ -103,7 +103,7 @@ At minimum, keep these aligned:
 - task `index.md`
 - task `task.json`
 - `task_registry.csv`
-- related artifact, decision, Mind, and link registry rows
+- related run, action, artifact, retrieval-card, checkpoint, invalidation, decision, Mind, and link registry rows
 - `space/work/continue.md`
 - `.workroot/runtime/context/handoff.md`
 
