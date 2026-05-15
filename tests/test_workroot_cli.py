@@ -235,6 +235,136 @@ class WorkrootCliTest(unittest.TestCase):
             self.assertEqual(row["mind_id"], "mind-cli")
             self.assertEqual(row["related_task_id"], "task-cli")
 
+    def test_cli_mind_add_path_and_from_path_do_not_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            self.create_task(work)
+            source = work / "space/work/reports/source.md"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("# Source\n", encoding="utf-8")
+            result = self.run_cli(
+                work,
+                "mind",
+                "add",
+                "--mind-id",
+                "mind-cli-knowledge",
+                "--title",
+                "Mind CLI Test Knowledge",
+                "--type",
+                "knowledge",
+                "--path",
+                "space/mind/knowledge/custom-mind.md",
+                "--from-path",
+                "space/work/reports/source.md",
+                "--related-task-id",
+                "task-cli",
+                "--created-at",
+                "2026-05-15T00:02:00Z",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((work / "space/mind/knowledge/custom-mind.md").exists())
+            links = (work / ".workroot/runtime/index/link_registry.csv").read_text(encoding="utf-8")
+            self.assertIn("space/work/reports/source.md", links)
+            self.assertIn("mind-cli-knowledge", links)
+
+    def test_continue_rebuild_uses_registry_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            result = self.run_cli(work, "task", "create", "Active Task", "--id", "active-task", "--next", "Do active task.")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = self.run_cli(work, "task", "create", "Closed Task", "--id", "closed-task", "--next", "Review closed task.")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = self.run_cli(work, "task", "update", "--task-id", "closed-task", "--status", "closed")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = self.run_cli(work, "continue", "rebuild", "--recent", "2")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = (work / "space/work/continue.md").read_text(encoding="utf-8")
+            self.assertIn("Active Task", text)
+            self.assertIn("Closed Task", text)
+
+    def test_task_complete_creates_report_artifact_and_closes_task(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            report = work / "report.md"
+            report.write_text("# Report\n\nDone.\n", encoding="utf-8")
+            result = self.run_cli(work, "task", "create", "Complete Me", "--id", "complete-me")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = self.run_cli(
+                work,
+                "task",
+                "complete",
+                "--task-id",
+                "complete-me",
+                "--report-path",
+                "space/work/reports/complete-me.md",
+                "--report-content-file",
+                str(report),
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((work / "space/work/reports/complete-me.md").exists())
+            self.assertIn("complete-me", (work / ".workroot/runtime/index/artifact_registry.csv").read_text(encoding="utf-8"))
+            self.assertIn('"status": "closed"', (work / ".workroot/runtime/work/tasks/complete-me/task.json").read_text(encoding="utf-8"))
+
+    def test_batch_apply_creates_common_lightweight_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            report = work / "report.md"
+            report.write_text("# Batch Report\n", encoding="utf-8")
+            batch = work / "batch.json"
+            batch.write_text(
+                json.dumps(
+                    {
+                        "operations": [
+                            {"op": "task.create", "title": "Batch A", "task_id": "batch-a"},
+                            {"op": "task.update", "task_id": "batch-a", "next_action": "Review batch output."},
+                            {
+                                "op": "artifact.add",
+                                "artifact_id": "batch-artifact",
+                                "task_id": "batch-a",
+                                "path": "space/work/reports/batch-report.md",
+                                "content_file": str(report),
+                                "audience": "user",
+                                "compute_metadata": True,
+                            },
+                            {
+                                "op": "action.add",
+                                "action_id": "batch-action",
+                                "task_id": "batch-a",
+                                "type": "manual_check",
+                                "summary": "Reviewed batch output.",
+                            },
+                            {
+                                "op": "checkpoint.add",
+                                "checkpoint_id": "batch-checkpoint",
+                                "task_id": "batch-a",
+                                "current_status": "Batch checkpoint created.",
+                            },
+                            {
+                                "op": "retrieval_card.add",
+                                "card_id": "batch-card",
+                                "task_id": "batch-a",
+                                "source_paths": "space/work/reports/batch-report.md",
+                            },
+                            {
+                                "op": "session.summarize",
+                                "task_ids": ["batch-a"],
+                                "summary": "Batch operation complete.",
+                                "next_action": "Review batch output.",
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_cli(work, "batch", "apply", "--file", str(batch))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("batch-a", (work / ".workroot/runtime/index/task_registry.csv").read_text(encoding="utf-8"))
+            self.assertIn("batch-artifact", (work / ".workroot/runtime/index/artifact_registry.csv").read_text(encoding="utf-8"))
+            self.assertIn("batch-action", (work / ".workroot/runtime/index/action_registry.csv").read_text(encoding="utf-8"))
+            self.assertIn("batch-checkpoint", (work / ".workroot/runtime/index/checkpoint_registry.csv").read_text(encoding="utf-8"))
+            self.assertIn("batch-card", (work / ".workroot/runtime/index/retrieval_card_registry.csv").read_text(encoding="utf-8"))
+            self.assertIn("Batch operation complete.", (work / "space/work/continue.md").read_text(encoding="utf-8"))
+
     def test_cli_rejects_future_timestamp_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = self.copy_workroot(tmp)

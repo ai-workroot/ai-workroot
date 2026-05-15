@@ -4,10 +4,23 @@
     "AGENTS.md",
     "START_HERE_FOR_HUMANS.md",
     ".workroot/kernel/boot/boot.md",
-    ".workroot/kernel/boot/read-order.json",
-    "docs/user-interaction-contract.md"
+    ".workroot/kernel/boot/agent-fast-start.md",
+    ".workroot/kernel/agent/output_style.md",
+    ".workroot/kernel/boot/read-order.json"
   ],
   "conditional_read_order": [
+    {
+      "when": "meaningful_work_with_user_startup_guidance",
+      "paths": [
+        "space/profile/startup.md"
+      ]
+    },
+    {
+      "when": "first_use_behavior_unclear_or_product_behavior_work",
+      "paths": [
+        "docs/user-interaction-contract.md"
+      ]
+    },
     {
       "when": "continuing_active_work",
       "paths": [

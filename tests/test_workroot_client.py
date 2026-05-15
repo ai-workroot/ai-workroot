@@ -188,7 +188,7 @@ class WorkrootClientTest(unittest.TestCase):
             self.assertIn("checkpoint-001", (work / ".workroot/runtime/index/checkpoint_registry.csv").read_text(encoding="utf-8"))
             self.assertIn("invalidation-001", (work / ".workroot/runtime/index/invalidation_registry.csv").read_text(encoding="utf-8"))
 
-    def test_sync_task_state_updates_registry_files_and_continuation_views(self) -> None:
+    def test_sync_task_state_updates_registry_and_task_files(self) -> None:
         tmp, work = self.copy_workroot()
         with tmp:
             client_mod = load_client_module()
@@ -229,8 +229,6 @@ class WorkrootClientTest(unittest.TestCase):
             brief = (task_dir / "brief.md").read_text(encoding="utf-8")
             handoff = (task_dir / "handoff.md").read_text(encoding="utf-8")
             index = (task_dir / "index.md").read_text(encoding="utf-8")
-            global_handoff = (work / ".workroot/runtime/context/handoff.md").read_text(encoding="utf-8")
-            continue_view = (work / "space/work/continue.md").read_text(encoding="utf-8")
             self.assertIn("The draft has one unresolved product choice.", brief)
             self.assertIn("Generated the comparison report.", brief)
             self.assertNotIn("Task created; no work completed yet.", brief)
@@ -238,8 +236,31 @@ class WorkrootClientTest(unittest.TestCase):
             self.assertIn("Blocked on product choice.", handoff)
             self.assertIn("Ask product to choose option A or B.", handoff)
             self.assertIn("space/work/reports/task-sync.md", index)
-            self.assertIn("task-sync", global_handoff)
-            self.assertIn("A comparison report is ready", continue_view)
+
+    def test_task_update_does_not_overwrite_global_continue_by_default(self) -> None:
+        tmp, work = self.copy_workroot()
+        with tmp:
+            continue_path = work / "space/work/continue.md"
+            continue_path.parent.mkdir(parents=True, exist_ok=True)
+            continue_path.write_text("# Continue\n\nOriginal session summary.\n", encoding="utf-8")
+            client_mod = load_client_module()
+            client = client_mod.WorkrootClient(work)
+            client.create_task("A", task_id="task-a", created_at="2026-05-15T00:00:00Z")
+            client.sync_task_state("task-a", brief_latest_result="A result.", continue_summary="A summary.")
+            self.assertEqual(continue_path.read_text(encoding="utf-8"), "# Continue\n\nOriginal session summary.\n")
+
+    def test_session_summarize_writes_multi_task_continue(self) -> None:
+        tmp, work = self.copy_workroot()
+        with tmp:
+            client_mod = load_client_module()
+            client = client_mod.WorkrootClient(work)
+            client.create_task("A", task_id="task-a", user_visible_output_path="space/work/reports/a.md", created_at="2026-05-15T00:00:00Z")
+            client.create_task("B", task_id="task-b", user_visible_output_path="space/work/reports/b.md", created_at="2026-05-15T00:01:00Z")
+            client.summarize_session(["task-a", "task-b"], "Both tasks matter.", "Review both outputs.")
+            text = (work / "space/work/continue.md").read_text(encoding="utf-8")
+            self.assertIn("A", text)
+            self.assertIn("B", text)
+            self.assertIn("Both tasks matter.", text)
 
     def test_update_run_changes_registry_and_markdown(self) -> None:
         tmp, work = self.copy_workroot()
@@ -335,9 +356,31 @@ class WorkrootClientTest(unittest.TestCase):
             self.assertEqual(row["related_task_id"], "task-mind")
             with (work / ".workroot/runtime/index/task_registry.csv").open(newline="", encoding="utf-8") as f:
                 task_row = next(csv.DictReader(f))
-            self.assertEqual(task_row["user_visible_output_path"], record.path)
+            self.assertEqual(task_row["user_visible_output_path"], "")
             index = (work / ".workroot/runtime/work/tasks/task-mind/index.md").read_text(encoding="utf-8")
             self.assertIn("space/mind/knowledge/mind-test.md", index)
+
+    def test_add_mind_does_not_replace_task_user_visible_output(self) -> None:
+        tmp, work = self.copy_workroot()
+        with tmp:
+            client_mod = load_client_module()
+            client = client_mod.WorkrootClient(work)
+            client.create_task(
+                title="Mind source test",
+                task_id="mind-source-test",
+                user_visible_output_path="space/work/reports/source.md",
+                created_at="2026-05-15T00:00:00Z",
+            )
+            client.add_mind(
+                mind_id="mind-source-test-knowledge",
+                title="Mind Source Test Knowledge",
+                type="knowledge",
+                summary="Reusable fact.",
+                related_task_id="mind-source-test",
+                created_at="2026-05-15T00:02:00Z",
+            )
+            row = client.task_row("mind-source-test")
+            self.assertEqual(row["user_visible_output_path"], "space/work/reports/source.md")
 
     def test_future_timestamp_is_rejected_before_writing(self) -> None:
         tmp, work = self.copy_workroot()

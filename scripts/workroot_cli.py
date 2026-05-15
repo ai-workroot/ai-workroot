@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
 
 from workroot_client import (
     MIND_TYPES,
@@ -19,6 +21,12 @@ from workroot_client import (
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="resource", required=True)
+
+    subparsers.add_parser("quickstart")
+    subparsers.add_parser("schema")
+    recipe = subparsers.add_parser("recipe")
+    recipe.add_argument("name", choices=["task-l0-report", "task-l1-report", "task-l2-evidence"])
+    subparsers.add_parser("doctor")
 
     task = subparsers.add_parser("task")
     task_sub = task.add_subparsers(dest="action", required=True)
@@ -48,6 +56,13 @@ def build_parser() -> argparse.ArgumentParser:
     task_update.add_argument("--index-output", action="append", default=[])
     task_update.add_argument("--mind-path", action="append", default=[])
     task_update.add_argument("--continue-summary")
+    task_complete = task_sub.add_parser("complete")
+    task_complete.add_argument("--task-id", required=True)
+    task_complete.add_argument("--process-level", choices=sorted(PROCESS_LEVELS), default="")
+    task_complete.add_argument("--report-path", required=True)
+    task_complete.add_argument("--report-content-file", required=True)
+    task_complete.add_argument("--next-action", default="")
+    task_complete.add_argument("--checkpoint", action="store_true")
 
     run = subparsers.add_parser("run")
     run_sub = run.add_subparsers(dest="action", required=True)
@@ -157,10 +172,31 @@ def build_parser() -> argparse.ArgumentParser:
     mind_add.add_argument("--release-level", default="active")
     mind_add.add_argument("--retrieval-rule", default="")
     mind_add.add_argument("--summary", default="")
-    mind_add.add_argument("--source-path", default="")
+    mind_add.add_argument("--path", default="")
+    mind_add.add_argument("--from-path", action="append", default=[])
+    mind_add.add_argument("--from-task-id", action="append", default=[])
+    mind_add.add_argument("--source-path", default="", help="Deprecated alias for --path.")
+    mind_add.add_argument("--set-task-output", action="store_true")
     mind_add.add_argument("--related-task-id", default="")
     mind_add.add_argument("--replaces-mind-id", default="")
     mind_add.add_argument("--created-at", default=now_utc())
+
+    session = subparsers.add_parser("session")
+    session_sub = session.add_subparsers(dest="action", required=True)
+    session_summarize = session_sub.add_parser("summarize")
+    session_summarize.add_argument("--task-id", action="append", required=True)
+    session_summarize.add_argument("--summary", required=True)
+    session_summarize.add_argument("--next-action", required=True)
+
+    cont = subparsers.add_parser("continue")
+    cont_sub = cont.add_subparsers(dest="action", required=True)
+    cont_rebuild = cont_sub.add_parser("rebuild")
+    cont_rebuild.add_argument("--recent", type=int, default=5)
+
+    batch = subparsers.add_parser("batch")
+    batch_sub = batch.add_subparsers(dest="action", required=True)
+    batch_apply = batch_sub.add_parser("apply")
+    batch_apply.add_argument("--file", required=True)
 
     return parser
 
@@ -169,6 +205,51 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     client = WorkrootClient()
+
+    if args.resource == "quickstart":
+        print("Use task complete for common task finalization.")
+        print("Use schema to inspect enum and path rules.")
+        print("Use recipe task-l0-report, task-l1-report, or task-l2-evidence for examples.")
+        print("Use continue rebuild for human-facing continuation.")
+        return
+
+    if args.resource == "schema":
+        print("task statuses: active, paused, blocked, closed, released")
+        print("process levels: L0, L1, L2")
+        print("owner scopes: personal, team, role, organization")
+        print("visibility values: internal, shared, public, private")
+        print("action types: command, database_query, api_call, file_edit, browser_research, model_generation, test_run, deployment, manual_check, other")
+        print("artifact audiences: internal, user, public, evidence")
+        print("single path fields: input_ref, output_ref, approval_ref, path, primary_artifact")
+        print("multi path fields: source_paths, required_context_paths")
+        print("input_ref must be one repository-relative path, URL, or empty.")
+        print("Use retrieval-card source_paths for multiple source files.")
+        return
+
+    if args.resource == "recipe":
+        if args.name == "task-l2-evidence":
+            print("python3 scripts/workroot_cli.py task create \"Evidence task\" --process-level L2 --id TASK")
+            print("python3 scripts/workroot_cli.py task complete --process-level L2 --task-id TASK --report-path space/work/reports/report.md --checkpoint")
+        elif args.name == "task-l1-report":
+            print("python3 scripts/workroot_cli.py task create \"Report task\" --process-level L1 --id TASK")
+            print("python3 scripts/workroot_cli.py task complete --process-level L1 --task-id TASK --report-path space/work/reports/report.md")
+        else:
+            print("python3 scripts/workroot_cli.py task create \"Simple task\" --process-level L0 --id TASK")
+            print("python3 scripts/workroot_cli.py task complete --process-level L0 --task-id TASK --report-path space/work/reports/report.md")
+        return
+
+    if args.resource == "doctor":
+        result = subprocess.run(
+            [sys.executable, "scripts/validate_kernel.py"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        print(result.stdout, end="")
+        if result.returncode:
+            print(result.stderr, end="", file=sys.stderr)
+            raise SystemExit(result.returncode)
+        return
 
     if args.resource == "task" and args.action == "create":
         created = client.create_task(
@@ -204,6 +285,18 @@ def main() -> None:
             continue_summary=args.continue_summary,
         )
         print(args.task_id)
+        return
+
+    if args.resource == "task" and args.action == "complete":
+        client.complete_task(
+            task_id=args.task_id,
+            report_path=args.report_path,
+            report_content_file=args.report_content_file,
+            next_action=args.next_action,
+            process_level=args.process_level,
+            checkpoint=args.checkpoint,
+        )
+        print(args.report_path)
         return
 
     if args.resource == "run" and args.action == "add":
@@ -330,12 +423,31 @@ def main() -> None:
             release_level=args.release_level,
             retrieval_rule=args.retrieval_rule,
             summary=args.summary,
+            path=args.path,
+            from_paths=args.from_path,
+            from_task_ids=args.from_task_id,
+            set_task_output=args.set_task_output,
             source_path=args.source_path,
             related_task_id=args.related_task_id,
             replaces_mind_id=args.replaces_mind_id,
             created_at=args.created_at,
         )
         print(record.path)
+        return
+
+    if args.resource == "session" and args.action == "summarize":
+        client.summarize_session(args.task_id, args.summary, args.next_action)
+        print("space/work/continue.md")
+        return
+
+    if args.resource == "continue" and args.action == "rebuild":
+        client.rebuild_continue(recent=args.recent)
+        print("space/work/continue.md")
+        return
+
+    if args.resource == "batch" and args.action == "apply":
+        client.apply_batch(args.file)
+        print(args.file)
         return
 
     parser.error("unsupported command")

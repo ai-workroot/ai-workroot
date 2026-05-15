@@ -85,14 +85,18 @@ class PublicSeedSurfaceTest(unittest.TestCase):
                     hits.append(f"{path.relative_to(ROOT).as_posix()}: {pattern}")
         self.assertEqual(hits, [])
 
-    def test_human_entry_starts_with_one_sentence_path(self) -> None:
+    def test_start_here_starts_with_one_sentence_path(self) -> None:
         first_sentence = "I want this workspace to help me with [area]. Please set it up with me, then help me start my first real task."
-        for rel in ("README.md", "START_HERE_FOR_HUMANS.md"):
-            with self.subTest(rel=rel):
-                text = (ROOT / rel).read_text(encoding="utf-8")
-                position = text.find(first_sentence)
-                self.assertGreaterEqual(position, 0)
-                self.assertLess(position, 700)
+        text = (ROOT / "START_HERE_FOR_HUMANS.md").read_text(encoding="utf-8")
+        position = text.find(first_sentence)
+        self.assertGreaterEqual(position, 0)
+        self.assertLess(position, 700)
+
+    def test_readme_points_ordinary_users_to_start_here(self) -> None:
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        position = text.find("START_HERE_FOR_HUMANS.md")
+        self.assertGreaterEqual(position, 0)
+        self.assertLess(position, 1200)
 
     def test_human_entry_does_not_expose_registry_paths(self) -> None:
         for rel in ("README.md", "START_HERE_FOR_HUMANS.md"):

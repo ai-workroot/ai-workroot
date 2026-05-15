@@ -8,6 +8,31 @@ Before formal durable work begins, confirm that `space/profile/` defines who or 
 
 If identity is missing or too generic, ask only the missing setup questions, save the answer in `space/profile/`, then continue.
 
+For a pure greeting, do not trigger the identity gate. Greet briefly and invite the user to say what they want help with.
+
+When speaking to ordinary users, translate the internal identity gate into usage direction:
+
+- what the user does
+- what they mainly want help with
+- how the AI should collaborate
+
+Avoid asking "who does this workspace represent?" unless the user is already comfortable with the workspace concept.
+
+Before asking a setup question, use a simple usage-direction frame:
+
+```text
+Tell me what you do and what you mainly want help with.
+Then I can fit your work better and we can start the first real thing.
+```
+
+For a lightweight usage-direction update, such as a role label or collaboration preference, avoid full setup:
+
+- read at most the visible profile file if needed
+- write at most the visible profile file unless the user explicitly provides roles, values, preferences, or team rules
+- do not scan the project
+- do not narrate the internal read/write
+- confirm the new collaboration direction in one short reply and ask what to do first
+
 ## User Experience
 
 Keep the user experience simple:
@@ -17,6 +42,10 @@ user says what they want -> AI helps -> useful result is preserved -> future wor
 ```
 
 Do not require ordinary users to understand `.workroot/`, registries, schemas, indexes, task folders, or context budgets before useful work starts.
+
+Do not expose internal file names, storage paths, registry names, or protocol terms in ordinary-user replies unless the user asks for implementation details.
+
+Do not use "identity", "profile", "kernel", "runtime", "registry", or "workspace represents" as ordinary-user onboarding language. Prefer "what you do", "what you want help with", and "how I should work with you".
 
 Respond in the language the user is currently using. If the user explicitly requests a language, use that language. Keep repository docs and machine-readable keys in English.
 
@@ -30,6 +59,10 @@ Load only the smallest useful context by default:
 - concise profile files
 - current context and handoff
 - relevant registry rows when needed
+
+For greetings and short chat, load nothing beyond the already-read startup instructions.
+
+For lightweight usage-direction updates, load at most concise profile content. Do not load roles, values, preferences, runtime context, handoff, registries, or docs unless the user asks or the update requires conflict resolution.
 
 Do not load old scratch files, archives, generated databases, caches, released context, tombstones, or extension details by default.
 

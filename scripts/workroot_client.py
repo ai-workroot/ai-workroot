@@ -4,11 +4,15 @@
 from __future__ import annotations
 
 import csv
+import contextlib
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import shutil
+import tempfile
+import time
 import unicodedata
 from pathlib import Path
 
@@ -163,6 +167,16 @@ REGISTRY_HEADERS = {
         "related_task_id",
         "replaces_mind_id",
     ],
+    ".workroot/runtime/index/link_registry.csv": [
+        "link_id",
+        "source_type",
+        "source_id",
+        "target_type",
+        "target_id",
+        "relation",
+        "created_at",
+        "updated_at",
+    ],
 }
 
 
@@ -231,6 +245,37 @@ def read_registry(path: Path) -> tuple[list[str], list[dict[str, str]]]:
         return list(reader.fieldnames or []), list(reader)
 
 
+@contextlib.contextmanager
+def file_lock(path: Path, timeout: float = 10.0):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    start = time.monotonic()
+    while True:
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            payload = f"pid={os.getpid()}\ncreated_at={now_utc()}\n"
+            os.write(fd, payload.encode("utf-8"))
+            os.close(fd)
+            break
+        except FileExistsError:
+            if time.monotonic() - start > timeout:
+                raise SystemExit(f"timed out waiting for Workroot lock: {path}; inspect the lock file before removing it")
+            time.sleep(0.02)
+    try:
+        yield
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def write_registry_atomic(path: Path, headers: list[str], rows: list[dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", newline="", encoding="utf-8", dir=path.parent, delete=False) as f:
+        tmp_name = f.name
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(rows)
+    os.replace(tmp_name, path)
+
+
 def replace_in_file(path: Path, replacements: dict[str, str]) -> None:
     text = path.read_text(encoding="utf-8")
     for old, new in replacements.items():
@@ -263,9 +308,13 @@ def append_unique_lines(path: Path, heading: str, values: list[str]) -> None:
 class WorkrootClient:
     def __init__(self, root: str | Path = ".") -> None:
         self.root = Path(root)
+        self._lock_depth = 0
 
     def registry_path(self, rel: str) -> Path:
         return self.root / rel
+
+    def lock_path(self) -> Path:
+        return self.root / ".workroot/runtime/locks/workroot.lock"
 
     def ensure_registry(self, rel: str) -> None:
         headers = REGISTRY_HEADERS[rel]
@@ -283,6 +332,17 @@ class WorkrootClient:
             self.ensure_registry(rel)
 
     def append_registry(self, rel: str, id_fields: list[str], row: dict[str, str]) -> None:
+        if self._lock_depth:
+            self._append_registry_unlocked(rel, id_fields, row)
+            return
+        with file_lock(self.lock_path()):
+            self._lock_depth += 1
+            try:
+                self._append_registry_unlocked(rel, id_fields, row)
+            finally:
+                self._lock_depth -= 1
+
+    def _append_registry_unlocked(self, rel: str, id_fields: list[str], row: dict[str, str]) -> None:
         headers = REGISTRY_HEADERS[rel]
         self.ensure_registry(rel)
         path = self.registry_path(rel)
@@ -306,11 +366,20 @@ class WorkrootClient:
             if existing_key == new_key:
                 raise SystemExit(f"registry row already exists: {new_key}")
 
-        with path.open("a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=headers)
-            writer.writerow(full_row)
+        rows.append(full_row)
+        write_registry_atomic(path, headers, rows)
 
     def update_registry_row(self, rel: str, id_field: str, id_value: str, updates: dict[str, str]) -> dict[str, str]:
+        if self._lock_depth:
+            return self._update_registry_row_unlocked(rel, id_field, id_value, updates)
+        with file_lock(self.lock_path()):
+            self._lock_depth += 1
+            try:
+                return self._update_registry_row_unlocked(rel, id_field, id_value, updates)
+            finally:
+                self._lock_depth -= 1
+
+    def _update_registry_row_unlocked(self, rel: str, id_field: str, id_value: str, updates: dict[str, str]) -> dict[str, str]:
         headers = REGISTRY_HEADERS[rel]
         self.ensure_registry(rel)
         path = self.registry_path(rel)
@@ -333,10 +402,7 @@ class WorkrootClient:
         if updated_row is None:
             raise SystemExit(f"registry row not found: {id_field}={id_value}")
 
-        with path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=headers)
-            writer.writeheader()
-            writer.writerows(rows)
+        write_registry_atomic(path, headers, rows)
         return updated_row
 
     def task_row(self, task_id: str) -> dict[str, str]:
@@ -521,6 +587,53 @@ class WorkrootClient:
         )
         return CreatedTask(new_task_id, process_level, rel_path)
 
+    def complete_task(
+        self,
+        task_id: str,
+        report_path: str,
+        report_content_file: str,
+        next_action: str = "",
+        process_level: str = "",
+        checkpoint: bool = False,
+    ) -> None:
+        source = Path(report_content_file)
+        if not source.exists() or not source.is_file():
+            raise SystemExit(f"report content file does not exist: {report_content_file}")
+        content = source.read_text(encoding="utf-8")
+        report = self.repo_path(report_path)
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(content, encoding="utf-8")
+
+        artifact_id = f"{task_id}-report"
+        self.add_artifact(
+            artifact_id=artifact_id,
+            task_id=task_id,
+            type="report",
+            path=report_path,
+            audience="user",
+            status="active",
+            compute_metadata=True,
+        )
+        self.sync_task_state(
+            task_id=task_id,
+            status="closed",
+            next_action=next_action,
+            user_visible_output_path=report_path,
+            brief_current_state="Task is closed.",
+            brief_latest_result=f"Report completed: {report_path}.",
+            handoff_status="Task is closed.",
+            handoff_latest_result=f"Report completed: {report_path}.",
+            index_outputs=[report_path],
+        )
+        if checkpoint:
+            self.add_checkpoint(
+                task_id=task_id,
+                checkpoint_id=f"{task_id}-complete",
+                current_status="Task completed.",
+                next_action=next_action,
+                required_context_paths=report_path,
+            )
+
     def require_task_dir(self, task_id: str) -> Path:
         _, rows = read_registry(self.root / TASK_REGISTRY)
         for row in rows:
@@ -618,33 +731,172 @@ class WorkrootClient:
         append_unique_lines(task_dir / "index.md", "## Outputs", index_outputs or [])
         append_unique_lines(task_dir / "index.md", "## Related Mind Entries", mind_paths or [])
 
-        summary = continue_summary or handoff_status or brief_current_state or next_action
-        if summary:
-            continue_text = markdown_sections(
-                "Continue",
-                {
-                    "What Was Happening": f"{row.get('title') or task_id} ({task_id})",
-                    "What Matters Now": summary,
-                    "Next Step": next_action or row.get("next_action", ""),
-                },
-            )
-            continue_path = self.root / "space/work/continue.md"
-            continue_path.parent.mkdir(parents=True, exist_ok=True)
-            continue_path.write_text(continue_text, encoding="utf-8")
+        _ = continue_summary
 
-            global_handoff = self.root / ".workroot/runtime/context/handoff.md"
-            global_handoff.parent.mkdir(parents=True, exist_ok=True)
-            global_handoff.write_text(
-                markdown_sections(
-                    "Handoff",
-                    {
-                        "Current Task": f"{row.get('title') or task_id} ({task_id})",
-                        "Status": summary,
-                        "Next Actions": next_action or row.get("next_action", ""),
-                    },
-                ),
-                encoding="utf-8",
+    def summarize_session(self, task_ids: list[str], summary: str, next_action: str) -> None:
+        rows = [self.task_row(task_id) for task_id in task_ids]
+        task_lines = "\n".join(f"- {row['title']} ({row['task_id']})" for row in rows)
+        continue_text = markdown_sections(
+            "Continue",
+            {
+                "What Was Happening": task_lines,
+                "What Matters Now": summary,
+                "Next Step": next_action,
+            },
+        )
+        continue_path = self.root / "space/work/continue.md"
+        continue_path.parent.mkdir(parents=True, exist_ok=True)
+        continue_path.write_text(continue_text, encoding="utf-8")
+
+        context_dir = self.root / ".workroot/runtime/context"
+        context_dir.mkdir(parents=True, exist_ok=True)
+        (context_dir / "handoff.md").write_text(
+            markdown_sections(
+                "Handoff",
+                {
+                    "Current Work": task_lines,
+                    "Status": summary,
+                    "Next Actions": next_action,
+                },
+            ),
+            encoding="utf-8",
+        )
+        (context_dir / "current.md").write_text(
+            markdown_sections(
+                "Current",
+                {
+                    "Tasks": task_lines,
+                    "Summary": summary,
+                    "Next Step": next_action,
+                },
+            ),
+            encoding="utf-8",
+        )
+
+    def rebuild_continue(self, recent: int = 5) -> None:
+        _, rows = read_registry(self.root / TASK_REGISTRY)
+        active = [row for row in rows if row.get("status") in {"active", "paused", "blocked"}]
+        closed = [row for row in rows if row.get("status") in {"closed", "released"}]
+        closed.sort(key=lambda row: row.get("updated_at", ""), reverse=True)
+        selected = active + closed[:recent]
+        task_ids = [row["task_id"] for row in selected if row.get("task_id")]
+        if not task_ids:
+            self.summarize_session([], "No active or recent tasks found.", "Start a task when ready.")
+            return
+        self.summarize_session(task_ids, "Continuation rebuilt from the task registry.", "Review the listed tasks and choose the next action.")
+
+    def apply_batch(self, file_path: str) -> None:
+        payload = json.loads(Path(file_path).read_text(encoding="utf-8"))
+        operations = payload.get("operations")
+        if not isinstance(operations, list):
+            raise SystemExit("batch file must contain an operations list")
+
+        with file_lock(self.lock_path()):
+            self._lock_depth += 1
+            try:
+                for operation in operations:
+                    self.apply_batch_operation(operation)
+            finally:
+                self._lock_depth -= 1
+
+    def apply_batch_operation(self, operation: dict[str, object]) -> None:
+        if not isinstance(operation, dict):
+            raise SystemExit("batch operation must be an object")
+        op = operation.get("op")
+        if op == "task.create":
+            self.create_task(
+                title=str(operation["title"]),
+                task_id=operation.get("task_id") if isinstance(operation.get("task_id"), str) else None,
+                process_level=str(operation.get("process_level", "L0")),
+                goal=str(operation.get("goal", "What are we trying to accomplish?")),
+                why=str(operation.get("why", "Why is this worth doing?")),
+                expected=str(operation.get("expected", "What should exist when this task is done?")),
+                next_action=str(operation.get("next_action", "Define next step")),
+                owner_scope=str(operation.get("owner_scope", "personal")),
+                visibility=str(operation.get("visibility", "internal")),
+                priority=str(operation.get("priority", "")),
+                created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
+                user_visible_output_path=operation.get("user_visible_output_path") if isinstance(operation.get("user_visible_output_path"), str) else None,
             )
+        elif op == "task.update":
+            self.sync_task_state(
+                task_id=str(operation["task_id"]),
+                status=operation.get("status") if isinstance(operation.get("status"), str) else None,
+                updated_at=operation.get("updated_at") if isinstance(operation.get("updated_at"), str) else None,
+                next_action=operation.get("next_action") if isinstance(operation.get("next_action"), str) else None,
+                user_visible_output_path=operation.get("user_visible_output_path") if isinstance(operation.get("user_visible_output_path"), str) else None,
+                brief_current_state=operation.get("brief_current_state") if isinstance(operation.get("brief_current_state"), str) else None,
+                brief_latest_result=operation.get("brief_latest_result") if isinstance(operation.get("brief_latest_result"), str) else None,
+                handoff_status=operation.get("handoff_status") if isinstance(operation.get("handoff_status"), str) else None,
+                handoff_latest_result=operation.get("handoff_latest_result") if isinstance(operation.get("handoff_latest_result"), str) else None,
+                index_outputs=operation.get("index_outputs") if isinstance(operation.get("index_outputs"), list) else None,
+                mind_paths=operation.get("mind_paths") if isinstance(operation.get("mind_paths"), list) else None,
+                continue_summary=operation.get("continue_summary") if isinstance(operation.get("continue_summary"), str) else None,
+            )
+        elif op == "artifact.add":
+            content = ""
+            if isinstance(operation.get("content_file"), str):
+                content = Path(str(operation["content_file"])).read_text(encoding="utf-8")
+            self.add_artifact(
+                artifact_id=str(operation["artifact_id"]),
+                task_id=str(operation["task_id"]),
+                run_id=str(operation.get("run_id", "")),
+                action_id=str(operation.get("action_id", "")),
+                type=str(operation.get("type", "")),
+                path=str(operation["path"]),
+                audience=str(operation.get("audience", "internal")),
+                status=str(operation.get("status", "active")),
+                size=str(operation.get("size", "")),
+                checksum=str(operation.get("checksum", "")),
+                created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
+                create_missing=bool(operation.get("content_file") or operation.get("content")),
+                content=content or str(operation.get("content", "")),
+                compute_metadata=bool(operation.get("compute_metadata")),
+            )
+        elif op == "action.add":
+            self.add_action(
+                task_id=str(operation["task_id"]),
+                action_id=str(operation["action_id"]),
+                run_id=str(operation.get("run_id", "")),
+                type=str(operation.get("type", "")),
+                status=str(operation.get("status", "active")),
+                summary=str(operation.get("summary", "")),
+                tool=str(operation.get("tool", "")),
+                input_ref=str(operation.get("input_ref", "")),
+                output_ref=str(operation.get("output_ref", "")),
+                approval_ref=str(operation.get("approval_ref", "")),
+                risk_level=str(operation.get("risk_level", "")),
+                created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
+            )
+        elif op == "checkpoint.add":
+            self.add_checkpoint(
+                task_id=str(operation["task_id"]),
+                checkpoint_id=str(operation["checkpoint_id"]),
+                current_status=str(operation["current_status"]),
+                last_valid_run_id=str(operation.get("last_valid_run_id", "")),
+                next_action=str(operation.get("next_action", "")),
+                required_context_paths=str(operation.get("required_context_paths", "")),
+                created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
+            )
+        elif op == "retrieval_card.add":
+            self.add_retrieval_card(
+                task_id=str(operation["task_id"]),
+                card_id=str(operation["card_id"]),
+                freshness=str(operation.get("freshness", "hot")),
+                source_paths=str(operation.get("source_paths", "")),
+                created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
+            )
+        elif op == "session.summarize":
+            task_ids = operation["task_ids"]
+            if not isinstance(task_ids, list):
+                raise SystemExit("session.summarize task_ids must be a list")
+            self.summarize_session(
+                [str(task_id) for task_id in task_ids],
+                str(operation["summary"]),
+                str(operation["next_action"]),
+            )
+        else:
+            raise SystemExit(f"unsupported batch operation: {op}")
 
     def touch_task(self, task_id: str, instant: str) -> None:
         task_dir = self.require_task_dir(task_id)
@@ -1035,6 +1287,10 @@ class WorkrootClient:
         release_level: str = "active",
         retrieval_rule: str = "",
         summary: str = "",
+        path: str = "",
+        from_paths: list[str] | None = None,
+        from_task_ids: list[str] | None = None,
+        set_task_output: bool = False,
         source_path: str = "",
         related_task_id: str = "",
         replaces_mind_id: str = "",
@@ -1045,7 +1301,7 @@ class WorkrootClient:
         if related_task_id:
             self.require_task_dir(related_task_id)
         instant = normalize_instant(created_at) if created_at else now_utc()
-        rel = source_path or f"space/mind/{MIND_DIRS[type]}/{mind_id}.md"
+        rel = path or source_path or f"space/mind/{MIND_DIRS[type]}/{mind_id}.md"
         path = self.repo_path(rel)
         if path.exists():
             raise SystemExit(f"mind file already exists: {rel}")
@@ -1086,11 +1342,42 @@ class WorkrootClient:
                 "replaces_mind_id": replaces_mind_id,
             },
         )
+        for from_path in from_paths or []:
+            self.append_registry(
+                ".workroot/runtime/index/link_registry.csv",
+                ["link_id"],
+                {
+                    "link_id": f"link-{mind_id}-from-file-{slugify(from_path)}",
+                    "source_type": "file",
+                    "source_id": from_path,
+                    "target_type": "mind",
+                    "target_id": mind_id,
+                    "relation": "source_for",
+                    "created_at": instant,
+                    "updated_at": instant,
+                },
+            )
+        for from_task_id in from_task_ids or []:
+            self.append_registry(
+                ".workroot/runtime/index/link_registry.csv",
+                ["link_id"],
+                {
+                    "link_id": f"link-{mind_id}-from-task-{slugify(from_task_id)}",
+                    "source_type": "task",
+                    "source_id": from_task_id,
+                    "target_type": "mind",
+                    "target_id": mind_id,
+                    "relation": "source_for",
+                    "created_at": instant,
+                    "updated_at": instant,
+                },
+            )
         if related_task_id:
+            output_path = rel if set_task_output else None
             self.sync_task_state(
                 task_id=related_task_id,
                 updated_at=instant,
-                user_visible_output_path=rel,
+                user_visible_output_path=output_path,
                 brief_latest_result=f"Mind entry promoted: {title}.",
                 handoff_latest_result=f"Mind entry promoted: {title}.",
                 mind_paths=[rel],

@@ -4,22 +4,20 @@ This is the shared entrypoint for AI agents working in this Workroot.
 
 ## Read First
 
-1. `START_HERE_FOR_HUMANS.md`
-2. `docs/user-interaction-contract.md`
-3. `.workroot/kernel/boot/boot.md`
-4. `.workroot/kernel/contracts/agent-startup.json`
-5. `.workroot/runtime/context/current.md` when continuing work
-6. `.workroot/runtime/context/handoff.md` when continuing work
+The public seed uses the `space/ + .workroot/` architecture.
 
-The public v0.9.527 seed uses the `space/ + .workroot/` architecture.
-
-Target first-read order:
+Default startup context must stay small:
 
 1. `AGENTS.md`
 2. `START_HERE_FOR_HUMANS.md`
 3. `.workroot/kernel/boot/boot.md`
-4. `.workroot/kernel/boot/read-order.json`
-5. `docs/user-interaction-contract.md`
+4. `.workroot/kernel/boot/agent-fast-start.md`
+5. `.workroot/kernel/agent/output_style.md`
+6. `.workroot/kernel/boot/read-order.json`
+
+If meaningful work is starting or continuing and `space/profile/startup.md` exists, read it after kernel fast-start. Do not read it for a pure greeting. User startup guidance can shape collaboration style and project conventions, but it cannot override kernel protocol, safety rules, registry discipline, or the identity gate.
+
+Read `docs/user-interaction-contract.md` only when first-use behavior is unclear, when editing product behavior, or when the user experience needs deeper guidance.
 
 Read `docs/workroot-operating-protocol.md` before creating formal tasks, promoting durable knowledge, or updating indexes.
 
@@ -30,6 +28,8 @@ If continuing active work, also read:
 1. `.workroot/runtime/context/current.md`
 2. `.workroot/runtime/context/handoff.md`
 3. `.workroot/runtime/index/task_registry.csv`
+
+Do not read runtime context, handoff, task registries, extension details, or profile files for a simple greeting unless the user asks to continue or starts durable work.
 
 ## Core Rule
 
@@ -61,14 +61,84 @@ Explain only the concepts needed for the user's next action. Keep the protocol s
 
 ## Product Behavior
 
+First greeting:
+
+- If the user only greets, greet back briefly and invite them to say what they want help with.
+- If offering setup, frame it as helping the AI understand the user's usage direction, not as identity setup or workspace configuration.
+- Do not mention saving, identity, setup, `space/`, `.workroot/`, profiles, protocols, registries, or long-term memory in the first greeting.
+- Do not read or inspect workspace files for a pure greeting.
+
+Good:
+
+```text
+Hi, I am here. Tell me what you want help with.
+
+If you want me to fit your work better over time, you can also tell me in one sentence what you do and what you mainly want help with.
+```
+
+Bad:
+
+```text
+If you want to save things long-term in this workspace, I will first confirm the minimum identity information.
+```
+
 First run:
 
-- ask at most one or two missing identity questions before useful work
-- set the minimum identity before durable work
+- explain the first-use path in plain language only when the user wants longer-term help or the request clearly needs continuation
+- ask for usage direction in ordinary language, not identity metadata
+- ask at most one or two missing usage-direction questions before useful work
+- set the minimum identity internally before durable work
 - if the user already brought a real problem, do not turn setup into a questionnaire
 - start the first real piece of work as soon as identity is clear enough
 - preserve the first useful result
 - leave a continuation path
+
+Use this ordinary-user setup frame when long-term usage direction is missing:
+
+```text
+To help you better over time, I only need one sentence first.
+
+For example:
+"I am a software engineer, and I mainly want help with coding, debugging, technical design, and summarizing experience."
+
+You can also skip this and just tell me the first thing you want to do.
+```
+
+Then ask one concise question:
+
+```text
+What do you do, and what do you mainly want me to help with?
+```
+
+After the user answers with a small identity, do not narrate internal file reads or storage paths. Say:
+
+```text
+Understood. I will work with you as a software engineer and focus on code, debugging, technical design, and experience summaries. What would you like to do first?
+```
+
+Lightweight usage-direction updates:
+
+- Treat phrases such as "I am a software engineer", "treat me as a CTO", "help me as a writer", or "mainly help our testing team" as usage-direction updates.
+- Do not turn a usage-direction update into a full setup workflow.
+- Do not scan the project for a usage-direction update.
+- Read at most `space/profile/profile.md` if needed to avoid overwriting customized content.
+- Write only `space/profile/profile.md` for the first lightweight update unless the user explicitly gives durable roles, values, preferences, or team rules.
+- Do not edit `roles.md`, `preferences.md`, or `values.md` just because the user gave a role label.
+- If the new direction conflicts with an existing profile, ask a short clarification instead of replacing prior context.
+- Do not show file paths, diffs, or internal storage details in the user-facing reply.
+- Prefer `scripts/update_usage_direction.py` for this case so only the visible profile summary is updated.
+
+Good user-facing reply:
+
+```text
+Understood. I will treat you as a CTO-level technical leader and focus on product-aware engineering judgment, architecture, team execution, technical strategy, and delivery tradeoffs. What would you like to work on first?
+```
+
+Bad user-facing reply:
+
+```text
+I will read the profile, roles, preferences, and values files, then update the profile and roles records.
+```
 
 Intent routing:
 
@@ -102,12 +172,12 @@ Save what matters:
 
 Some users will arrive with a real problem instead of a setup prompt. They may be used to chat-style AI tools and may not think in tasks yet.
 
-If identity is incomplete and the user brought a real problem, ask only one minimal identity question, then start helping.
+If usage direction is incomplete and the user brought a real problem, ask at most one simple question only if needed, then start helping.
 
 Good:
 
 ```text
-I can help. One quick setup question before I save anything long-term: is this workspace for you personally, a team, or a specific role/project? After that I will start organizing this.
+I can help. Before we continue, tell me briefly what you mainly want me to help with in this area. Then I will start organizing it.
 ```
 
 Bad:
@@ -122,7 +192,35 @@ For younger students or non-technical users, use simple words:
 This looks like something we may want to continue later. I will treat it as your current task and keep the next step clear.
 ```
 
-Do not use internal words when a simple word works. Say "task" or "the thing we are working on", not "registry", "kernel", or "runtime".
+Do not use internal words when a simple word works. Say "what you want help with", "current task", or "the thing we are working on", not "identity", "profile", "registry", "kernel", or "runtime".
+
+## Ordinary User Output Rules
+
+For ordinary users, never narrate internal mechanics unless they ask:
+
+- do not say which protocol file, profile file, registry, schema, runtime context, or internal path you are reading
+- do not say "I will inspect files", "I will update the registry", or "this belongs in `space/profile/`"
+- do not paste command traces or file paths as part of the user-facing explanation
+- after a necessary internal write, say only the plain result and the next useful action
+
+If the agent UI shows tool calls, keep them as rare as possible:
+
+- do not run shell commands for greetings
+- do not scan the whole project during first setup
+- read or write only the minimum file needed for the current step
+- prefer direct useful work over protocol verification unless the task depends on it
+
+Good:
+
+```text
+Got it. I will mainly help you as a software engineer. Would you like to start with code, debugging, learning, technical planning, or a specific problem?
+```
+
+Bad:
+
+```text
+I have confirmed the rule: identity content belongs in `space/profile/`, not the internal protocol. I will now read the profile files to avoid overwriting them.
+```
 
 ## Task Collaboration
 
