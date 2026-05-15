@@ -118,8 +118,6 @@ class WorkrootCliTest(unittest.TestCase):
                 "Draft report is ready.",
                 "--index-output",
                 "space/work/reports/task-cli.md",
-                "--continue-summary",
-                "Draft report is ready; resume by reviewing it.",
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             payload = json.loads((work / ".workroot/runtime/work/tasks/task-cli/task.json").read_text(encoding="utf-8"))
@@ -364,6 +362,64 @@ class WorkrootCliTest(unittest.TestCase):
             self.assertIn("batch-checkpoint", (work / ".workroot/runtime/index/checkpoint_registry.csv").read_text(encoding="utf-8"))
             self.assertIn("batch-card", (work / ".workroot/runtime/index/retrieval_card_registry.csv").read_text(encoding="utf-8"))
             self.assertIn("Batch operation complete.", (work / "space/work/continue.md").read_text(encoding="utf-8"))
+
+    def test_batch_apply_rolls_back_when_later_operation_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            batch = work / "batch.json"
+            batch.write_text(
+                json.dumps(
+                    {
+                        "operations": [
+                            {"op": "task.create", "title": "Rollback A", "task_id": "rollback-a"},
+                            {"op": "artifact.add", "artifact_id": "missing-artifact", "task_id": "rollback-a", "path": "space/work/reports/missing.md", "compute_metadata": True},
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_cli(work, "batch", "apply", "--file", str(batch))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn("rollback-a", (work / ".workroot/runtime/index/task_registry.csv").read_text(encoding="utf-8"))
+            self.assertFalse((work / ".workroot/runtime/work/tasks/rollback-a").exists())
+            transactions = list((work / ".workroot/runtime/transactions").glob("*.json"))
+            self.assertTrue(transactions)
+
+    def test_cli_task_update_continue_summary_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            self.create_task(work)
+            result = self.run_cli(work, "task", "update", "--task-id", "task-cli", "--continue-summary", "This should not be ignored.")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("session summarize", result.stderr)
+
+    def test_batch_apply_does_not_write_json_null_as_none_string(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = self.copy_workroot(tmp)
+            batch = work / "batch.json"
+            batch.write_text(
+                json.dumps(
+                    {
+                        "operations": [
+                            {"op": "task.create", "title": "Null Field Task", "task_id": "null-field-task", "process_level": "L2"},
+                            {
+                                "op": "action.add",
+                                "action_id": "null-field-action",
+                                "task_id": "null-field-task",
+                                "type": "manual_check",
+                                "run_id": None,
+                                "tool": None,
+                                "summary": "Checked null handling.",
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_cli(work, "batch", "apply", "--file", str(batch))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            action_registry = (work / ".workroot/runtime/index/action_registry.csv").read_text(encoding="utf-8")
+            self.assertNotIn("None", action_registry)
 
     def test_cli_rejects_future_timestamp_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

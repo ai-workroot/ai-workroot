@@ -44,6 +44,39 @@ class UpdateUsageDirectionTest(unittest.TestCase):
             for path, content in before.items():
                 self.assertEqual(content, path.read_text(encoding="utf-8"))
 
+    def test_preserves_existing_custom_profile_sections(self) -> None:
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "workroot"
+            shutil.copytree(repo, work, ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache"))
+
+            profile = work / "space/profile/profile.md"
+            profile.write_text(
+                "# Profile\n\n## Subject\n\nExisting subject.\n\n## Custom Boundary\n\nNever overwrite this section.\n",
+                encoding="utf-8",
+            )
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/update_usage_direction.py",
+                    "--direction",
+                    "The user wants product leadership collaboration.",
+                    "--focus",
+                    "Support strategy, roadmap, and execution tradeoffs.",
+                ],
+                cwd=work,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            profile_text = profile.read_text(encoding="utf-8")
+            self.assertIn("product leadership collaboration", profile_text)
+            self.assertIn("Support strategy, roadmap", profile_text)
+            self.assertIn("## Custom Boundary", profile_text)
+            self.assertIn("Never overwrite this section.", profile_text)
+
 
 if __name__ == "__main__":
     unittest.main()

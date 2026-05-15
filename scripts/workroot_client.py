@@ -14,6 +14,7 @@ import shutil
 import tempfile
 import time
 import unicodedata
+import uuid
 from pathlib import Path
 
 
@@ -245,6 +246,12 @@ def read_registry(path: Path) -> tuple[list[str], list[dict[str, str]]]:
         return list(reader.fieldnames or []), list(reader)
 
 
+def optional_str(value: object, default: str = "") -> str:
+    if value is None:
+        return default
+    return str(value)
+
+
 @contextlib.contextmanager
 def file_lock(path: Path, timeout: float = 10.0):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -274,6 +281,22 @@ def write_registry_atomic(path: Path, headers: list[str], rows: list[dict[str, s
         writer.writeheader()
         writer.writerows(rows)
     os.replace(tmp_name, path)
+
+
+def copy_tree_or_file(src: Path, dst: Path) -> None:
+    if src.is_dir():
+        shutil.copytree(src, dst)
+    elif src.exists():
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+
+
+def restore_tree_or_file(src: Path, dst: Path) -> None:
+    if dst.is_dir():
+        shutil.rmtree(dst)
+    elif dst.exists():
+        dst.unlink()
+    copy_tree_or_file(src, dst)
 
 
 def replace_in_file(path: Path, replacements: dict[str, str]) -> None:
@@ -793,9 +816,71 @@ class WorkrootClient:
 
         with file_lock(self.lock_path()):
             self._lock_depth += 1
+            transaction_id = f"tx-{now_utc().replace(':', '').replace('-', '')}-{uuid.uuid4().hex[:8]}"
+            transaction_dir = self.root / ".workroot/runtime/transactions"
+            backup_dir = transaction_dir / transaction_id
+            journal = transaction_dir / f"{transaction_id}.json"
+            touched = [
+                self.root / ".workroot/runtime/index",
+                self.root / ".workroot/runtime/work/tasks",
+                self.root / "space/work",
+            ]
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            for path in touched:
+                copy_tree_or_file(path, backup_dir / path.relative_to(self.root))
+            journal.write_text(
+                json.dumps(
+                    {
+                        "transaction_id": transaction_id,
+                        "status": "started",
+                        "created_at": now_utc(),
+                        "source_file": file_path,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
             try:
                 for operation in operations:
                     self.apply_batch_operation(operation)
+            except BaseException as exc:
+                for path in reversed(touched):
+                    backup = backup_dir / path.relative_to(self.root)
+                    if backup.exists():
+                        restore_tree_or_file(backup, path)
+                journal.write_text(
+                    json.dumps(
+                        {
+                            "transaction_id": transaction_id,
+                            "status": "rolled_back",
+                            "created_at": now_utc(),
+                            "source_file": file_path,
+                            "error": str(exc),
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                raise
+            else:
+                journal.write_text(
+                    json.dumps(
+                        {
+                            "transaction_id": transaction_id,
+                            "status": "committed",
+                            "created_at": now_utc(),
+                            "source_file": file_path,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
             finally:
                 self._lock_depth -= 1
 
@@ -807,14 +892,14 @@ class WorkrootClient:
             self.create_task(
                 title=str(operation["title"]),
                 task_id=operation.get("task_id") if isinstance(operation.get("task_id"), str) else None,
-                process_level=str(operation.get("process_level", "L0")),
-                goal=str(operation.get("goal", "What are we trying to accomplish?")),
-                why=str(operation.get("why", "Why is this worth doing?")),
-                expected=str(operation.get("expected", "What should exist when this task is done?")),
-                next_action=str(operation.get("next_action", "Define next step")),
-                owner_scope=str(operation.get("owner_scope", "personal")),
-                visibility=str(operation.get("visibility", "internal")),
-                priority=str(operation.get("priority", "")),
+                process_level=optional_str(operation.get("process_level"), "L0"),
+                goal=optional_str(operation.get("goal"), "What are we trying to accomplish?"),
+                why=optional_str(operation.get("why"), "Why is this worth doing?"),
+                expected=optional_str(operation.get("expected"), "What should exist when this task is done?"),
+                next_action=optional_str(operation.get("next_action"), "Define next step"),
+                owner_scope=optional_str(operation.get("owner_scope"), "personal"),
+                visibility=optional_str(operation.get("visibility"), "internal"),
+                priority=optional_str(operation.get("priority")),
                 created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
                 user_visible_output_path=operation.get("user_visible_output_path") if isinstance(operation.get("user_visible_output_path"), str) else None,
             )
@@ -838,34 +923,34 @@ class WorkrootClient:
             if isinstance(operation.get("content_file"), str):
                 content = Path(str(operation["content_file"])).read_text(encoding="utf-8")
             self.add_artifact(
-                artifact_id=str(operation["artifact_id"]),
-                task_id=str(operation["task_id"]),
-                run_id=str(operation.get("run_id", "")),
-                action_id=str(operation.get("action_id", "")),
-                type=str(operation.get("type", "")),
-                path=str(operation["path"]),
-                audience=str(operation.get("audience", "internal")),
-                status=str(operation.get("status", "active")),
-                size=str(operation.get("size", "")),
-                checksum=str(operation.get("checksum", "")),
-                created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
-                create_missing=bool(operation.get("content_file") or operation.get("content")),
-                content=content or str(operation.get("content", "")),
-                compute_metadata=bool(operation.get("compute_metadata")),
-            )
+                    artifact_id=str(operation["artifact_id"]),
+                    task_id=str(operation["task_id"]),
+                    run_id=optional_str(operation.get("run_id")),
+                    action_id=optional_str(operation.get("action_id")),
+                    type=optional_str(operation.get("type")),
+                    path=str(operation["path"]),
+                    audience=optional_str(operation.get("audience"), "internal"),
+                    status=optional_str(operation.get("status"), "active"),
+                    size=optional_str(operation.get("size")),
+                    checksum=optional_str(operation.get("checksum")),
+                    created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
+                    create_missing=bool(operation.get("content_file") or operation.get("content")),
+                    content=content or optional_str(operation.get("content")),
+                    compute_metadata=bool(operation.get("compute_metadata")),
+                )
         elif op == "action.add":
             self.add_action(
                 task_id=str(operation["task_id"]),
                 action_id=str(operation["action_id"]),
-                run_id=str(operation.get("run_id", "")),
-                type=str(operation.get("type", "")),
-                status=str(operation.get("status", "active")),
-                summary=str(operation.get("summary", "")),
-                tool=str(operation.get("tool", "")),
-                input_ref=str(operation.get("input_ref", "")),
-                output_ref=str(operation.get("output_ref", "")),
-                approval_ref=str(operation.get("approval_ref", "")),
-                risk_level=str(operation.get("risk_level", "")),
+                run_id=optional_str(operation.get("run_id")),
+                type=optional_str(operation.get("type")),
+                status=optional_str(operation.get("status"), "active"),
+                summary=optional_str(operation.get("summary")),
+                tool=optional_str(operation.get("tool")),
+                input_ref=optional_str(operation.get("input_ref")),
+                output_ref=optional_str(operation.get("output_ref")),
+                approval_ref=optional_str(operation.get("approval_ref")),
+                risk_level=optional_str(operation.get("risk_level")),
                 created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
             )
         elif op == "checkpoint.add":
@@ -873,17 +958,17 @@ class WorkrootClient:
                 task_id=str(operation["task_id"]),
                 checkpoint_id=str(operation["checkpoint_id"]),
                 current_status=str(operation["current_status"]),
-                last_valid_run_id=str(operation.get("last_valid_run_id", "")),
-                next_action=str(operation.get("next_action", "")),
-                required_context_paths=str(operation.get("required_context_paths", "")),
+                last_valid_run_id=optional_str(operation.get("last_valid_run_id")),
+                next_action=optional_str(operation.get("next_action")),
+                required_context_paths=optional_str(operation.get("required_context_paths")),
                 created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
             )
         elif op == "retrieval_card.add":
             self.add_retrieval_card(
                 task_id=str(operation["task_id"]),
                 card_id=str(operation["card_id"]),
-                freshness=str(operation.get("freshness", "hot")),
-                source_paths=str(operation.get("source_paths", "")),
+                freshness=optional_str(operation.get("freshness"), "hot"),
+                source_paths=optional_str(operation.get("source_paths")),
                 created_at=operation.get("created_at") if isinstance(operation.get("created_at"), str) else None,
             )
         elif op == "session.summarize":

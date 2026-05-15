@@ -270,6 +270,8 @@ def main() -> None:
         return
 
     if args.resource == "task" and args.action == "update":
+        if args.continue_summary:
+            parser.error("--continue-summary no longer updates global continuation; use `session summarize` instead")
         client.sync_task_state(
             task_id=args.task_id,
             status=args.status,
@@ -282,7 +284,6 @@ def main() -> None:
             handoff_latest_result=args.handoff_latest_result,
             index_outputs=args.index_output,
             mind_paths=args.mind_path,
-            continue_summary=args.continue_summary,
         )
         print(args.task_id)
         return
