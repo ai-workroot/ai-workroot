@@ -2,7 +2,7 @@
 
 This document defines the AI Workroot kernel implementation.
 
-It is the implementation-grade companion to `docs/ai-workspace-operating-system-design.md`. The OS design document explains the architecture and philosophy. This specification defines the concrete kernel layout, required files, contracts, schemas, registries, scripts, validation rules, and release gates.
+It is the implementation-grade companion to `docs/workroot-system-design.md`. The system design document explains the architecture and philosophy. This specification defines the concrete kernel layout, required files, contracts, schemas, registries, scripts, validation rules, and release gates.
 
 ## 1. Kernel Status
 
@@ -33,7 +33,7 @@ The kernel is not an application server, hosted service, model provider, databas
 
 ## 2. Implementation Invariants
 
-The public seed must expose the AI Workspace Operating System layout:
+The public seed must expose the Workroot system layout:
 
 ```text
 space/ + .workroot/
@@ -176,7 +176,7 @@ It must not include:
 - unreviewed binary assets
 - unfinished logo assets
 
-Placeholders must be explicit and empty. The seed should invite ownership without pretending to be a real user's workspace.
+Placeholders must be explicit and empty. The seed should invite ownership without pretending to be a real user's Workroot.
 
 ## 6. Space Responsibilities
 

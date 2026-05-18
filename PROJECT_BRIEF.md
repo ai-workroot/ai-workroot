@@ -6,13 +6,13 @@ AI Workroot
 
 ## Positioning
 
-A human-centered AI workspace protocol for ordinary people, teams, and roles to work with AI, preserve context, build knowledge, accumulate ability, and grow over time.
+A personal, local-first Workroot for individuals to work with AI, preserve context, build knowledge, accumulate ability, and continue meaningful work over time.
 
-It is also the seed of an AI Workspace Operating System: user space stays simple, kernel rules stay rigorous, extensions stay replaceable, and runtime state stays rebuildable.
+It is also the seed of a Workroot system: user space stays simple, kernel rules stay rigorous, extensions stay replaceable, and runtime state stays rebuildable.
 
 ## Founding Question
 
-In the age of AI, how should a person or team do work, remember, reflect, decide, and grow without being locked into one model, chat product, or agent?
+In the age of AI, how should a person do work, remember, reflect, decide, forget, and grow without being locked into one model, chat product, or agent?
 
 ## Core Claim
 
@@ -20,9 +20,9 @@ The Workroot is the durable continuity layer. AI agents are replaceable collabor
 
 ## Target Users
 
-- ordinary people using AI for work and life
-- teams building shared AI workspaces
-- role-based agents such as testing, product, operations, finance, research, writing, design, and coding
+- individuals using AI for work, learning, creativity, and life planning
+- people moving across multiple agents, models, tools, and devices
+- people who want a clean local-first foundation for long-term work with AI
 - people who want their knowledge and context to remain portable
 
 ## Design Philosophy
@@ -32,7 +32,7 @@ The Workroot is the durable continuity layer. AI agents are replaceable collabor
 - Human first, AI second.
 - Identity first: define the subject before durable work begins.
 - Simple for users, strict for agents.
-- AI-native operating system design, not a traditional OS clone.
+- AI-native Workroot system design, not a traditional OS clone.
 - Files are the source of truth.
 - Databases and indexes are optional accelerators.
 - Startup context must stay small even as the Workroot grows for years.
@@ -45,7 +45,7 @@ The Workroot is the durable continuity layer. AI agents are replaceable collabor
 
 ## Public Seed Purpose
 
-The public seed establishes the AI Workspace Operating System shape:
+The public seed establishes the Workroot system shape:
 
 - README and mission
 - upgraded `space/ + .workroot/` architecture
@@ -70,4 +70,4 @@ The public seed establishes the AI Workspace Operating System shape:
 
 ## Next Milestone
 
-Validate the public seed through real personal, team, and role usage, then refine the first-use flow from actual feedback.
+Validate the public seed through real personal usage, then refine the first-use flow from actual feedback.

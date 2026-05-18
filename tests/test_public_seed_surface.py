@@ -86,7 +86,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
         self.assertEqual(hits, [])
 
     def test_start_here_starts_with_one_sentence_path(self) -> None:
-        first_sentence = "I want this workspace to help me with [area]. Please set it up with me, then help me start my first real task."
+        first_sentence = "I want this Workroot to help me with [area]. Please set it up with me, then help me start my first real task."
         text = (ROOT / "START_HERE_FOR_HUMANS.md").read_text(encoding="utf-8")
         position = text.find(first_sentence)
         self.assertGreaterEqual(position, 0)

@@ -140,7 +140,7 @@ def build_continue(subject: str, direction: str) -> str:
 
 This Workroot has been initialized.
 
-## What This Workspace Represents
+## What This Workroot Represents
 
 {subject}
 

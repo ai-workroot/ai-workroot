@@ -4,7 +4,7 @@ Do not publish private identity, sensitive personal information, secrets, or pri
 
 Prefer private-by-default for personal Workroots.
 
-For team Workroots, treat the Workroot as shared continuity for the defined team subject. Do not create hidden internal knowledge areas or partial visibility rules inside the same team Workroot. If material should not be visible to the team, it belongs in a different Workroot with a different subject boundary.
+AI Workroot is personal-first. If future shared-subject Workroots are introduced, treat that sharing as an explicit boundary choice, not as the default.
 
 Before publishing, exporting, or sharing a Workroot outside its subject boundary, check whether identity, Mind entries, task artifacts, resources, and generated data are intended for that outside audience.
 

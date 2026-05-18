@@ -25,7 +25,7 @@ class SetupWorkrootTest(unittest.TestCase):
                     sys.executable,
                     "scripts/setup_workroot.py",
                     "--subject",
-                    "This Workroot represents a personal AI workspace.",
+                    "This Workroot represents a personal AI Workroot.",
                     "--ai-role",
                     "Long-term thinking and execution partner.",
                     "--direction",
@@ -42,7 +42,7 @@ class SetupWorkrootTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Help me start my first real task", result.stdout)
             profile = (work / "space/profile/profile.md").read_text(encoding="utf-8")
-            self.assertIn("personal AI workspace", profile)
+            self.assertIn("personal AI Workroot", profile)
             self.assertIn("Long-term thinking and execution partner", profile)
             current = (work / ".workroot/runtime/context/current.md").read_text(encoding="utf-8")
             self.assertIn("Initialized at", current)

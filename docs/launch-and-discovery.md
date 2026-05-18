@@ -24,14 +24,14 @@ AI Workroot gives that work a durable home:
 - reusable context
 - identity and values
 
-The project is not another model, app, or hosted memory product. It is a file-first workspace protocol that helps people, teams, and roles work with AI over time.
+The project is not another model, app, agent runtime, or hosted memory product. It is a personal, local-first Workroot that helps individuals preserve continuity across AI tools over time.
 
 ## GitHub Repository Description
 
 Use this as the GitHub repository description:
 
 ```text
-Open-source AI workspace protocol for people, teams, and roles to preserve AI context, memory, tasks, decisions, and knowledge across agents.
+Personal, local-first Workroot for preserving AI context, tasks, memory, decisions, and handoff across agents.
 ```
 
 ## Recommended GitHub Topics
@@ -43,9 +43,10 @@ Recommended topics:
 ```text
 ai
 ai-agents
-ai-workspace
-agent-workspace
+ai-workroot
+workroot
 personal-ai
+local-first
 ai-memory
 agent-memory
 portable-context
@@ -53,7 +54,6 @@ context-engineering
 knowledge-management
 personal-knowledge-base
 task-management
-team-workspace
 workflow
 productivity
 codex
@@ -67,45 +67,47 @@ open-source
 
 Use these phrases naturally in documentation, examples, articles, and release posts:
 
-- AI workspace
-- agent workspace
+- personal AI Workroot
+- local-first Workroot
+- user-owned AI context
+- portable AI context
 - AI memory
 - agent memory
-- portable AI context
 - context engineering
-- personal AI workspace
-- team AI workspace
+- AI continuity layer
 - personal knowledge base
 - AI task management
 - AI knowledge management
 - long-term AI work
-- file-first AI workspace
+- file-first AI context
 - AI agents for ordinary people
-- Codex and Claude Code workspace
+- Codex and Claude Code continuity
 
 Do not stuff keywords. Repeat the real problem clearly and consistently.
+
+Use "personal Workroot", "local-first Workroot", and "user-owned continuity foundation" as the primary category language.
 
 ## Launch Headline Options
 
 Use one of these depending on the channel:
 
 ```text
-AI Workroot: a file-first workspace protocol for long-term work with AI
+AI Workroot: a personal, local-first Workroot for long-term work with AI
 ```
 
 ```text
-Stop losing AI work in chat history. Give it a durable home.
+AI agents may come and go. Your Workroot stays with you.
 ```
 
 ```text
-An open-source AI workspace for tasks, memory, knowledge, and decisions across agents
+Stop losing AI work in chat history. Give it a durable home you own.
 ```
 
 ## Short Pitch
 
 ```text
-AI Workroot is an open-source AI workspace protocol for people, teams, and roles.
-It helps you preserve AI context, memory, tasks, decisions, and knowledge in files that stay portable across agents such as Codex and Claude Code.
+AI Workroot is a personal, local-first Workroot for individuals.
+It helps you preserve AI context, memory, tasks, decisions, and handoff in files that stay portable across agents such as Codex and Claude Code.
 ```
 
 ## First-Use Promise
@@ -113,7 +115,7 @@ It helps you preserve AI context, memory, tasks, decisions, and knowledge in fil
 Use this message consistently:
 
 ```text
-Start in 2 minutes: clone or download the project, rename only the outer folder as your own AI workspace, open it with an AI agent, paste the starter prompt, define who the workspace serves, then start your first task.
+Start in 2 minutes: clone or download the project, rename only the outer folder into something personal, open it with an AI agent, paste the starter prompt, define what you want help with, then start your first task.
 ```
 
 This promise matters because AI Workroot is not only for engineers. Ordinary users should understand the first action before they understand the architecture.
@@ -121,16 +123,15 @@ This promise matters because AI Workroot is not only for engineers. Ordinary use
 In the repository README, use the more explicit two-minute path:
 
 ```text
-Clone, rename only the outer folder, open with an AI agent, paste the starter prompt, define who the workspace serves, and start the first task.
+Clone, rename only the outer folder, open with an AI agent, paste the starter prompt, define what you want help with, and start the first task.
 ```
 
 ## What To Emphasize
 
 - Ordinary people can start without understanding agent frameworks.
 - Ordinary users can say what they want to do, ask to continue, or say "Save what matters" without learning the internal framework.
-- The project is evolving toward an AI Workspace Operating System with a simple user space and a rigorous kernel space.
-- Teams can share knowledge without locking it inside one AI product.
-- Role-based agents can grow from the same core protocol.
+- The project is evolving toward a personal Workroot system with a simple user space and a rigorous kernel space.
+- A person's continuity should not be locked inside one AI product.
 - Files remain the source of truth.
 - Databases and indexes are optional rebuildable accelerators.
 - AI agents are replaceable; the Workroot is the continuity layer.
@@ -139,7 +140,8 @@ Clone, rename only the outer folder, open with an AI agent, paste the starter pr
 
 ## What To Avoid
 
-- Do not claim that AI Workroot is a model, hosted service, or finished app.
+- Describe AI Workroot as an early, personal, local-first Workroot seed.
+- Keep the public promise centered on personal continuity, ownership, and cross-agent handoff.
 - Do not imply official support from OpenAI, Anthropic, GitHub, or other companies.
 - Do not over-promise productivity or personal transformation.
 - Do not use fake stars, fake testimonials, or artificial engagement.
@@ -149,10 +151,10 @@ Clone, rename only the outer folder, open with an AI agent, paste the starter pr
 
 Good launch content should show concrete use:
 
-- How a person starts a personal AI workspace.
-- How a testing team preserves task results and reusable knowledge.
-- How a product role records decisions and handoffs.
-- How a company can keep AI work portable across agents.
+- How a person starts a personal Workroot.
+- How an individual preserves task results and reusable knowledge.
+- How a product-minded person records decisions and handoffs.
+- How AI work can remain portable across agents.
 - Why AI memory should not live only in chat history.
 
 ## Contributor Call
@@ -160,7 +162,7 @@ Good launch content should show concrete use:
 Use this wording when inviting long-term contributors:
 
 ```text
-AI Workroot is looking for exceptional individual contributors who can help shape a human-centered AI Workspace Operating System.
+AI Workroot is looking for exceptional individual contributors who can help shape a human-centered, personal Workroot system for the AI era.
 
 We need people with philosophical depth, AI engineering excellence, and strong consumer AI product judgment who care about helping ordinary people use AI to work, remember, grow, and live better.
 
@@ -172,9 +174,8 @@ For long-term contributor or maintainer conversations, contact aiworkroot@proton
 Before broad public promotion, run real internal usage:
 
 1. Start with one personal Workroot.
-2. Start one testing team Workroot.
-3. Start one product team Workroot.
-4. Capture friction, confusing wording, missing templates, and failed assumptions.
-5. Promote only lessons that survive real work.
+2. Use it for real work across multiple AI agents.
+3. Capture friction, confusing wording, missing templates, and failed assumptions.
+4. Promote only lessons that survive real work.
 
 Real usage is the strongest launch asset.

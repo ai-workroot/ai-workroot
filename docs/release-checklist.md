@@ -34,12 +34,12 @@ vX.Y.Z
 - `START_HERE_FOR_HUMANS.md` gives a clear first message.
 - `docs/user-sop.md` provides a practical operating manual without adding demo data to the core template.
 - `docs/product-experience.md` defines first run, intent routing, continue, and save-what-matters behavior.
-- `docs/ai-workspace-operating-system-design.md` documents the user-space/kernel-space architecture.
+- `docs/workroot-system-design.md` documents the user-space/kernel-space architecture.
 - `docs/kernel-implementation-specification.md` defines the kernel versioning, contracts, schemas, validation behavior, tests, and release gates for implementation.
 - `docs/user-interaction-contract.md` defines the ordinary-user interaction contract.
 - `docs/architecture-map.md` provides a visual explanation of the protocol.
 - `docs/daily-loop.md` explains the everyday operating rhythm.
-- New users are invited to rename only the outer folder into their own AI workspace before first use.
+- New users are invited to rename only the outer folder into something personal before first use.
 - New users are told not to rename internal protocol folders.
 - Identity setup is required before formal work, but it remains lightweight.
 - Users can ask quick questions without understanding the internal architecture.
@@ -50,7 +50,7 @@ vX.Y.Z
 - A new user can start from the README without reading architecture documents first.
 - The public seed uses the `space/ + .workroot/` architecture.
 - Root-level paths outside the public seed surface are absent.
-- Ordinary user docs describe `space/` as the visible workspace and do not instruct users to manage `.workroot/`.
+- Ordinary user docs describe `space/` as the visible user-owned space and do not instruct users to manage `.workroot/`.
 
 ## Global Readiness
 

@@ -32,8 +32,8 @@ This page lists starter contribution ideas. Use them as GitHub issues, discussio
 
 ## Capabilities
 
-- Draft a testing team workflow capability.
-- Draft a product team workflow capability.
+- Draft a personal testing workflow capability.
+- Draft a personal product-thinking workflow capability.
 - Draft a writing workflow capability.
 - Draft a personal planning workflow capability.
 - Draft a research workflow capability.
@@ -56,7 +56,7 @@ Capabilities should follow `docs/extension-contract.md`.
 - Collect anonymous first-use feedback.
 - Propose issue labels for contributors.
 - Draft a community discussion guide.
-- Help identify enterprise pilot scenarios.
+- Help identify privacy-safe personal pilot scenarios.
 
 ## How To Pick One
 

@@ -2,7 +2,7 @@
 
 This is the core operating protocol for AI agents working inside AI Workroot.
 
-It is the root protocol of the project. Domain skills, tool skills, MCP integrations, and agent-specific plugins must work inside this protocol.
+It is the foundational protocol of the project. Domain skills, tool skills, MCP integrations, and agent-specific plugins must work inside this protocol.
 
 For ordinary user experience, also follow:
 
@@ -10,10 +10,10 @@ For ordinary user experience, also follow:
 - `docs/user-interaction-contract.md`
 - `docs/kernel-implementation-specification.md`
 
-The public seed uses the upgraded AI Workspace Operating System architecture:
+The public seed uses the Workroot system architecture:
 
 ```text
-space/       user-visible workspace
+space/       user-visible space
 .workroot/   kernel, extensions, and rebuildable runtime state
 ```
 
@@ -43,15 +43,13 @@ Agents must not create competing canonical folders for the same meanings.
 
 AI Workroot must know who or what it serves before formal durable work begins.
 
-The user may rename the outer folder to make the workspace feel personal. Agents should not ask ordinary users to rename internal protocol folders such as `space`, `.workroot`, or `docs`.
+The user may rename the outer folder to make the Workroot feel personal. Agents should not ask ordinary users to rename internal protocol folders such as `space`, `.workroot`, or `docs`.
 
-Before creating formal internal work records or promoting durable knowledge, confirm that `space/profile/` defines the subject:
+Before creating formal internal work records or promoting durable knowledge, confirm that `space/profile/` defines the subject. In the current product direction, this should normally be:
 
 - a person
-- a team
-- a role
-- a project
-- an organization
+
+The protocol still has room for future team, role, project, or organization subject boundaries, but those are not the default public positioning.
 
 If identity is blank or still generic, guide the user through a minimal setup:
 

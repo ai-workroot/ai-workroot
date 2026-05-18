@@ -1,6 +1,6 @@
 # Instantiate A Workroot
 
-Use this guide when turning the AI Workroot starter into a concrete personal, team, role, project, or organization workspace.
+Use this guide when turning the AI Workroot starter into a concrete personal Workroot.
 
 ## 1. Copy The Starter
 
@@ -13,8 +13,8 @@ Copy the starter directory into a new outer directory for the concrete subject.
 Examples:
 
 ```text
-my-ai-workspace
-team-quality-workspace
+my-ai-workroot
+my-life-workroot
 product-thinking-partner
 ```
 
@@ -72,9 +72,9 @@ When durable objects are created, update the CSV registries in `.workroot/runtim
 
 If a local SQLite index is used, it must be rebuildable from these file sources.
 
-For team or sub-agent scenarios:
+For delegated or sub-agent scenarios:
 
-- use `owner_scope` in `task_registry.csv` to identify whether work belongs to a person, team, role, or organization
+- use `owner_scope` in `task_registry.csv` only when a future workflow explicitly needs broader subject boundaries
 - use `link_registry.csv` to connect parent work, delegated sub-work, participants, outputs, decisions, and Mind entries
 - add capability-specific registries only when a real role or domain workflow needs more structure
 

@@ -2,7 +2,7 @@
 
 AI Workroot should feel simple even when the underlying protocol is rigorous.
 
-For ordinary users, AI Workroot is not a framework to learn. It is a personal, team, or role workspace where they can work with AI, preserve what matters, and continue later.
+For ordinary users, AI Workroot is not a framework to learn. It is a personal Workroot where they can work with AI, preserve what matters, and continue later.
 
 ## Product North Star
 
@@ -29,7 +29,7 @@ For ordinary users:
 ```text
 You say what you want to do.
 The AI helps you do it.
-The workspace keeps what matters.
+The Workroot keeps what matters.
 Next time, you can continue.
 ```
 
@@ -58,13 +58,13 @@ The detailed interaction rules are defined in `docs/user-interaction-contract.md
 
 ## Ordinary User Journey
 
-### 1. Get The Workspace
+### 1. Get The Workroot
 
 The user downloads or clones AI Workroot and puts it somewhere durable.
 
 The user may rename only the outer folder. Internal protocol folders stay unchanged.
 
-For the public seed, the visible product workspace is `space/`. The system kernel lives under `.workroot/` and should not be part of ordinary first-use learning.
+For the public seed, the visible user-owned space is `space/`. The system kernel lives under `.workroot/` and should not be part of ordinary first-use learning.
 
 ### 2. Open With AI
 
@@ -73,7 +73,7 @@ The user opens the folder with Codex, Claude Code, or another capable AI agent.
 The user can start with one sentence:
 
 ```text
-I want this workspace to help me with [area]. Please set it up with me, then help me start my first real task.
+I want this Workroot to help me with [area]. Please set it up with me, then help me start my first real task.
 ```
 
 Longer prompts may help less capable agents, but they should not be the primary product experience.
@@ -92,7 +92,7 @@ I am in grade 7. Help me understand fractions and make practice questions.
 
 The AI asks only what is needed:
 
-- who or what the workspace represents
+- what the Workroot should help with
 - what the AI should help with
 - what values, preferences, or boundaries matter
 
@@ -234,7 +234,7 @@ The agent should not ask the user to reconstruct the previous session from memor
 
 The agent should not send ordinary users into `.workroot/`, registry files, schemas, or kernel contracts to understand what happened.
 
-For team or delegated work, the agent should keep a plain-language collaboration map in the continuation view:
+For delegated work, the agent should keep a plain-language collaboration map in the continuation view:
 
 - parent work
 - delegated work
@@ -291,7 +291,7 @@ The agent should decide what kind of preservation is appropriate:
 
 Ask a short confirmation if the preservation could affect privacy, emotional weight, or future retrieval.
 
-After saving a meaningful result, the agent should also update task state and continuation state so the workspace does not show conflicting progress signals.
+After saving a meaningful result, the agent should also update task state and continuation state so the Workroot does not show conflicting progress signals.
 
 ## Success Criteria
 

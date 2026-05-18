@@ -2,7 +2,7 @@
 
 This document defines how AI agents should interact with ordinary users inside AI Workroot.
 
-It is part of the product boundary of the AI Workspace Operating System.
+It is part of the product boundary of the AI Workroot system.
 
 The kernel may be rigorous, but the user experience must stay simple.
 
@@ -32,7 +32,7 @@ For ordinary users:
 ```text
 You say what you want.
 The AI helps you do it.
-The workspace keeps what matters.
+The Workroot keeps what matters.
 Next time, you can continue.
 ```
 
@@ -97,7 +97,7 @@ If the user brings a real problem first, ask at most one minimal identity questi
 Good:
 
 ```text
-I can help. One quick setup question before I save anything long-term: is this workspace for you personally, a team, or a specific role/project?
+I can help. One quick setup question before I save anything long-term: what do you do, and what do you mainly want this Workroot to help with?
 ```
 
 Bad:
@@ -110,7 +110,7 @@ Please answer all setup questions before I can help with your meeting notes.
 
 A minimal identity is acceptable when it defines:
 
-- subject: person, team, role, project, or organization
+- subject: person
 - AI role: what kind of collaborator the AI should be
 - direction: what work or life area it supports
 
@@ -272,7 +272,7 @@ The agent should ask confirmation when:
 - preservation includes emotionally heavy material
 - preservation affects future retrieval
 - preservation writes durable memory
-- preservation may expose team-visible knowledge
+- preservation may expose private material to a broader audience in the future
 
 Good confirmation:
 
@@ -321,7 +321,7 @@ This file should use ordinary language and answer:
 - what needs a decision
 - what should happen next
 
-For team or delegated work, it should include a plain collaboration map. Do not tell ordinary users to inspect registries, schemas, or runtime files to understand the work.
+For delegated work, it should include a plain collaboration map. Do not tell ordinary users to inspect registries, schemas, or runtime files to understand the work.
 
 The continuation view should include one sentence the user can say next, for example:
 
@@ -358,7 +358,7 @@ The user should not need to know where the task records are stored.
 Good:
 
 ```text
-Here are the tasks I found in this workspace. The current one is the study task on fractions, and the next step is practice questions.
+Here are the tasks I found in this Workroot. The current one is the study task on fractions, and the next step is practice questions.
 ```
 
 Bad:
@@ -475,7 +475,7 @@ Ask confirmation before:
 - using external accounts
 - using network access when the user did not request it
 - writing to kernel space
-- making private material team-visible
+- making private material visible outside the user's intended boundary
 - saving emotionally heavy memory
 
 Confirmation should be short and specific.
@@ -486,21 +486,15 @@ Example:
 This may save sensitive personal context for future retrieval. Do you want me to save a brief lesson only, without the details?
 ```
 
-## 15. Team Workroot Contract
+## 15. Boundary Contract
 
-For a team Workroot, knowledge should be shared team continuity.
+AI Workroot is personal-first.
 
-The default assumption is transparency inside the team Workroot.
+The default assumption is that preserved knowledge belongs to the person who owns the Workroot.
 
-Do not create hidden per-person knowledge inside one shared team Workroot.
+If future team, role, project, or organization use appears, treat it as an explicit extension of the subject boundary. Do not silently turn personal material into shared knowledge.
 
 If separate visibility boundaries are needed, recommend separate Workroots.
-
-The agent should say:
-
-```text
-Because this is a team Workroot, I will treat preserved knowledge as shared team context unless you tell me this belongs elsewhere.
-```
 
 ## 16. Language Contract
 

@@ -38,7 +38,7 @@
     {
       "when": "architecture_or_kernel_work",
       "paths": [
-        "docs/ai-workspace-operating-system-design.md",
+        "docs/workroot-system-design.md",
         "docs/kernel-implementation-specification.md"
       ]
     }

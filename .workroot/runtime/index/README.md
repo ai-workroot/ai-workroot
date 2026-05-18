@@ -1,4 +1,4 @@
-# Workspace Index
+# Workroot Index
 
 Indexes help AI agents find the right context without reading long historical logs.
 

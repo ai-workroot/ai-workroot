@@ -2,11 +2,11 @@
 
 This document defines product hardening rules for AI Workroot.
 
-It does not change the philosophy or the operating-system architecture. It tightens the product boundary so ordinary users can begin, continue, and trust the workspace without learning internal mechanics.
+It does not change the philosophy or the Workroot system architecture. It tightens the product boundary so ordinary users can begin, continue, and trust the Workroot without learning internal mechanics.
 
 ## Problem Statement
 
-The architecture can support personal, team, role, writing, and executive scenarios. The main product risk is not kernel capability. The risk is ordinary-user trust.
+The architecture can support many personal scenarios, including writing, learning, executive work, and long-term projects. The main product risk is not kernel capability. The risk is ordinary-user trust.
 
 AI Workroot must prevent four common product failures:
 
@@ -21,7 +21,7 @@ AI Workroot must prevent four common product failures:
 - Keep the full architecture available, but after the first useful action.
 - Make continuation visible in plain language.
 - Keep registry and task state synchronized enough that users can trust handoff.
-- Let teams see relationship maps without reading registry files.
+- Let users see relationship maps without reading registry files.
 - Strengthen release validation without making the daily user experience heavier.
 
 ## Non-Goals
@@ -37,7 +37,7 @@ AI Workroot must prevent four common product failures:
 The first user action should be a single sentence:
 
 ```text
-I want this workspace to help me with [area]. Please set it up with me, then help me start my first real task.
+I want this Workroot to help me with [area]. Please set it up with me, then help me start my first real task.
 ```
 
 This sentence is the primary product entry. Longer prompts are reliability helpers for advanced agents, not the default user-facing experience.
@@ -75,9 +75,9 @@ It may be generated or manually maintained by the AI agent. The user should not 
 
 The internal handoff under `.workroot/runtime/context/handoff.md` remains useful for agents. The human continuation view is the product-facing equivalent.
 
-## Team Collaboration Map
+## Collaboration Map
 
-For team or delegated work, the continuation view should include a plain-language map:
+For delegated or multi-part work, the continuation view should include a plain-language map:
 
 - parent work
 - delegated work
@@ -87,9 +87,9 @@ For team or delegated work, the continuation view should include a plain-languag
 - promoted knowledge
 - next human decision
 
-`link_registry.csv` remains the machine-readable relationship layer. It should not be the only way a team lead understands the work.
+`link_registry.csv` remains the machine-readable relationship layer. It should not be the only way a user understands the work.
 
-Agents may maintain a richer team map under `space/work/` when useful, but the kernel does not require a domain-specific team folder.
+Agents may maintain a richer relationship map under `space/work/` when useful, but the kernel does not require a domain-specific collaboration folder.
 
 ## State Synchronization Invariant
 

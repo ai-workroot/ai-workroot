@@ -1,8 +1,8 @@
-# AI Workspace Operating System Design
+# Workroot System Design
 
-AI Workroot is an AI Workspace Operating System seed for people, teams, roles, and projects.
+AI Workroot is a personal, local-first Workroot for individuals.
 
-This document defines the public architecture as a finished system shape. It describes the final product model, layer responsibilities, kernel boundaries, extension model, runtime model, and long-term design principles.
+This document defines the public architecture as a durable system shape. It describes the product model, layer responsibilities, kernel boundaries, extension model, runtime model, and long-term design principles behind a user-owned Workroot.
 
 For concrete file requirements, contracts, schemas, registry headers, scripts, and release gates, see `docs/kernel-implementation-specification.md`.
 
@@ -10,7 +10,7 @@ For concrete file requirements, contracts, schemas, registry headers, scripts, a
 
 AI Workroot exists to give AI-assisted work a durable home.
 
-Most AI work disappears into disconnected chats. AI Workroot instead gives each person, team, role, or project a portable workspace where identity, work, memory, knowledge, decisions, handoff, and reusable context can accumulate over time.
+Most AI work disappears into disconnected chats. AI Workroot instead gives each person a portable Workroot where identity, work, memory, knowledge, decisions, handoff, and reusable context can accumulate over time.
 
 The product promise is:
 
@@ -18,7 +18,7 @@ The product promise is:
 You work in your space.
 The AI helps you.
 The kernel preserves continuity.
-The workspace grows with you.
+Your Workroot grows with you.
 ```
 
 The architecture is built around one operating claim:
@@ -37,13 +37,13 @@ The user should be able to start by doing work. The kernel and agents should car
 
 AI Workroot defines:
 
-- a user-owned workspace layout
+- a user-owned Workroot layout
 - a kernel layout for contracts, schemas, interfaces, boot rules, and policies
 - an extension layer for optional capabilities, skills, MCP bridges, agent adapters, and drivers
 - a runtime layer for generated context, registries, caches, and rebuildable data stores
 - an agent behavior model for identity setup, intent routing, preservation, handoff, and continuation
 - a file-first source-of-truth model
-- a context economy model for long-lived workspaces
+- a context economy model for long-lived Workroots
 - release, forgetting, redaction, deletion, and tombstone semantics
 - globalization rules for language, encoding, time, and path portability
 
@@ -62,7 +62,7 @@ AI Workroot does not define:
 
 ### Human First
 
-The human, team, role, or project remains the subject.
+The person remains the subject.
 
 AI is a collaborator. Models, agents, tools, skills, MCP servers, databases, and clients are replaceable. The Workroot is the continuity layer that remains.
 
@@ -82,13 +82,13 @@ Users say what they want to do. Agents route the work, preserve the useful resul
 
 The protocol stays strict behind the scenes.
 
-### AI-Native Operating System
+### AI-Native Workroot System
 
 AI Workroot is not a clone of a traditional operating system.
 
 Traditional operating systems organize processes, files, devices, permissions, and system calls. AI Workroot organizes intention, identity, context, memory, knowledge, work, tools, retrieval, release, and continuity.
 
-The system call of an AI Workspace Operating System is a governed transition:
+The central transition of an AI-native Workroot system is:
 
 ```text
 human intention -> AI-assisted work -> useful result -> preserved meaning -> future continuation
@@ -112,9 +112,9 @@ Long memory must not become large startup context.
 
 AI Workroot must support years of accumulation without forcing every new session to read the whole past. Startup context stays small. Deeper memory is reached through summaries, registries, links, and retrieval.
 
-### Open Workspace
+### Open Workroot
 
-The kernel protects a small set of anchors and lifecycle semantics. It must not limit what a person, team, or role can build inside the workspace.
+The kernel protects a small set of anchors and lifecycle semantics. It must not limit what a person can build inside the Workroot.
 
 User space and extensions may evolve in any domain-specific direction as long as they preserve the core continuity contracts.
 
@@ -188,7 +188,7 @@ The architecture has four main spaces:
 
 ## 5. User Space
 
-`space/` is the visible workspace.
+`space/` is the visible user-owned space.
 
 It is user-owned and protocol-governed:
 
@@ -223,7 +223,7 @@ The kernel must not treat these folders as errors. Agents should connect importa
 
 The subject identity.
 
-It contains the visible identity content for the person, team, role, project, or organization:
+It contains the visible identity content for the person:
 
 - who or what this Workroot represents
 - what role AI should play
@@ -684,4 +684,4 @@ AI Workroot is successful when:
 - forgetting and tombstones are respected without heavy implementation
 - future kernel evolution has stable boundaries
 
-The result should feel like a simple AI workspace to ordinary users and a rigorous operating protocol to agents and contributors.
+The result should feel like a simple personal Workroot to ordinary users and a rigorous operating protocol to agents and contributors.

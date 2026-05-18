@@ -8,7 +8,7 @@ Good contributions:
 - improve the architecture language
 - identify missing abstractions
 - propose task and Mind templates
-- propose personal or team examples
+- propose personal examples
 - improve portability and privacy guidance
 - improve helper scripts without making them mandatory infrastructure
 
@@ -32,7 +32,7 @@ The strongest contributors combine all three. This project is not looking only f
 
 Good future maintainers should be able to:
 
-- keep the human, team, or role as the subject
+- keep the person as the subject
 - avoid turning AI Workroot into a tool-centered framework
 - simplify the first-use experience for ordinary people
 - design protocols that survive across agents, models, and operating systems

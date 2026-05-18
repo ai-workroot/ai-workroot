@@ -2,7 +2,7 @@
 
 AI Workroot is philosophy-led and engineering-grounded.
 
-We are looking for people who care about how humans, teams, and roles can live and work with AI over time without losing continuity, ownership, memory, knowledge, or agency.
+We are looking for people who care about how individuals can live and work with AI over time without losing continuity, ownership, memory, knowledge, or agency.
 
 This is not a broad recruiting list. AI Workroot needs a small number of exceptional individual contributors who can help shape the project at the level of philosophy, AI engineering, and consumer product experience.
 
@@ -39,7 +39,7 @@ Good long-term contributors should be able to:
 
 The first areas where exceptional contributors can help are:
 
-- AI Workspace Operating System architecture
+- personal Workroot system architecture
 - kernel contracts and compatibility boundaries
 - context economy, memory, knowledge, retrieval, and indexing
 - agent behavior across Codex, Claude Code, Cursor, and future AI agents

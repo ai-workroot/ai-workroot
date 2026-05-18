@@ -18,7 +18,7 @@ The core protocol owns:
 
 Extensions may add capability-specific structure, but they must not redefine these core rules.
 
-The kernel should not restrict what useful work a workspace can contain. Extensions and user-space folders may create domain-specific structure, workflows, scripts, and indexes as long as they preserve the stable kernel contracts and do not turn generated state into the only source of truth.
+The kernel should not restrict what useful work a Workroot can contain. Extensions and user-space folders may create domain-specific structure, workflows, scripts, and indexes as long as they preserve the stable kernel contracts and do not turn generated state into the only source of truth.
 
 ## Permission Hints
 
@@ -160,7 +160,7 @@ The agent may use extension rules behind the scenes, but the user should not nee
 
 Before accepting an extension, check:
 
-- Does it serve a real personal, team, or role workflow?
+- Does it serve a real personal workflow?
 - Does it keep files as the durable source of truth?
 - Does it preserve the identity boundary?
 - Does it keep startup context small?

@@ -5,7 +5,7 @@ You do not need to understand this project before using it.
 Open this folder with an AI agent and say:
 
 ```text
-I want this workspace to help me with [area]. Please set it up with me, then help me start my first real task.
+I want this Workroot to help me with [area]. Please set it up with me, then help me start my first real task.
 ```
 
 If you do not know where to start, say your real situation:
@@ -114,8 +114,8 @@ Do not rename the inside folders. You can rename only the outer folder to someth
 
 ```text
 my-study-helper
-my-workspace
-team-release-helper
+my-workroot
+my-life-planner
 my-writing-partner
 ```
 

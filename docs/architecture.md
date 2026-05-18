@@ -2,9 +2,9 @@
 
 ## 1. Mission
 
-AI Workroot is a human-centered AI Workspace Operating System seed.
+AI Workroot is a personal, local-first Workroot system seed.
 
-Its purpose is to help ordinary people, teams, and roles use AI to do work, preserve context, build knowledge, accumulate ability, release what no longer needs active recall, and grow over time.
+Its purpose is to help individuals use AI to do work, preserve context, build knowledge, accumulate ability, release what no longer needs active recall, and grow over time.
 
 The core architectural claim is:
 
@@ -14,7 +14,7 @@ The core architectural claim is:
 The public seed must use the upgraded architecture:
 
 ```text
-space/       user-visible workspace
+space/       user-visible space
 .workroot/   kernel, extensions, and rebuildable runtime state
 ```
 
@@ -38,20 +38,20 @@ Agents, databases, vector indexes, graph indexes, MCP servers, skills, plugins, 
 
 ### Human First
 
-The subject is the human, team, or role using the workspace.
+The subject is the person using the Workroot.
 
 AI is powerful, but it is not the center. It reads, helps, executes, summarizes, reflects, and writes back.
 
 The subject must be defined before durable work begins. Identity is the first anchor for tasks, memory, knowledge, values, and agent behavior.
 
-The subject boundary is more important than a permission system. A personal Workroot serves a person. A team Workroot serves a team, and its knowledge should be shared team continuity rather than hidden fragments. If different visibility boundaries are needed, they should usually become different Workroots, not complex access control inside one Workroot.
+The subject boundary is more important than a permission system. A personal Workroot serves a person. If different visibility boundaries are needed, they should usually become different Workroots, not complex access control inside one Workroot.
 
 ### Simple For Users, Strict For Agents
 
 Users should see a simple experience:
 
 ```text
-say what I want -> AI helps -> workspace keeps what matters -> continue later
+say what I want -> AI helps -> Workroot keeps what matters -> continue later
 ```
 
 Agents should follow a stricter operating protocol behind the scenes:
@@ -88,7 +88,7 @@ They must not become the only place where memory lives.
 
 AI Workroot separates user space, kernel space, extension space, and runtime space.
 
-This keeps personal growth, team knowledge, task execution, tool behavior, and generated accelerators from collapsing into one opaque chat history.
+This keeps personal growth, task execution, tool behavior, and generated accelerators from collapsing into one opaque chat history.
 
 ### User-Owned, Protocol-Governed Space
 
@@ -152,7 +152,7 @@ ai-workroot/
 
 ### `space/`
 
-The visible user-owned, protocol-governed workspace.
+The visible user-owned, protocol-governed space.
 
 Ordinary users may add their own folders inside `space/`. The kernel should not treat user-created folders as errors.
 
@@ -182,17 +182,13 @@ The kernel defines the identity gate and minimum identity contract. It does not 
 
 Derived identity summaries may exist under `.workroot/runtime/` for context efficiency, but they must be rebuildable from `space/profile/`.
 
-The subject can be:
+The subject is currently expected to be:
 
 - a person
-- a team
-- a role
-- a project
-- an organization
 
 For a person, identity includes profile, roles, values, preferences, and current life/work context.
 
-For a team, identity includes mission, shared roles, standards, and collaboration preferences.
+The underlying protocol keeps room for future team, role, project, or organization forms, but the current product positioning is personal-first.
 
 ### `space/work/`
 
@@ -208,7 +204,7 @@ The long-term externalized mind of the subject.
 
 It is not only a knowledge base. It includes memory, knowledge, principles, decisions, patterns, reflections, invalidated beliefs, released past context, and tombstones.
 
-`space/mind/knowledge/` may be freely organized into subject-specific domains as the person or team grows. The protocol requires discoverability, links, and index discipline, not one fixed taxonomy for everyone.
+`space/mind/knowledge/` may be freely organized into subject-specific domains as the person grows. The protocol requires discoverability, links, and index discipline, not one fixed taxonomy for everyone.
 
 Recommended substructure:
 
@@ -424,7 +420,7 @@ repeated workflow -> extension capability
 
 AI context organization depends on indexes.
 
-AI Workroot uses indexes not only as technical tables, but as the nervous system of the workspace.
+AI Workroot uses indexes not only as technical tables, but as the nervous system of the Workroot.
 
 Recommended levels:
 
@@ -510,7 +506,7 @@ Vector and graph indexes should remain future extensions unless a concrete Workr
 
 The Workroot operating protocol is the core skill of AI Workroot.
 
-It defines the root thinking pattern:
+It defines the foundational thinking pattern:
 
 - human-centered continuity
 - layered memory

@@ -10,7 +10,7 @@ A Workroot serves one defined subject.
 
 For a personal Workroot, the subject is the person. The Workroot should preserve that person's continuity across work, life, learning, reflection, and decisions.
 
-For a team Workroot, the subject is the team. Knowledge created inside the team Workroot is shared team continuity and should be transparent to the team. AI Workroot does not introduce internal permission systems, hidden knowledge areas, or artificial information gaps between members of the same subject.
+AI Workroot is personal-first. Future team, role, project, or organization forms should be explicit subject-boundary extensions rather than the default product promise.
 
 If different privacy boundaries are needed, create separate Workroots for separate subjects instead of adding complex access control inside one Workroot.
 

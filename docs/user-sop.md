@@ -21,11 +21,11 @@ Documents/AI/my-study-helper
 ```
 
 ```text
-Work/my-workspace
+Work/my-workroot
 ```
 
 ```text
-Projects/team-release-helper
+Projects/my-workroot
 ```
 
 You may rename only the outer folder. Choose a name that feels natural.
@@ -37,7 +37,7 @@ Open the folder with Codex, Claude Code, or another capable AI agent.
 Say:
 
 ```text
-I want this workspace to help me with [area]. Please set it up with me, then help me start my first real task.
+I want this Workroot to help me with [area]. Please set it up with me, then help me start my first real task.
 ```
 
 If you already have a real problem, say that instead:
@@ -151,7 +151,7 @@ Summarize what we finished recently.
 What useful notes have we saved?
 ```
 
-The AI should use the local workspace records to list or summarize your past tasks. If something was not saved, it should say that clearly.
+The AI should use the local Workroot records to list or summarize your past tasks. If something was not saved, it should say that clearly.
 
 ## Good First Things To Try
 
@@ -173,10 +173,10 @@ Office work:
 Help me turn these meeting notes into action items and an email draft.
 ```
 
-Team:
+Long-term goal:
 
 ```text
-Help us check this release and make a simple risk list.
+Help me plan this project and keep the next step clear.
 ```
 
 Writing:

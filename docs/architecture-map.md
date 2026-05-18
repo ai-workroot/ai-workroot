@@ -5,7 +5,7 @@ AI Workroot separates user work, kernel law, extensions, runtime state, indexes,
 The public architecture is:
 
 ```text
-space/       user-visible workspace
+space/       user-visible space
 .workroot/   kernel, extensions, and rebuildable runtime state
 ```
 
@@ -13,7 +13,7 @@ space/       user-visible workspace
 
 ```mermaid
 flowchart LR
-  User[human, team, role, or project] --> Agent[AI agent]
+  User[person] --> Agent[AI agent]
   Agent --> Profile[space/profile<br/>subject identity]
   Agent --> Work[space/work<br/>visible results]
   Agent --> RuntimeWork[.workroot/runtime/work<br/>internal task state]
@@ -29,7 +29,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  Human[subject<br/>person, team, role, project, or organization] --> Space[space/<br/>owned user space]
+  Human[subject<br/>person] --> Space[space/<br/>owned user space]
   Space --> Profile[profile<br/>identity and boundaries]
   Space --> VisibleWork[work<br/>outputs, summaries, reports]
   Space --> Mind[mind<br/>long-term externalized mind]

@@ -5,7 +5,7 @@
 - Keep README as a light entry point.
 - Keep deeper philosophy and architecture in `docs/`.
 - Keep the public seed on the `space/ + .workroot/` architecture.
-- Validate first-use flow with personal, team, and role examples.
+- Validate first-use flow with personal examples.
 - Publish the first open-source seed and validate it through real usage.
 
 ## Completed In The Initial Public Release
@@ -25,7 +25,7 @@
 
 ## Immediate Validation After Initial Publication
 
-- Run real internal adoption with personal, team, and role Workroots.
+- Run real internal adoption with personal Workroots.
 - Collect friction from ordinary users who do not understand the architecture.
 - Improve first-use language, continuation behavior, and task-history review.
 - Validate that agents create and update internal task state without asking users to manage files.

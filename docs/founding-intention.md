@@ -8,19 +8,19 @@ It starts from a deeper question:
 
 Many AI products help people answer a question or finish a task. That is useful, but it is not enough.
 
-Human life is continuous. A person works, learns, struggles, decides, fails, recovers, loves, creates, and grows over time. A team also grows through shared experience, decisions, mistakes, and accumulated knowledge. If AI only lives inside disconnected chats, then much of that growth disappears after each session.
+Human life is continuous. A person works, learns, struggles, decides, fails, recovers, loves, creates, and grows over time. If AI only lives inside disconnected chats, then much of that growth disappears after each session.
 
 AI Workroot tries to create a different foundation.
 
-It asks AI to become a long-term collaborator inside a durable workspace, while keeping the human, team, or role as the subject. The workspace should remember what happened, preserve why decisions were made, turn useful results into knowledge, and let future AI agents continue from the last meaningful state.
+It asks AI to become a long-term collaborator inside a durable Workroot, while keeping the person as the subject. The Workroot should remember what happened, preserve why decisions were made, turn useful results into knowledge, and let future AI agents continue from the last meaningful state.
 
-## Philosophical Root
+## Philosophical Foundation
 
-The philosophical root is simple:
+The philosophical foundation is simple:
 
 - people should remain the center
 - AI should help people become clearer, steadier, and more capable
-- memory, knowledge, decisions, values, and growth should belong to the person or team
+- memory, knowledge, decisions, values, and growth should belong to the person
 - ordinary people should have an easy starting point in the AI era
 - human work should become accumulated understanding, not scattered fragments
 - after lessons are learned, people should be allowed to release old pain and keep moving forward
@@ -60,7 +60,7 @@ If a tool makes the project look more advanced but makes ordinary people less ab
 human intention -> AI-assisted work -> result -> memory -> knowledge -> growth
 ```
 
-AI Workroot treats the human, team, or role as the subject.
+AI Workroot treats the person as the subject.
 
 AI is a collaborator. Models are replaceable. Agents are replaceable. Tools are replaceable. The Workroot is the continuity layer that remains.
 
@@ -78,7 +78,7 @@ Over time, a Workroot should become a living external mind:
 
 AI should not only belong to programmers, researchers, or people who already understand agent frameworks.
 
-A person should be able to download a workspace, tell an AI who they are and what they want to do, and begin working immediately.
+A person should be able to download a Workroot, tell an AI who they are and what they want to do, and begin working immediately.
 
 The internal system can be rigorous, but the first user experience must be simple.
 
@@ -163,15 +163,15 @@ Startup context must stay small. Old task logs, raw data, archives, released con
 
 The Workroot should use summaries, handoffs, indexes, lifecycle status, and optional local accelerators so long memory remains useful without becoming noise.
 
-## Personal, Team, And Role Workroots Should All Work
+## Personal Workroots Come First
 
-AI Workroot is not only personal.
+AI Workroot is personal-first.
 
-It can represent:
+Its first responsibility is to serve:
 
-- a person building a lifelong AI workspace
-- a team building shared knowledge
-- a role such as product, testing, operations, finance, research, writing, design, or coding
-- a project that needs durable decisions, tasks, and context
+- a person building a lifelong AI Workroot
+- a person preserving knowledge across tools
+- a person working through long-term goals, decisions, and unfinished projects
+- a person who wants AI help without giving ownership of continuity to one product
 
-The same structure should support individual memory, team knowledge, and role-specific workflows without mixing them into one opaque chat log.
+The underlying protocol may later support team, role, project, or organizational forms. Those directions should be treated as future expansions, not the center of the current product promise.
