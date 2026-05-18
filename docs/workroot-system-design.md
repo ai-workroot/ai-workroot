@@ -2,7 +2,9 @@
 
 AI Workroot is a personal, local-first Workroot for individuals.
 
-This document defines the public architecture as a durable system shape. It describes the product model, layer responsibilities, kernel boundaries, extension model, runtime model, and long-term design principles behind a user-owned Workroot.
+This document defines the public architecture as a durable system shape.
+It describes the product model, layer responsibilities, kernel boundaries, extension model,
+runtime model, and long-term design principles behind a user-owned Workroot.
 
 For concrete file requirements, contracts, schemas, registry headers, scripts, and release gates, see `docs/kernel-implementation-specification.md`.
 
@@ -66,13 +68,17 @@ The person remains the subject.
 
 AI is a collaborator. Models, agents, tools, skills, MCP servers, databases, and clients are replaceable. The Workroot is the continuity layer that remains.
 
-### Subject And Guidance
+### Progressive Subject And Guidance
 
-Before durable work begins, a Workroot must know who or what it serves.
+Before durable preservation begins, a Workroot must know enough about who or what it serves.
+That subject anchor can be small at first and become clearer through real use.
 
-Identity is not a rigid persona. It is the first anchor for context, values, preferences, boundaries, and long-term memory.
+Identity is not a rigid persona.
+It is the first anchor for context, values, preferences, boundaries, and long-term memory.
 
-Identity content belongs to `space/profile/`. The kernel defines the identity gate and startup behavior, but it does not own the user's actual identity content.
+Identity content belongs to `space/profile/`.
+The kernel defines the identity gate as an internal preservation rule and startup behavior,
+but it does not own the user's actual identity content.
 
 ### Simple For Users, Strict For Agents
 
@@ -578,7 +584,9 @@ Forgetting is user-directed. Deletion requires explicit user choice.
 
 A tombstone is an intentional marker for remembrance, mourning, closure, or responsibility without keeping the full raw context active.
 
-Future versions may deepen tombstone behavior through philosophy, product workflow, UI, lifecycle audits, export/import rules, and generated-store cleanup. That evolution must remain user-directed and backward-compatible with existing tombstone markers.
+Future versions may deepen tombstone behavior through philosophy, product workflow, UI,
+lifecycle audits, export/import rules, and generated-store cleanup.
+That evolution must remain user-directed and backward-compatible with existing tombstone markers.
 
 ## 13. Context Economy
 

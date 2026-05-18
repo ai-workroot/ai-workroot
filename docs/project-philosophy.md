@@ -10,7 +10,12 @@ I did not begin AI Workroot because I wanted to chase an AI trend, wrap a produc
 
 I began it because I kept feeling a more fundamental question underneath the noise.
 
-AI is changing the world at extraordinary speed. Yet many ordinary people still do not know what this change means for their own lives. They do not know how to live with AI. They do not know how to work with AI. More importantly, they do not know how to remain themselves in an age when AI may understand, assist, remember, interpret, and influence more and more of daily life.
+AI is changing the world at extraordinary speed.
+Yet many ordinary people still do not know what this change means for their own lives.
+They do not know how to live with AI.
+They do not know how to work with AI.
+More importantly, they do not know how to remain themselves in an age when AI may understand,
+assist, remember, interpret, and influence more and more of daily life.
 
 That question became more important to me than any single feature:
 
@@ -227,7 +232,9 @@ The person's Workroot should remain.
 
 AI Workroot is local-first because ownership matters.
 
-A person's important context should not be trapped entirely inside a remote product. A person's progress should not depend completely on a single platform's memory. A person's work should remain accessible, portable, inspectable, and understandable.
+A person's important context should not be trapped entirely inside a remote product.
+A person's progress should not depend completely on a single platform's memory.
+A person's work should remain accessible, portable, inspectable, and understandable.
 
 Local-first does not mean isolated.
 

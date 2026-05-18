@@ -11,6 +11,28 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+TASK_REGISTRY_HEADER = (
+    "task_id,title,status,process_level,owner_scope,visibility,priority,"
+    "created_at,updated_at,user_visible_output_path,source_path,brief_path,"
+    "handoff_path,next_action\n"
+)
+
+
+def task_registry_row(
+    task_id: str,
+    title: str,
+    status: str = "active",
+    process_level: str = "L0",
+    updated_at: str = "2026-05-14T02:00:00Z",
+    user_visible_output_path: str = "",
+) -> str:
+    source_path = f".workroot/runtime/work/tasks/{task_id}"
+    return (
+        f"{task_id},{title},{status},{process_level},personal,private,,"
+        f"2026-05-14T00:00:00Z,{updated_at},{user_visible_output_path},"
+        f"{source_path},{source_path}/brief.md,{source_path}/handoff.md,\n"
+    )
+
 
 class ListTasksScriptTest(unittest.TestCase):
     def test_empty_seed_outputs_no_tasks(self) -> None:
@@ -34,9 +56,20 @@ class ListTasksScriptTest(unittest.TestCase):
             )
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
-                "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
-                "task-old,Old task,closed,L0,personal,private,,2026-05-14T00:00:00Z,2026-05-14T01:00:00Z,space/work/old.md,.workroot/runtime/work/tasks/task-old,.workroot/runtime/work/tasks/task-old/brief.md,.workroot/runtime/work/tasks/task-old/handoff.md,\n"
-                "task-new,New task,active,L1,personal,private,,2026-05-14T00:00:00Z,2026-05-14T02:00:00Z,space/work/new.md,.workroot/runtime/work/tasks/task-new,.workroot/runtime/work/tasks/task-new/brief.md,.workroot/runtime/work/tasks/task-new/handoff.md,\n",
+                TASK_REGISTRY_HEADER
+                + task_registry_row(
+                    "task-old",
+                    "Old task",
+                    status="closed",
+                    updated_at="2026-05-14T01:00:00Z",
+                    user_visible_output_path="space/work/old.md",
+                )
+                + task_registry_row(
+                    "task-new",
+                    "New task",
+                    process_level="L1",
+                    user_visible_output_path="space/work/new.md",
+                ),
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -60,9 +93,19 @@ class ListTasksScriptTest(unittest.TestCase):
             )
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
-                "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
-                "task-active,Active task,active,L0,personal,private,,2026-05-14T00:00:00Z,2026-05-14T02:00:00Z,space/work/active.md,.workroot/runtime/work/tasks/task-active,.workroot/runtime/work/tasks/task-active/brief.md,.workroot/runtime/work/tasks/task-active/handoff.md,\n"
-                "task-closed,Closed task,closed,L0,personal,private,,2026-05-14T00:00:00Z,2026-05-14T01:00:00Z,space/work/closed.md,.workroot/runtime/work/tasks/task-closed,.workroot/runtime/work/tasks/task-closed/brief.md,.workroot/runtime/work/tasks/task-closed/handoff.md,\n",
+                TASK_REGISTRY_HEADER
+                + task_registry_row(
+                    "task-active",
+                    "Active task",
+                    user_visible_output_path="space/work/active.md",
+                )
+                + task_registry_row(
+                    "task-closed",
+                    "Closed task",
+                    status="closed",
+                    updated_at="2026-05-14T01:00:00Z",
+                    user_visible_output_path="space/work/closed.md",
+                ),
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -93,8 +136,13 @@ class ListTasksScriptTest(unittest.TestCase):
             )
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
-                "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
-                "task-study,Study fractions,active,L1,personal,private,,2026-05-14T00:00:00Z,2026-05-14T02:00:00Z,space/work/reports/fractions.md,.workroot/runtime/work/tasks/task-study,.workroot/runtime/work/tasks/task-study/brief.md,.workroot/runtime/work/tasks/task-study/handoff.md,\n",
+                TASK_REGISTRY_HEADER
+                + task_registry_row(
+                    "task-study",
+                    "Study fractions",
+                    process_level="L1",
+                    user_visible_output_path="space/work/reports/fractions.md",
+                ),
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -126,8 +174,13 @@ class ListTasksScriptTest(unittest.TestCase):
             )
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
-                "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
-                "task-next-actions,Next actions task,active,L1,personal,private,,2026-05-14T00:00:00Z,2026-05-14T02:00:00Z,space/work/next.md,.workroot/runtime/work/tasks/task-next-actions,.workroot/runtime/work/tasks/task-next-actions/brief.md,.workroot/runtime/work/tasks/task-next-actions/handoff.md,\n",
+                TASK_REGISTRY_HEADER
+                + task_registry_row(
+                    "task-next-actions",
+                    "Next actions task",
+                    process_level="L1",
+                    user_visible_output_path="space/work/next.md",
+                ),
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -156,8 +209,13 @@ class ListTasksScriptTest(unittest.TestCase):
             )
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
-                "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
-                "task-continue,Continue task,active,L1,personal,private,,2026-05-14T00:00:00Z,2026-05-14T02:00:00Z,space/work/continue-report.md,.workroot/runtime/work/tasks/task-continue,.workroot/runtime/work/tasks/task-continue/brief.md,.workroot/runtime/work/tasks/task-continue/handoff.md,\n",
+                TASK_REGISTRY_HEADER
+                + task_registry_row(
+                    "task-continue",
+                    "Continue task",
+                    process_level="L1",
+                    user_visible_output_path="space/work/continue-report.md",
+                ),
                 encoding="utf-8",
             )
             result = subprocess.run(

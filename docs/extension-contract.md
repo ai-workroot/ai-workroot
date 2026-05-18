@@ -18,7 +18,10 @@ The core protocol owns:
 
 Extensions may add capability-specific structure, but they must not redefine these core rules.
 
-The kernel should not restrict what useful work a Workroot can contain. Extensions and user-space folders may create domain-specific structure, workflows, scripts, and indexes as long as they preserve the stable kernel contracts and do not turn generated state into the only source of truth.
+The kernel should not restrict what useful work a Workroot can contain.
+Extensions and user-space folders may create domain-specific structure, workflows, scripts, and indexes
+as long as they preserve the stable kernel contracts and do not turn generated state
+into the only source of truth.
 
 ## Permission Hints
 

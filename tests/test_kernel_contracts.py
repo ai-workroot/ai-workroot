@@ -12,6 +12,30 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+TASK_REGISTRY_HEADER = (
+    "task_id,title,status,process_level,owner_scope,visibility,priority,"
+    "created_at,updated_at,user_visible_output_path,source_path,brief_path,"
+    "handoff_path,next_action\n"
+)
+
+
+def task_registry_row(
+    task_id: str,
+    title: str,
+    status: str = "active",
+    process_level: str = "L0",
+    visibility: str = "internal",
+    created_at: str = "2026-05-14T00:00:00Z",
+    updated_at: str = "2026-05-14T00:00:00Z",
+    user_visible_output_path: str = "",
+) -> str:
+    source_path = f".workroot/runtime/work/tasks/{task_id}"
+    return (
+        f"{task_id},{title},{status},{process_level},personal,{visibility},,"
+        f"{created_at},{updated_at},{user_visible_output_path},"
+        f"{source_path},{source_path}/brief.md,{source_path}/handoff.md,\n"
+    )
+
 
 class KernelContractsTest(unittest.TestCase):
     def test_kernel_version(self) -> None:
@@ -133,8 +157,7 @@ class KernelContractsTest(unittest.TestCase):
             report.parent.mkdir(parents=True, exist_ok=True)
             report.write_text("# Demo\n", encoding="utf-8")
             (work / ".workroot/runtime/index/task_registry.csv").write_text(
-                "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
-                f"{task_id},Demo,active,L0,personal,internal,,2026-05-14T00:00:00Z,2026-05-14T00:00:00Z,,.workroot/runtime/work/tasks/{task_id},.workroot/runtime/work/tasks/{task_id}/brief.md,.workroot/runtime/work/tasks/{task_id}/handoff.md,\n",
+                TASK_REGISTRY_HEADER + task_registry_row(task_id, "Demo"),
                 encoding="utf-8",
             )
             (work / ".workroot/runtime/index/artifact_registry.csv").write_text(
@@ -164,7 +187,13 @@ class KernelContractsTest(unittest.TestCase):
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
-                + "task-bad,Bad,active,L9,personal,internal,,2026-05-15T00:00:00Z,2026-05-15T00:00:00Z,,.workroot/runtime/work/tasks/task-bad,.workroot/runtime/work/tasks/task-bad/brief.md,.workroot/runtime/work/tasks/task-bad/handoff.md,\n",
+                + task_registry_row(
+                    task_id="task-bad",
+                    title="Bad",
+                    process_level="L9",
+                    created_at="2026-05-15T00:00:00Z",
+                    updated_at="2026-05-15T00:00:00Z",
+                ),
                 encoding="utf-8",
             )
             result = subprocess.run(

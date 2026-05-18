@@ -42,9 +42,13 @@ The subject is the person using the Workroot.
 
 AI is powerful, but it is not the center. It reads, helps, executes, summarizes, reflects, and writes back.
 
-The subject must be defined before durable work begins. Identity is the first anchor for tasks, memory, knowledge, values, and agent behavior.
+Before durable preservation begins, the Workroot needs a minimum subject anchor.
+Identity is the first anchor for tasks, memory, knowledge, values, and agent behavior.
 
-The subject boundary is more important than a permission system. A personal Workroot serves a person. If different visibility boundaries are needed, they should usually become different Workroots, not complex access control inside one Workroot.
+The subject boundary is more important than a permission system.
+A personal Workroot serves a person.
+If different visibility boundaries are needed, they should usually become different Workroots,
+not complex access control inside one Workroot.
 
 ### Simple For Users, Strict For Agents
 
@@ -110,7 +114,9 @@ This means:
 
 The kernel must not copy user identity or user knowledge into `.workroot/kernel/` as a second source of truth.
 
-The kernel may define validation, startup rules, identity gate behavior, context policies, and derived summaries. Those are rules about content, not ownership of the content.
+The kernel may define validation, startup rules, identity gate behavior, context policies,
+and derived summaries.
+Those are rules about content, not ownership of the content.
 
 ## 3. Top-Level Structure
 
@@ -168,17 +174,23 @@ space/files/
 
 Users own the content in these folders, but agents and tools rely on their meanings.
 
-User-added folders are free-form. When their content should become durable identity, work, knowledge, memory, source material, or handoff, agents should connect it back to the protocol anchors through links, summaries, registries, or preservation actions.
+User-added folders are free-form.
+When their content should become durable identity, work, knowledge, memory, source material, or handoff,
+agents should connect it back to the protocol anchors through links, summaries, registries,
+or preservation actions.
 
 ### `space/profile/`
 
 Defines who this Workroot represents.
 
-This is the first required setup layer. A Workroot can start with a small identity, but it should not start durable formal work without one.
+This is the first required preservation anchor.
+A Workroot can start with a real task first, but it should not preserve durable formal work
+without a clear enough subject.
 
 `space/profile/` is the source of truth for identity content.
 
-The kernel defines the identity gate and minimum identity contract. It does not own the user's actual identity content.
+The kernel defines the identity gate and minimum identity contract as internal preservation rules.
+It does not own the user's actual identity content.
 
 Derived identity summaries may exist under `.workroot/runtime/` for context efficiency, but they must be rebuildable from `space/profile/`.
 
@@ -248,7 +260,10 @@ It contains optional capabilities, skills, MCP bridges, agent adapters, storage 
 
 Extensions may add power, but they must not redefine kernel semantics.
 
-User space and extensions should remain open-ended. The kernel protects continuity, lifecycle meaning, and source-of-truth rules; it should not constrain the concrete domains, professions, projects, or personal structures that a Workroot can support.
+User space and extensions should remain open-ended.
+The kernel protects continuity, lifecycle meaning, and source-of-truth rules;
+it should not constrain the concrete domains, professions, projects, or personal structures
+that a Workroot can support.
 
 ### `.workroot/runtime/`
 
@@ -385,7 +400,9 @@ Process levels keep the process layer proportional to the work:
 - `L1`: process records with plans, Runs, Retrieval Cards, and Checkpoints
 - `L2`: evidence records with Actions, recipes, validation, and Invalidations
 
-The Work Process Layer is deliberately file-first. A task can grow from a light state record into a richer chain of Runs, Actions, Artifacts, Checkpoints, Retrieval Cards, Decisions, and Invalidations without changing its identity or moving its directory.
+The Work Process Layer is deliberately file-first.
+A task can grow from a light state record into a richer chain of Runs, Actions, Artifacts, Checkpoints,
+Retrieval Cards, Decisions, and Invalidations without changing its identity or moving its directory.
 
 ### Agent Operation Layer
 
@@ -399,7 +416,10 @@ It includes:
 - high-level commands such as `task complete`, `batch apply`, `session summarize`, and `continue rebuild`
 - registry locking, atomic CSV writes, and batch transaction journals
 
-This layer reduces repeated file reading and CLI trial-and-error. Normal agents should read the operation manifest and JSON recipes instead of reverse-engineering `scripts/workroot_client.py`. It does not hide durable state in a daemon, database, workflow engine, or agent-private memory.
+This layer reduces repeated file reading and CLI trial-and-error.
+Normal agents should read the operation manifest and JSON recipes instead of reverse-engineering
+`scripts/workroot_client.py`.
+It does not hide durable state in a daemon, database, workflow engine, or agent-private memory.
 
 Upgrade path:
 

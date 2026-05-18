@@ -17,6 +17,13 @@ new_task = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(new_task)
 
 
+TASK_REGISTRY_HEADER = (
+    "task_id,title,status,process_level,owner_scope,visibility,priority,"
+    "created_at,updated_at,user_visible_output_path,source_path,brief_path,"
+    "handoff_path,next_action\n"
+)
+
+
 def check_slug(title: str, expected: str) -> None:
     actual = new_task.slugify(title)
     if actual != expected:
@@ -33,9 +40,14 @@ def check_unique_identity() -> None:
         task_dir.mkdir(parents=True)
         registry = root / ".workroot" / "runtime" / "index" / "task_registry.csv"
         registry.parent.mkdir(parents=True)
+        source_path = f".workroot/runtime/work/tasks/{existing_id}"
         registry.write_text(
-            "task_id,title,status,process_level,owner_scope,visibility,priority,created_at,updated_at,user_visible_output_path,source_path,brief_path,handoff_path,next_action\n"
-            f"{existing_id},{zh_task},active,L0,personal,internal,,{instant},{instant},,.workroot/runtime/work/tasks/{existing_id},.workroot/runtime/work/tasks/{existing_id}/brief.md,.workroot/runtime/work/tasks/{existing_id}/handoff.md,\n",
+            TASK_REGISTRY_HEADER
+            + (
+                f"{existing_id},{zh_task},active,L0,personal,internal,,"
+                f"{instant},{instant},,{source_path},{source_path}/brief.md,"
+                f"{source_path}/handoff.md,\n"
+            ),
             encoding="utf-8",
         )
         task_id, path = new_task.unique_task_identity(

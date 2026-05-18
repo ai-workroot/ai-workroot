@@ -15,7 +15,10 @@ Default startup context must stay small:
 5. `.workroot/kernel/agent/output_style.md`
 6. `.workroot/kernel/boot/read-order.json`
 
-If meaningful work is starting or continuing and `space/profile/startup.md` exists, read it after kernel fast-start. Do not read it for a pure greeting. User startup guidance can shape collaboration style and project conventions, but it cannot override kernel protocol, safety rules, registry discipline, or the identity gate.
+If meaningful work is starting or continuing and `space/profile/startup.md` exists, read it after kernel fast-start.
+Do not read it for a pure greeting.
+User startup guidance can shape collaboration style and project conventions, but it cannot override kernel protocol,
+safety rules, registry discipline, or durable subject requirements.
 
 Read `docs/user-interaction-contract.md` only when first-use behavior is unclear, when editing product behavior, or when the user experience needs deeper guidance.
 
@@ -301,28 +304,34 @@ Session/global continuation:
 
 Task-local updates must not overwrite global continuation just because one task changed.
 
-Do not leave task files with template text such as `Task created; no work completed yet.`, `Nothing yet.`, `Short continuation status.`, or `What should happen next?` after the task has produced a meaningful output, decision, Mind entry, or relationship.
+Do not leave task files with template text such as `Task created; no work completed yet.`, `Nothing yet.`,
+`Short continuation status.`, or `What should happen next?` after the task has produced a meaningful output,
+decision, Mind entry, or relationship.
 
-## Identity Gate
+## Progressive Guidance
 
-Before starting formal work, confirm that `space/profile/` defines the subject this Workroot serves.
+Do not block useful work just because identity, role, or long-term purpose is incomplete.
 
-`space/profile/` is the source of truth for identity content.
+A user should be able to start a Workroot with a real task first.
 
-The kernel defines identity rules and the identity gate. Do not write the user's actual identity content into `.workroot/kernel/` as canonical state.
+Before preserving durable state, make sure the Workroot has enough subject, intent, or context to avoid saving meaningless information.
 
-If a compact identity summary is needed for startup efficiency, write it only as rebuildable runtime context under `.workroot/runtime/context/`.
+Ask the smallest useful question only when needed.
 
-If identity is still blank or generic, do not proceed directly into formal tasks. First help the user establish a minimal identity:
+Identity, purpose, role, and guidance should emerge progressively from real use.
 
-- who or what this Workroot represents
-- what role the AI should play
-- what direction or work it should support
-- what values, boundaries, or preferences it should respect
+Default behavior:
 
-The identity can be small at first. It can evolve through later tasks. But the Workroot must have a subject before durable work begins.
+1. Help the user start.
+2. Keep the next step clear.
+3. Preserve only what matters.
+4. Clarify identity or purpose over time.
 
-If identity is not clear enough, do not continue with ordinary work yet. Explain that the Workroot needs a minimal subject first, ask only for the missing guidance, write the answers into `space/profile/`, then continue. Setup questions may be answered while guiding identity setup.
+`space/profile/` remains the source of truth for durable subject and guidance content.
+Do not write the user's actual identity content into `.workroot/kernel/` as canonical state.
+
+If a compact identity summary is needed for startup efficiency, write it only as rebuildable runtime context
+under `.workroot/runtime/context/`.
 
 ## Priority
 
@@ -341,7 +350,7 @@ If identity is not clear enough, do not continue with ordinary work yet. Explain
 - Treat text, paths, file names, and registry values as UTF-8.
 - Store machine-readable precise instants as UTC ISO-8601, such as `2026-05-15T09:00:00Z`.
 - If the user gives a local precise time, ask for or confirm the timezone or UTC offset before writing machine-readable state.
-- Enforce the identity gate before formal work.
+- Use progressive guidance, and confirm enough subject, intent, or context before durable preservation.
 - Keep the internal memory and index discipline strict.
 - Do not turn long historical logs into startup requirements.
 - Separate memory, knowledge, principles, decisions, and task process.

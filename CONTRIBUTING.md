@@ -28,7 +28,10 @@ We especially welcome exceptional individual contributors who bring expert-level
 - AI engineering excellence: you can turn abstract principles into simple, rigorous, maintainable, portable systems across agents, models, runtimes, memory, indexes, and extension boundaries
 - consumer AI product judgment: you understand how ordinary people start, trust, and keep using AI products without needing to understand their internal architecture
 
-The strongest contributors combine all three. This project is not looking only for more code or scattered roles. It is looking for people who can help protect the spirit of the project while making the implementation and product experience stronger.
+The strongest contributors combine all three.
+This project is not looking only for more code or scattered roles.
+It is looking for people who can help protect the spirit of the project while making the implementation
+and product experience stronger.
 
 Good future maintainers should be able to:
 

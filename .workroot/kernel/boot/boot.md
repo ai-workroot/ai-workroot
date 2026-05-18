@@ -2,21 +2,26 @@
 
 This is the compact startup law for AI agents.
 
-## Identity Gate
+## Progressive Guidance
 
-Before formal durable work begins, confirm that `space/profile/` defines who or what this Workroot serves.
+Let the user start with useful work.
+Before formal durable preservation begins, confirm that `space/profile/` defines enough about
+who or what this Workroot serves.
 
-If identity is missing or too generic, ask only the missing setup questions, save the answer in `space/profile/`, then continue.
+If subject guidance is missing or too generic, ask only the smallest useful setup question,
+save the answer in `space/profile/`, then continue.
 
-For a pure greeting, do not trigger the identity gate. Greet briefly and invite the user to say what they want help with.
+For a pure greeting, do not trigger the internal subject-anchor check.
+Greet briefly and invite the user to say what they want help with.
 
-When speaking to ordinary users, translate the internal identity gate into usage direction:
+When speaking to ordinary users, translate the internal subject-anchor check into usage direction:
 
 - what the user does
 - what they mainly want help with
 - how the AI should collaborate
 
-Avoid asking "who does this Workroot represent?" unless the user is already comfortable with the Workroot concept.
+Avoid asking "who does this Workroot represent?" unless the user is already comfortable
+with the Workroot concept.
 
 Before asking a setup question, use a simple usage-direction frame:
 

@@ -35,23 +35,32 @@ space/files/
 
 Users may add other folders under `space/` for their own work.
 
-Agents should not treat those folders as errors. When their content should become durable identity, work, knowledge, memory, source material, or continuation context, agents should connect it back to the protocol anchors through links, summaries, indexes, or preservation actions.
+Agents should not treat those folders as errors.
+When their content should become durable identity, work, knowledge, memory, source material,
+or continuation context, agents should connect it back to the protocol anchors through links,
+summaries, indexes, or preservation actions.
 
 Agents must not create competing canonical folders for the same meanings.
 
-## 0. Establish Subject Identity
+## 0. Progressive Subject Anchor
 
-AI Workroot must know who or what it serves before formal durable work begins.
+AI Workroot should let a user start useful work first.
+Before preserving formal durable work, it must know enough about who or what it serves
+to avoid saving meaningless or misdirected context.
 
-The user may rename the outer folder to make the Workroot feel personal. Agents should not ask ordinary users to rename internal protocol folders such as `space`, `.workroot`, or `docs`.
+The user may rename the outer folder to make the Workroot feel personal.
+Agents should not ask ordinary users to rename internal protocol folders such as `space`,
+`.workroot`, or `docs`.
 
-Before creating formal internal work records or promoting durable knowledge, confirm that `space/profile/` defines the subject. In the current product direction, this should normally be:
+Before creating formal internal work records or promoting durable knowledge, confirm that `space/profile/`
+defines a sufficient subject anchor.
+In the current product direction, this should normally be:
 
 - a person
 
 The protocol still has room for future team, role, project, or organization subject boundaries, but those are not the default public positioning.
 
-If profile guidance is blank or still generic, guide the user through a minimal setup:
+If profile guidance is blank or still generic, guide the user progressively:
 
 1. What should this Workroot help with?
 2. What role should the AI play?
@@ -60,13 +69,17 @@ If profile guidance is blank or still generic, guide the user through a minimal 
 
 Write the result into `space/profile/` as appropriate.
 
-The guidance can be small at first. It can be broad or specialized. It should evolve over time, but durable work should not begin without a subject.
+The guidance can be small at first.
+It can be broad or specialized.
+It should evolve over time, but durable preservation should not happen without a subject.
 
-If guidance is not clear enough, ask only the missing question needed to avoid preserving durable work without a subject, write the answer into `space/profile/`, then continue.
+If guidance is not clear enough, ask only the missing question needed to avoid preserving durable work
+without a subject, write the answer into `space/profile/`, then continue.
 
 Identity content belongs to `space/profile/`.
 
-The kernel defines identity rules, startup checks, and the identity gate. It must not store the user's actual identity content as canonical kernel state.
+The kernel defines identity rules, startup checks, and the identity gate as internal preservation rules.
+It must not store the user's actual identity content as canonical kernel state.
 
 Runtime may keep compact identity summaries for context efficiency, but those summaries are rebuildable and subordinate to `space/profile/`.
 

@@ -12,7 +12,10 @@ For meaningful work, read optional `space/profile/startup.md` after kernel fast-
 
 Do not read it for a pure greeting.
 
-User startup guidance can shape collaboration style, output preferences, business terms, project conventions, and team boundaries. It cannot override kernel protocol, safety rules, registry discipline, or the identity gate.
+User startup guidance can shape collaboration style, output preferences, business terms,
+project conventions, and team boundaries.
+It cannot override kernel protocol, safety rules, registry discipline,
+or internal subject-anchor rules for durable preservation.
 
 ## Continue
 

@@ -2,7 +2,9 @@
 
 AI Workroot is designed for long-term use.
 
-It should still be usable after months, years, and decades of heavy work. A growing Workroot must not force every future agent to read the full past, rebuild every index for every small change, or treat all old knowledge as equally relevant forever.
+It should still be usable after months, years, and decades of heavy work.
+A growing Workroot must not force every future agent to read the full past,
+rebuild every index for every small change, or treat all old knowledge as equally relevant forever.
 
 This document defines the long-term engineering principles for keeping a Workroot durable, fast, portable, and psychologically healthy.
 
@@ -150,7 +152,9 @@ Before closing a task, agents should:
 
 Future agents should prefer the task summary and indexes over old scratch history.
 
-The Work Process Layer keeps high-volume process material out of startup context. Old actions, outputs, validation notes, invalidations, and archives should remain reachable through task indexes and registries, but they should not be read on ordinary startup.
+The Work Process Layer keeps high-volume process material out of startup context.
+Old actions, outputs, validation notes, invalidations, and archives should remain reachable
+through task indexes and registries, but they should not be read on ordinary startup.
 
 ## File And Directory Scale
 
