@@ -1,28 +1,28 @@
-# Start Here
+# Start Here For Humans
 
-You do not need to understand this project before using it.
+You do not need to understand AI Workroot before using it.
 
 Open this folder with an AI agent and say:
+
+```text
+Help me start this Workroot.
+```
+
+If you already know what you want to do, say:
 
 ```text
 I want this Workroot to help me with [area]. Please set it up with me, then help me start my first real task.
 ```
 
-If you do not know where to start, say your real situation:
+Examples:
 
-```text
-I have meeting notes and many follow-ups. Help me organize them.
-```
+- Help me organize these notes.
+- Help me start a writing project.
+- Help me study this topic.
+- Help me plan this week.
+- Help me continue this coding project.
 
-```text
-I want to write a novel, but I only have scattered ideas. Help me start.
-```
-
-```text
-I am a student. Help me learn this topic and make a study plan.
-```
-
-The AI should ask at most one or two simple setup questions, then help you work.
+The AI should ask only the smallest useful question, then help you work.
 
 ## The Simple Way To Use It
 
@@ -37,20 +37,20 @@ Examples:
 - review one release
 - make one business plan
 
-You can ask quick questions too. If your question is part of a bigger thing, the AI should help turn it into a task so you can continue later.
+You can also ask quick questions. If a quick question becomes part of something larger, the AI should help keep track of it so you can continue later.
 
 ## What The AI Should Do
 
 The AI should:
 
 1. understand what you want
-2. ask only the missing question
+2. ask only what is missing
 3. help you do the work
-4. save the useful result
+4. preserve the useful result
 5. answer in your language
 6. leave a clear next step
 
-You should not need to organize files or learn special words.
+You should not need to organize files, learn protocol terms, or edit system state manually.
 
 ## How To Continue
 
@@ -60,7 +60,7 @@ Next time, open the same folder and say:
 Help me continue.
 ```
 
-The AI should remind you what you were doing and suggest the next useful step.
+The AI should remind you what was happening and suggest the next useful step.
 
 If the last task is finished, say:
 
@@ -80,16 +80,6 @@ or:
 Summarize what we finished recently.
 ```
 
-## For Students
-
-You can use it like this:
-
-```text
-I am in grade 7. Help me learn fractions. First explain it simply, then give me practice questions, and save what I often get wrong.
-```
-
-The AI should keep the words easy to understand and help you continue next time.
-
 ## If You Want More Control
 
 You can tell the AI:
@@ -108,9 +98,16 @@ This task is finished. Save what matters and help me start a new task.
 
 ## What You Do Not Need To Worry About
 
-You do not need to manage the project structure.
+You do not need to:
 
-Do not rename the inside folders. You can rename only the outer folder to something that feels like yours, such as:
+- understand the internal structure
+- manage protocol files
+- edit indexes or registries
+- define everything about yourself first
+
+AI Workroot should help you start first and clarify over time.
+
+You may rename only the outer folder to something that feels like yours, such as:
 
 ```text
 my-study-helper
@@ -118,5 +115,7 @@ my-workroot
 my-life-planner
 my-writing-partner
 ```
+
+Do not rename the internal protocol folders.
 
 Advanced users can read the deeper documents later. For first use, just talk to the AI and start doing one real thing.

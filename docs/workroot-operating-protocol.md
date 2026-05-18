@@ -51,18 +51,18 @@ Before creating formal internal work records or promoting durable knowledge, con
 
 The protocol still has room for future team, role, project, or organization subject boundaries, but those are not the default public positioning.
 
-If identity is blank or still generic, guide the user through a minimal setup:
+If profile guidance is blank or still generic, guide the user through a minimal setup:
 
-1. Who or what does this Workroot represent?
+1. What should this Workroot help with?
 2. What role should the AI play?
 3. What direction, work, or life area should it support?
 4. What values, boundaries, or preferences should it respect?
 
 Write the result into `space/profile/` as appropriate.
 
-The identity can be small at first. It can be broad or specialized. It should evolve over time, but durable work should not begin without a subject.
+The guidance can be small at first. It can be broad or specialized. It should evolve over time, but durable work should not begin without a subject.
 
-If identity is not clear enough, do not continue with ordinary work yet. Ask only the missing identity questions, write the answers into `space/profile/`, then continue. Setup questions may be answered while guiding identity setup.
+If guidance is not clear enough, ask only the missing question needed to avoid preserving durable work without a subject, write the answer into `space/profile/`, then continue.
 
 Identity content belongs to `space/profile/`.
 

@@ -4,7 +4,7 @@ This is the compact operational path for AI agents.
 
 ## Pure Greeting
 
-If the user only greets, reply briefly. Do not read workspace files.
+If the user only greets, reply briefly. Do not read local files.
 
 ## User Startup Guidance
 

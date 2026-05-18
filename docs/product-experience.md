@@ -17,7 +17,7 @@ A new user should be able to:
 1. download or clone the project
 2. rename the outer folder
 3. open it with an AI agent
-4. answer a few identity questions
+4. give a small usage direction when needed
 5. do one real piece of work
 6. preserve the useful result
 7. continue later without reconstructing the whole chat
@@ -47,8 +47,8 @@ The detailed interaction rules are defined in `docs/user-interaction-contract.md
 
 - Start with work, not architecture.
 - Ask the fewest setup questions needed.
-- Require identity before durable work.
-- If the user brings a real problem first, ask at most one minimal identity question before helping.
+- Let guidance emerge progressively.
+- If the user brings a real problem first, ask at most one small usage-direction question before helping.
 - Infer structure from intent.
 - Help users move from chat-style questions into task-style work when it will help them continue later.
 - Hide internal mechanics from ordinary users.
@@ -88,7 +88,7 @@ I have meeting notes and many follow-ups. Help me organize them.
 I am in grade 7. Help me understand fractions and make practice questions.
 ```
 
-### 3. Define Minimal Identity
+### 3. Clarify Usage Direction
 
 The AI asks only what is needed:
 
@@ -96,7 +96,7 @@ The AI asks only what is needed:
 - what the AI should help with
 - what values, preferences, or boundaries matter
 
-The user can answer briefly. Identity can evolve later.
+The user can answer briefly. The Workroot's guidance can evolve later.
 
 ### 4. Do The First Real Work
 
@@ -158,9 +158,9 @@ These responsibilities are product behavior, not optional polish.
 On first use, the agent should:
 
 1. read `AGENTS.md` and `START_HERE_FOR_HUMANS.md`
-2. check whether identity is clear enough
-3. ask only the missing identity questions
-4. write the minimum identity into `space/profile/`
+2. check whether usage direction is clear enough
+3. ask only the missing guidance needed to preserve durable work responsibly
+4. write the minimum guidance into `space/profile/`
 5. ask for the first real piece of work
 6. infer the right internal structure
 7. help produce a useful result
@@ -171,7 +171,7 @@ Do not explain the full architecture during first run unless the user asks.
 
 Do not ask ordinary users to open or manage `.workroot/`.
 
-If the user already gave a real problem, ask at most one minimal identity question before useful work. Do not block the first useful result behind a full setup interview.
+If the user already gave a real problem, ask at most one small usage-direction question before useful work. Do not block the first useful result behind a full setup interview.
 
 ## Intent Routing Protocol
 

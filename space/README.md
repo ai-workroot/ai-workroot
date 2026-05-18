@@ -1,6 +1,6 @@
 # Space
 
-This is the user-visible workspace.
+This is the user-visible Workroot space.
 
 You can put your own work, files, notes, projects, and outputs here. You may add your own folders under `space/` when they help your real work.
 

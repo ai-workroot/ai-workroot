@@ -16,7 +16,7 @@ When speaking to ordinary users, translate the internal identity gate into usage
 - what they mainly want help with
 - how the AI should collaborate
 
-Avoid asking "who does this workspace represent?" unless the user is already comfortable with the workspace concept.
+Avoid asking "who does this Workroot represent?" unless the user is already comfortable with the Workroot concept.
 
 Before asking a setup question, use a simple usage-direction frame:
 
@@ -45,7 +45,7 @@ Do not require ordinary users to understand `.workroot/`, registries, schemas, i
 
 Do not expose internal file names, storage paths, registry names, or protocol terms in ordinary-user replies unless the user asks for implementation details.
 
-Do not use "identity", "profile", "kernel", "runtime", "registry", or "workspace represents" as ordinary-user onboarding language. Prefer "what you do", "what you want help with", and "how I should work with you".
+Do not use "identity", "profile", "kernel", "runtime", "registry", or "Workroot represents" as ordinary-user onboarding language. Prefer "what you do", "what you want help with", and "how I should work with you".
 
 Respond in the language the user is currently using. If the user explicitly requests a language, use that language. Keep repository docs and machine-readable keys in English.
 

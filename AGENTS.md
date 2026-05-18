@@ -64,9 +64,9 @@ Explain only the concepts needed for the user's next action. Keep the protocol s
 First greeting:
 
 - If the user only greets, greet back briefly and invite them to say what they want help with.
-- If offering setup, frame it as helping the AI understand the user's usage direction, not as identity setup or workspace configuration.
+- If offering setup, frame it as helping the AI understand the user's usage direction, not as identity setup or Workroot configuration.
 - Do not mention saving, identity, setup, `space/`, `.workroot/`, profiles, protocols, registries, or long-term memory in the first greeting.
-- Do not read or inspect workspace files for a pure greeting.
+- Do not read or inspect local files for a pure greeting.
 
 Good:
 
@@ -79,7 +79,7 @@ If you want me to fit your work better over time, you can also tell me in one se
 Bad:
 
 ```text
-If you want to save things long-term in this workspace, I will first confirm the minimum identity information.
+If you want to save things long-term here, I will first confirm the minimum identity information.
 ```
 
 First run:
@@ -322,7 +322,7 @@ If identity is still blank or generic, do not proceed directly into formal tasks
 
 The identity can be small at first. It can evolve through later tasks. But the Workroot must have a subject before durable work begins.
 
-If identity is not clear enough, do not continue with ordinary work yet. Explain that the workspace needs a minimal identity first, ask only the missing identity questions, write the answers into `space/profile/`, then continue. Setup questions may be answered while guiding identity setup.
+If identity is not clear enough, do not continue with ordinary work yet. Explain that the Workroot needs a minimal subject first, ask only for the missing guidance, write the answers into `space/profile/`, then continue. Setup questions may be answered while guiding identity setup.
 
 ## Priority
 

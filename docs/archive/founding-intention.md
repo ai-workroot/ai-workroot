@@ -1,5 +1,8 @@
 # Founding Intention
 
+> This is an early founding note.
+> The canonical philosophy document is now [Project Philosophy](../project-philosophy.md).
+
 AI Workroot is not only about productivity.
 
 It starts from a deeper question:
@@ -82,11 +85,11 @@ A person should be able to download a Workroot, tell an AI who they are and what
 
 The internal system can be rigorous, but the first user experience must be simple.
 
-## Identity Comes First
+## Subject And Direction Come First
 
 Before formal work begins, every Workroot must define its subject.
 
-The subject can be a person, team, role, project, or organization. The first identity can be small:
+The subject can be a person, team, role, project, or organization. The first guidance can be small:
 
 ```text
 This Workroot represents ...

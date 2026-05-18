@@ -45,9 +45,9 @@ This sentence is the primary product entry. Longer prompts are reliability helpe
 The first-run agent flow is:
 
 1. Read the minimal agent entry files.
-2. Check whether identity is clear enough.
-3. Ask only missing identity questions.
-4. Save identity in `space/profile/`.
+2. Check whether usage direction is clear enough.
+3. Ask only the missing guidance needed to preserve durable work responsibly.
+4. Save the guidance in `space/profile/`.
 5. Start the first real task.
 6. Preserve the first useful result.
 7. Update the human continuation view.

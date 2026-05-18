@@ -30,7 +30,7 @@ The Workroot is the durable continuity layer. AI agents are replaceable collabor
 - Philosophy-led, engineering-grounded.
 - Start from human continuity, then use protocol and software structure to serve that continuity.
 - Human first, AI second.
-- Identity first: define the subject before durable work begins.
+- Progressive guidance: start with useful work, then clarify the subject, direction, and collaboration style as durable continuity grows.
 - Simple for users, strict for agents.
 - AI-native Workroot system design, not a traditional OS clone.
 - Files are the source of truth.

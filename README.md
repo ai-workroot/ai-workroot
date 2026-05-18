@@ -6,25 +6,26 @@ It gives each person a clean, private, user-owned place where AI agents can unde
 
 AI agents may come and go. Your Workroot stays with you.
 
-If you only want to start using AI Workroot, begin with [START_HERE_FOR_HUMANS.md](START_HERE_FOR_HUMANS.md). This README is for people evaluating AI Workroot as a product direction, protocol, and foundation for long-term human-AI work.
+If you only want to start using AI Workroot, begin with [Start Here for Humans](START_HERE_FOR_HUMANS.md).
 
 ## Why AI Workroot Exists
 
 Most AI work still disappears into sessions.
 
-A model answers. An agent edits files. A tool completes a task. A conversation ends.
+A model answers.
+An agent edits files.
+A tool completes a task.
+A conversation ends.
 
 Some outputs remain, but the work itself often loses continuity:
 
-- What was the task?
-- What state is it in?
-- Where is the result?
-- What should happen next?
+- What was the goal?
+- What changed?
 - Which decision was made, and why?
-- Which conclusion has become invalid?
-- Which output should become reusable knowledge?
-- Which old context should leave active recall?
-- Can a different agent continue without reading the whole past?
+- What should happen next?
+- What should become reusable knowledge?
+- What should be remembered, released, or corrected?
+- Can another AI agent continue later without reading the whole past?
 
 Current AI systems are increasingly strong at execution. They can write code, browse, operate tools, run workflows, and remember some context.
 
@@ -34,11 +35,11 @@ AI Workroot exists because a person's long-term work with AI needs a stable home
 
 ## Core Idea
 
+The person remains the subject.
+
 The Workroot is the durable continuity layer.
 
 AI agents are replaceable collaborators.
-
-The person remains the subject. The Workroot preserves what matters so future work can continue without being trapped inside one model's memory, one agent's runtime, or one conversation's history.
 
 In practical terms, AI Workroot gives agents a shared, user-owned foundation for:
 
@@ -54,7 +55,11 @@ In practical terms, AI Workroot gives agents a shared, user-owned foundation for
 
 The folders, registries, schemas, and validation scripts are implementation details. They exist to make continuity reliable, portable, and inspectable.
 
-## How It Differs From Agents
+The deeper principle is simple:
+
+> the user's continuity should remain owned, understandable, portable, and under the user's control.
+
+## AI Workroot And Agents
 
 AI Workroot does not try to become the agent.
 
@@ -68,9 +73,13 @@ Workflows coordinate.
 AI Workroot preserves continuity.
 ```
 
-Coding agents such as Codex, Claude Code, Cursor, and future tools can edit repositories, run commands, and complete engineering tasks. AI Workroot preserves the larger context around that work: what the person is trying to continue, what has already happened, what decisions were made, what should be remembered, what should be released, and what the next agent needs to know.
+Strong agents may have memory, skills, tools, MCP, gateways, automation, and long-running behavior. That is valuable.
 
-Assistant products and long-running agents may have their own memory, tools, and automation. AI Workroot is different because its primary object is not the agent. Its primary object is the person's continuity.
+AI Workroot is different because its primary object is not the agent. Its primary object is the person's continuity.
+
+An agent may work inside a Workroot.
+
+But the Workroot belongs to the person.
 
 The best relationship is complementary:
 
@@ -84,15 +93,21 @@ AI Workroot is designed for individuals first.
 
 Its current shape is a private, user-owned foundation for one person's long-term work with AI: personal context, files, tasks, decisions, knowledge, handoff, memory, and intentional forgetting.
 
-The heart of this project is one person with many unfinished things, many tools, many changing contexts, and a real need to continue.
+The heart of this project is one person with many unfinished things, many tools, changing contexts, and a real need to continue.
 
-That person should be able to work with ChatGPT, Codex, Claude Code, Cursor, Hermes, OpenClaw, local agents, or future AI tools without surrendering their long-term context to any one of them.
+That person should be able to work with ChatGPT, Codex, Claude Code, Cursor, Hermes, OpenClaw, local agents, or future AI tools without surrendering long-term continuity to any one of them.
+
+Team collaboration may become a separate direction one day, but it is not the core product now.
 
 ## Local First, User Owned
 
 AI Workroot is local-first because ownership matters.
 
-A person's important context should not be trapped entirely inside a remote product. Their progress should not depend completely on one platform's memory. Their decisions, knowledge, source files, and handoffs should remain accessible, portable, inspectable, and understandable.
+A person's important context should not be trapped entirely inside a remote product.
+
+Their progress should not depend completely on one platform's memory.
+
+Their decisions, knowledge, source files, and handoffs should remain accessible, portable, inspectable, and understandable.
 
 Local-first does not mean isolated.
 
@@ -100,35 +115,29 @@ AI Workroot can still connect with agents, models, clients, services, indexes, a
 
 Everything else is a visitor.
 
-## What AI Workroot Preserves
+## Memory, Release, And Continuity
 
-AI Workroot is built around four capabilities:
+AI Workroot is not only about remembering more.
 
-1. Personal context sovereignty
-2. Work lifecycle management
-3. Cross-agent continuity
-4. Layered memory and intentional forgetting
+Memory is one part of continuity, but human life is not only memory accumulation. People also forget, release, quiet, archive, redact, and move forward.
 
-It preserves not only outputs, but the meaning and state around the work:
+AI Workroot should help preserve what matters without forcing every old event, obsolete belief, mistake, or painful context back into every future session.
 
-- current tasks and next actions
-- visible outputs and artifacts
-- important decisions and why they were made
-- reusable knowledge
-- invalidated conclusions
-- handoff context for the next agent or future session
-- memory that should remain useful
-- old context that should become quiet, released, or tombstoned
+The useful lesson can remain.
+The raw context can become quiet.
+A tombstone can preserve responsibility without keeping the past alive in active recall.
 
-This matters because human life is not only memory accumulation. People also forget, release, quiet, archive, redact, and move forward. AI Workroot should not force every old event, mistake, obsolete belief, or painful context back into every future session.
+The goal is not to turn a person into a permanent machine-readable profile.
 
-The useful lesson can remain. The raw context can become quiet. A tombstone can preserve responsibility without keeping the past alive in active recall.
+The goal is to help a person continue without losing the freedom to change.
 
 ## Current Public Seed
 
 AI Workroot is currently an early public seed for a personal, local-first Workroot.
 
-The current seed is file-first. Markdown, JSON, CSV, and user-owned source files remain the durable substrate. Databases, vector indexes, graph stores, and local caches can be useful accelerators, but they should not become the canonical truth by default.
+The current seed is file-first. Markdown, JSON, CSV, and user-owned source files remain the durable substrate.
+
+Databases, vector indexes, graph stores, and local caches can be useful accelerators, but they should not become the canonical truth by default.
 
 The current public seed uses this implementation shape:
 
@@ -137,38 +146,37 @@ space/       user-owned space
 .workroot/   kernel, runtime, indexes, and protocol state
 ```
 
-This layout is the current seed architecture, not a promise that every future Workroot implementation will look exactly the same. The project may evolve toward cleaner user-facing clients, managed storage modes, richer local services, or larger architectural changes while preserving the core principle: the user's continuity should remain inspectable, portable, and owned by the user.
+This layout is the current transparent seed architecture, not a promise that every future Workroot implementation will look exactly the same.
 
-For the full current architecture, see [docs/workroot-system-design.md](docs/workroot-system-design.md) and [docs/architecture-map.md](docs/architecture-map.md).
+Future clients may support cleaner user-facing directories, managed storage modes, richer local services, or larger architectural changes.
+
+The core principle should remain stable: the user's continuity should stay inspectable, portable, and owned by the user.
+
+For the full current architecture, see:
+
+- [Workroot System Design](docs/workroot-system-design.md)
+- [Architecture Map](docs/architecture-map.md)
 
 ## Start Here
 
 For direct use:
 
-- [START_HERE_FOR_HUMANS.md](START_HERE_FOR_HUMANS.md)
-- [docs/user-sop.md](docs/user-sop.md)
+- [Start Here for Humans](START_HERE_FOR_HUMANS.md)
+- [User SOP](docs/user-sop.md)
 
-A task is just the thing you are working on now.
+You can start with one sentence:
 
-AI Workroot keeps the next step clear so you can return later and say:
+```text
+Help me start this Workroot.
+```
+
+Later, you can say:
 
 ```text
 Help me continue.
 ```
 
-When a task is finished, you can say:
-
-```text
-This task is finished. Save what matters and help me start a new task.
-```
-
-You can also ask:
-
-```text
-What tasks have I done before?
-```
-
-AI agents should answer in the language you are currently using unless you ask for another language.
+A task is just the thing you are working on now. AI Workroot keeps the next step clear so you can return later without reconstructing the whole past.
 
 ## Read More
 
@@ -176,24 +184,20 @@ For philosophy and positioning:
 
 - [Project Philosophy](docs/project-philosophy.md)
 - [Positioning Q&A](docs/positioning-qna.md)
-- [Founding Intention](docs/founding-intention.md)
 
 For architecture and protocol:
 
-- [PROJECT_BRIEF.md](PROJECT_BRIEF.md)
-- [docs/workroot-system-design.md](docs/workroot-system-design.md)
-- [docs/kernel-implementation-specification.md](docs/kernel-implementation-specification.md)
-- [docs/architecture-map.md](docs/architecture-map.md)
-- [docs/workroot-operating-protocol.md](docs/workroot-operating-protocol.md)
-- [docs/user-interaction-contract.md](docs/user-interaction-contract.md)
+- [Project Brief](PROJECT_BRIEF.md)
+- [Workroot System Design](docs/workroot-system-design.md)
+- [Architecture Map](docs/architecture-map.md)
+- [Workroot Operating Protocol](docs/workroot-operating-protocol.md)
+- [User Interaction Contract](docs/user-interaction-contract.md)
 
 For contribution:
 
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [ROADMAP.md](ROADMAP.md)
-- [AUTHOR.md](AUTHOR.md)
-
-AI Workroot welcomes exceptional individual contributors with philosophical depth, AI engineering excellence, and strong consumer AI product judgment. For long-term contributor conversations, see [CONTRIBUTING.md](CONTRIBUTING.md).
+- [Contributing](CONTRIBUTING.md)
+- [Roadmap](ROADMAP.md)
+- [Author](AUTHOR.md)
 
 ## Website
 

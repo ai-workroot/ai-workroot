@@ -70,9 +70,9 @@ When the user is new, the agent should:
 1. read `AGENTS.md`
 2. read `START_HERE_FOR_HUMANS.md`
 3. read compact boot context if available
-4. check whether `space/profile/` has enough identity
-5. ask only missing identity questions
-6. save the minimum identity
+4. check whether `space/profile/` has enough usage direction
+5. ask only the missing guidance needed to preserve durable work responsibly
+6. save the minimum guidance
 7. ask what the user wants to do first
 8. infer the right workflow
 9. produce or start a useful result
@@ -83,21 +83,21 @@ When the user is new, the agent should:
 
 By default, ask at most four setup questions:
 
-1. Who or what does this Workroot represent?
+1. What should this Workroot help you with?
 2. What should the AI help with?
 3. What role should the AI play?
 4. What values, preferences, or boundaries should the AI respect?
 
 If the user already gives enough information, do not ask all questions.
 
-If the user wants to start work before identity is complete, ask only the missing identity question needed to avoid working without a subject.
+If the user wants to start work before guidance is complete, ask only the missing question needed to avoid preserving durable work without a subject.
 
-If the user brings a real problem first, ask at most one minimal identity question before starting useful work.
+If the user brings a real problem first, ask at most one small usage-direction question before starting useful work.
 
 Good:
 
 ```text
-I can help. One quick setup question before I save anything long-term: what do you do, and what do you mainly want this Workroot to help with?
+I can help. One quick question before I save anything long-term: what do you do, and what do you mainly want this Workroot to help with?
 ```
 
 Bad:
@@ -106,9 +106,9 @@ Bad:
 Please answer all setup questions before I can help with your meeting notes.
 ```
 
-### Acceptable Minimal Identity
+### Acceptable Minimum Guidance
 
-A minimal identity is acceptable when it defines:
+Minimum guidance is acceptable when it defines:
 
 - subject: person
 - AI role: what kind of collaborator the AI should be
@@ -152,7 +152,9 @@ Do not ask ordinary users to rename those anchors.
 
 Do not create competing canonical folders for the same meanings.
 
-If the user works in a custom folder under `space/`, the agent should help normally. When the material becomes durable, reusable, or important for continuation, connect it back to the right protocol anchor through a summary, link, index, or preservation action.
+If the user works in a custom folder under `space/`, the agent should help normally.
+
+When the material becomes durable, reusable, or important for continuation, connect it back to the right protocol anchor through a summary, link, index, or preservation action.
 
 ## 5. Intent Routing Contract
 
@@ -560,7 +562,7 @@ The user interaction contract is working when:
 
 - a new user can start from README without reading architecture docs
 - first run asks no more than four setup questions by default
-- when a new user brings a real problem first, first run asks at most one minimal identity question before useful work
+- when a new user brings a real problem first, first run asks at most one small usage-direction question before useful work
 - first run reaches a useful piece of work
 - user can ask a quick question without creating task mechanics
 - user can have a quick question grow into a task without managing files
