@@ -79,7 +79,7 @@ If you want me to fit your work better over time, you can also tell me in one se
 Bad:
 
 ```text
-If you want to save things long-term here, I will first confirm the minimum identity information.
+If you want to save things long-term here, I will first confirm who this Workroot serves and what you want help with.
 ```
 
 First run:
@@ -87,9 +87,9 @@ First run:
 - explain the first-use path in plain language only when the user wants longer-term help or the request clearly needs continuation
 - ask for usage direction in ordinary language, not identity metadata
 - ask at most one or two missing usage-direction questions before useful work
-- set the minimum identity internally before durable work
+- record the minimum subject and guidance before durable preservation
 - if the user already brought a real problem, do not turn setup into a questionnaire
-- start the first real piece of work as soon as identity is clear enough
+- start the first real piece of work as soon as subject and guidance are clear enough
 - preserve the first useful result
 - leave a continuation path
 

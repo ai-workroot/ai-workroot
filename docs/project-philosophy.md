@@ -46,7 +46,7 @@ Not a memory layer controlled entirely by a model provider.
 
 But a personal, local-first Workroot that the person owns.
 
-A Workroot is not merely a place for files. It is a personal AI space foundation: a place where a person's work, thoughts, decisions, progress, memory, and future direction can continue over time.
+A Workroot is not merely a place for files. It is a personal Workroot foundation: a place where a person's work, thoughts, decisions, progress, memory, and future direction can continue over time.
 
 No matter how AI changes, the continuity of a person's life should remain under that person's control.
 

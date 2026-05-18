@@ -66,7 +66,7 @@ The person remains the subject.
 
 AI is a collaborator. Models, agents, tools, skills, MCP servers, databases, and clients are replaceable. The Workroot is the continuity layer that remains.
 
-### Identity First
+### Subject And Guidance
 
 Before durable work begins, a Workroot must know who or what it serves.
 

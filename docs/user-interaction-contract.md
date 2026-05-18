@@ -57,7 +57,7 @@ Advanced users may inspect these layers, but ordinary users should not need them
 First run should reach:
 
 ```text
-minimum identity + first useful work started
+minimum subject and guidance + first useful work started
 ```
 
 The agent must not turn first run into an architecture lesson.
