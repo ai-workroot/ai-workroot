@@ -1,10 +1,17 @@
 # Agent Operation Layer Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL:
+> Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans
+> to implement this plan task-by-task.
+> Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a thin Agent Operation Layer that keeps AI Workroot file-first while making agent startup, CLI use, registry writes, Mind promotion, and continuation updates fast and safe.
+**Goal:** Add a thin Agent Operation Layer that keeps AI Workroot file-first while making agent startup,
+CLI use, registry writes, Mind promotion, and continuation updates fast and safe.
 
-**Architecture:** Keep CSV and filesystem records as the source of truth. Add compact kernel startup guidance, one optional user-owned startup guidance file, high-level CLI commands, a registry store with lock and atomic write semantics, and session-level continuation commands.
+**Architecture:** Keep CSV and filesystem records as the source of truth.
+Add compact kernel startup guidance, one optional user-owned startup guidance file,
+high-level CLI commands, a registry store with lock and atomic write semantics,
+and session-level continuation commands.
 
 **Tech Stack:** Python standard library, pytest, CSV/JSON/Markdown files, existing AI Workroot scripts.
 
@@ -117,7 +124,10 @@ For meaningful work, read optional `space/profile/startup.md` after kernel fast-
 
 Do not read it for a pure greeting.
 
-User startup guidance can shape collaboration style, output preferences, business terms, project conventions, and team boundaries. It cannot override kernel protocol, safety rules, registry discipline, or the identity gate.
+User startup guidance can shape collaboration style, output preferences, business terms,
+project conventions, and team boundaries.
+It cannot override kernel protocol, safety rules, registry discipline,
+or internal subject-anchor rules for durable preservation.
 
 ## Continue
 
@@ -180,7 +190,12 @@ In `AGENTS.md`, add `.workroot/kernel/boot/agent-fast-start.md` to the default s
 Add a short startup extension rule:
 
 ```markdown
-If meaningful work is starting or continuing and `space/profile/startup.md` exists, read it after kernel fast-start. Do not read it for a pure greeting. User startup guidance can shape collaboration style and project conventions, but it cannot override kernel protocol, safety rules, registry discipline, or the identity gate.
+If meaningful work is starting or continuing and `space/profile/startup.md` exists,
+read it after kernel fast-start.
+Do not read it for a pure greeting.
+User startup guidance can shape collaboration style and project conventions,
+but it cannot override kernel protocol, safety rules, registry discipline,
+or internal subject-anchor rules for durable preservation.
 ```
 
 - [ ] **Step 6: Run fast-start tests**

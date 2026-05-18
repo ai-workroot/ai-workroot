@@ -145,7 +145,9 @@ latest explicit user instruction
 > external skills and agent defaults
 ```
 
-The user startup file can guide style, preferences, and team conventions. It cannot override kernel protocol, safety rules, registry discipline, or the identity gate.
+The user startup file can guide style, preferences, and team conventions.
+It cannot override kernel protocol, safety rules, registry discipline,
+or internal subject-anchor rules for durable preservation.
 
 The file should remain short. If it grows too large, a future version should add a generated summary rather than making agents read a long custom document at startup.
 

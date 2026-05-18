@@ -11,11 +11,16 @@ It starts from a deeper question:
 
 Many AI products help people answer a question or finish a task. That is useful, but it is not enough.
 
-Human life is continuous. A person works, learns, struggles, decides, fails, recovers, loves, creates, and grows over time. If AI only lives inside disconnected chats, then much of that growth disappears after each session.
+Human life is continuous.
+A person works, learns, struggles, decides, fails, recovers, loves, creates, and grows over time.
+If AI only lives inside disconnected chats, then much of that growth disappears after each session.
 
 AI Workroot tries to create a different foundation.
 
-It asks AI to become a long-term collaborator inside a durable Workroot, while keeping the person as the subject. The Workroot should remember what happened, preserve why decisions were made, turn useful results into knowledge, and let future AI agents continue from the last meaningful state.
+It asks AI to become a long-term collaborator inside a durable Workroot,
+while keeping the person as the subject.
+The Workroot should remember what happened, preserve why decisions were made,
+turn useful results into knowledge, and let future AI agents continue from the last meaningful state.
 
 ## Philosophical Foundation
 
@@ -28,7 +33,10 @@ The philosophical foundation is simple:
 - human work should become accumulated understanding, not scattered fragments
 - after lessons are learned, people should be allowed to release old pain and keep moving forward
 
-AI Workroot does not claim to be the only answer for everyone. It aims to become a correct starting point for many people: simple enough to begin, rigorous enough to grow, open enough to adapt, and human enough to keep love, peace, and long-term continuity at the center.
+AI Workroot does not claim to be the only answer for everyone.
+It aims to become a correct starting point for many people: simple enough to begin,
+rigorous enough to grow, open enough to adapt, and human enough to keep love, peace,
+and long-term continuity at the center.
 
 ## Philosophy-Led, Engineering-Grounded
 
@@ -122,11 +130,20 @@ The loop is not only about doing more. It is about doing, understanding, preserv
 
 People make mistakes, pass through difficult periods, and carry painful memories.
 
-AI Workroot should not force every painful detail to remain active forever. When an experience has already produced useful learning, the lesson can remain as knowledge, decision, principle, or pattern, while the unnecessary pain can be released from normal recall.
+AI Workroot should not force every painful detail to remain active forever.
+When an experience has already produced useful learning, the lesson can remain as knowledge,
+decision, principle, or pattern, while the unnecessary pain can be released from normal recall.
 
-Release is not denial, irresponsibility, or pretending the past never happened. It is a conscious act: keep the growth, stop carrying the raw pain as active identity, and return attention to the present and the future.
+Release is not denial, irresponsibility, or pretending the past never happened.
+It is a conscious act: keep the growth, stop carrying the raw pain as active identity,
+and return attention to the present and the future.
 
-This is a user choice. Some people may want to preserve painful memories as part of their history. Others may want to forget, let go, and move forward. Some may want to keep only a small tombstone: a quiet memorial marker that can be visited intentionally, without keeping the raw pain active. AI Workroot should support all of these choices.
+This is a user choice.
+Some people may want to preserve painful memories as part of their history.
+Others may want to forget, let go, and move forward.
+Some may want to keep only a small tombstone: a quiet memorial marker that can be visited intentionally,
+without keeping the raw pain active.
+AI Workroot should support all of these choices.
 
 The default principle is:
 

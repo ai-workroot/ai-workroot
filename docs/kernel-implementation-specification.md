@@ -2,7 +2,10 @@
 
 This document defines the AI Workroot kernel implementation.
 
-It is the implementation-grade companion to `docs/workroot-system-design.md`. The system design document explains the architecture and philosophy. This specification defines the concrete kernel layout, required files, contracts, schemas, registries, scripts, validation rules, and release gates.
+It is the implementation-grade companion to `docs/workroot-system-design.md`.
+The system design document explains the architecture and philosophy.
+This specification defines the concrete kernel layout, required files, contracts, schemas,
+registries, scripts, validation rules, and release gates.
 
 ## 1. Kernel Status
 
@@ -194,7 +197,9 @@ space/files/
 
 Users may add other folders under `space/`. The kernel must not treat user-created folders as errors.
 
-If user-created folders contain durable identity, work, knowledge, memory, decisions, source material, or continuation context, agents should connect that material back to the protocol anchors through summaries, links, indexes, or preservation actions.
+If user-created folders contain durable identity, work, knowledge, memory, decisions, source material,
+or continuation context, agents should connect that material back to the protocol anchors through summaries,
+links, indexes, or preservation actions.
 
 ### Identity
 
@@ -204,10 +209,10 @@ Canonical identity content:
 space/profile/
 ```
 
-The kernel owns only the identity protocol:
+The kernel owns only the identity protocol for durable preservation:
 
-- identity gate
-- minimum identity expectations
+- identity gate as an internal subject-anchor check
+- minimum subject and guidance expectations
 - startup checks
 - context summary policy
 - compatibility rules for identity content
@@ -400,7 +405,7 @@ Stable kernel semantics:
 - extension space boundary
 - runtime space boundary
 - file-first source of truth
-- identity gate
+- identity gate as an internal subject-anchor rule
 - work visibility split
 - boot context
 - context budget
@@ -446,9 +451,10 @@ Validation must fail if required paths are missing. Release validation must fail
 
 ### `agent-startup.json`
 
-Defines the agent entrypoint, identity gate, default read-order contract, context budget, user interaction contract, and language policy.
+Defines the agent entrypoint, internal subject-anchor rule, default read-order contract,
+context budget, user interaction contract, and language policy.
 
-The identity gate is required before formal durable work.
+The internal subject-anchor rule is required before formal durable preservation.
 
 ### `context-policy.json`
 
@@ -541,7 +547,10 @@ Extensions must not redefine identity, memory lifecycle, knowledge promotion, ta
 
 Defines required validation commands and release blockers.
 
-Release blockers include missing required paths, invalid contracts, invalid schemas, context-budget violations, paths outside the public seed surface, generated stores, private residue, timezone-free precise instants, invalid tombstone registry state, and deleted entries that retain source details.
+Release blockers include missing required paths, invalid contracts, invalid schemas,
+context-budget violations, paths outside the public seed surface, generated stores, private residue,
+timezone-free precise instants, invalid tombstone registry state,
+and deleted entries that retain source details.
 
 ## 10. Schemas
 
@@ -602,7 +611,7 @@ Required boot files:
 
 It must include:
 
-- identity gate
+- internal subject-anchor rule
 - user simplicity rule
 - context budget rule
 - work and preservation rule
