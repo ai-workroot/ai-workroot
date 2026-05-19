@@ -110,6 +110,35 @@ class ReleaseGates0529Test(unittest.TestCase):
             self.assertIn("generated managed state path must not be committed for release: context/debug/latest.json", text)
             self.assertIn("generated store must not be committed for release: workroot.sqlite", text)
 
+    def test_release_validation_ignores_gitignored_local_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+            (root / ".gitignore").write_text(".idea/\n", encoding="utf-8")
+            idea_file = root / ".idea/workspace.xml"
+            idea_file.parent.mkdir(parents=True)
+            idea_file.write_text("<project />\n", encoding="utf-8")
+            errors: list[str] = []
+
+            validate_release_surface(root, errors)
+
+            self.assertEqual(errors, [])
+
+    def test_release_validation_rejects_unignored_local_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+            idea_file = root / ".idea/workspace.xml"
+            idea_file.parent.mkdir(parents=True)
+            idea_file.write_text("<project />\n", encoding="utf-8")
+            errors: list[str] = []
+
+            validate_release_surface(root, errors)
+
+            text = "\n".join(errors)
+            self.assertIn("local metadata must not be committed: .idea", text)
+            self.assertIn("local metadata must not be committed: .idea/workspace.xml", text)
+
     def test_p0_code_paths_do_not_require_vector_or_remote_embeddings(self) -> None:
         p0_files = [
             "scripts/workroot_bootstrap.py",

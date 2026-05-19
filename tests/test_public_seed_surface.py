@@ -5,6 +5,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from scripts.validate_kernel import is_git_ignored
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TEXT_SUFFIXES = {".md", ".json", ".csv", ".py", ".yml", ".yaml", ".txt", ".sql"}
@@ -54,7 +56,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
             "space",
             "tests",
         }
-        present = {path.name for path in ROOT.iterdir() if path.name != ".git"}
+        present = {path.name for path in ROOT.iterdir() if path.name != ".git" and not is_git_ignored(ROOT, path)}
         self.assertEqual(present - allowed, set())
 
     def test_release_validation(self) -> None:

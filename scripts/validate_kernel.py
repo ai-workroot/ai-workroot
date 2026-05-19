@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import re
+import subprocess
 import sys
 import datetime as dt
 from pathlib import Path
@@ -318,6 +319,21 @@ ARTIFACT_AUDIENCES = {"internal", "user", "public", "evidence"}
 
 def add_error(errors: list[str], message: str) -> None:
     errors.append(message)
+
+
+def is_git_ignored(root: Path, path: Path) -> bool:
+    try:
+        rel = path.relative_to(root).as_posix()
+    except ValueError:
+        return False
+    result = subprocess.run(
+        ["git", "check-ignore", "--quiet", "--", rel],
+        cwd=root,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return result.returncode == 0
 
 
 def load_json(path: Path, errors: list[str]) -> dict[str, Any] | None:
@@ -767,6 +783,8 @@ def validate_layout(root: Path, contracts: dict[str, dict[str, Any]], release: b
         for path in root.iterdir():
             if path.name == ".git":
                 continue
+            if is_git_ignored(root, path):
+                continue
             if path.name not in allowed_roots:
                 add_error(errors, f"path is outside the public seed surface: {path.name}")
 
@@ -804,6 +822,8 @@ def validate_release_surface(root: Path, errors: list[str]) -> None:
     for path in root.rglob("*"):
         if ".git" in path.parts:
             continue
+        if is_git_ignored(root, path):
+            continue
         if path.is_file() and path.suffix.lower() in GENERATED_SUFFIXES:
             add_error(errors, f"generated store must not be committed for release: {path.relative_to(root).as_posix()}")
         rel = path.relative_to(root).as_posix()
@@ -819,6 +839,8 @@ def validate_release_surface(root: Path, errors: list[str]) -> None:
     text_exts = {".md", ".json", ".csv", ".py", ".yml", ".yaml", ".txt", ".sql"}
     for path in root.rglob("*"):
         if ".git" in path.parts or not path.is_file() or path.suffix.lower() not in text_exts:
+            continue
+        if is_git_ignored(root, path):
             continue
         try:
             text = path.read_text(encoding="utf-8")
