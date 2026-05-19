@@ -13,6 +13,7 @@ from workroot_operation_manifest import manifest as operation_manifest
 from workroot_operation_manifest import recipe as operation_recipe
 from workroot_operation_manifest import schema as operation_schema
 from workroot_operation_manifest import recipes as operation_recipes
+from workroot_agent_entry import apply_managed_block, claude_block, codex_block
 from workroot_bootstrap import bootstrap_dev
 from workroot_context import ContextRequest, build_context_package
 from workroot_doctor import render_json as render_doctor_json
@@ -43,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--name", required=True)
     init.add_argument("--directory", required=True)
     init.add_argument("--id", dest="workroot_id")
+    init.add_argument("--native-agent-entry", action="store_true")
     init.add_argument("--no-native-agent-entry", action="store_true")
     list_parser = subparsers.add_parser("list")
     list_parser.add_argument("--format", choices=["text", "json"], default="text")
@@ -271,6 +273,9 @@ def main() -> None:
             now=now_utc(),
         )
         initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+        if args.native_agent_entry:
+            apply_managed_block(initialized.user_directory / "AGENTS.md", codex_block())
+            apply_managed_block(initialized.user_directory / "CLAUDE.md", claude_block())
         print(initialized.state_directory)
         return
 

@@ -73,6 +73,31 @@ class WorkrootInitCliTest(unittest.TestCase):
             self.assertEqual(status.returncode, 0, status.stderr)
             self.assertIn("wr_demo_workroot", status.stdout)
 
+    def test_init_native_agent_entry_requires_explicit_authorization(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            result = self.run_cli(
+                {"AI_WORKROOT_HOME": str(home)},
+                "init",
+                "--name",
+                "Demo",
+                "--directory",
+                str(user_dir),
+                "--native-agent-entry",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            agents = user_dir / "AGENTS.md"
+            claude = user_dir / "CLAUDE.md"
+            self.assertTrue(agents.exists())
+            self.assertTrue(claude.exists())
+            self.assertIn("<!-- AI_WORKROOT_BEGIN -->", agents.read_text(encoding="utf-8"))
+            self.assertIn("workroot context --agent codex --cwd .", agents.read_text(encoding="utf-8"))
+            self.assertIn("workroot context --agent claude --cwd .", claude.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()
