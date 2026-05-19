@@ -88,6 +88,8 @@ python3 scripts/setup_workroot.py --help
 git diff --check
 ```
 
+Windows PowerShell parse validation is pending unless a Windows CI job or local `pwsh` check parses `scripts/install.ps1` and `scripts/bootstrap-dev.ps1`.
+
 The final status should contain only intentional release changes.
 
 ## 0.9.529 Clean Native Context Gates

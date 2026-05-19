@@ -39,6 +39,27 @@ class WorkrootDoctor0529Test(unittest.TestCase):
             self.assertFalse(result.has_errors())
             self.assertTrue(any(check.check_id == "clean-mode-boundary" for check in result.checks))
 
+    def test_doctor_no_migration_warning_after_fresh_init(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialized = initialize_workroot_state(
+                home,
+                "wr_demo",
+                "Demo",
+                user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+            initialize_workroot_sqlite(initialized.state_directory / "cache/workroot.sqlite")
+
+            result = run_doctor(home, cwd=user_dir)
+
+            migration = next(check for check in result.checks if check.check_id == "migration-records")
+            self.assertEqual(migration.status, "pass")
+            self.assertNotIn("not present yet", migration.message)
+
     def test_state_inside_user_directory_fails_clean_mode_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

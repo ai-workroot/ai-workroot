@@ -31,6 +31,7 @@ class ContextCandidate:
     token_estimate: int = 0
     updated_at: str = ""
     last_used_at: str = ""
+    use_count: int = 0
 
 
 def candidate_from_row(row: sqlite3.Row) -> ContextCandidate:
@@ -52,6 +53,7 @@ def candidate_from_row(row: sqlite3.Row) -> ContextCandidate:
         token_estimate=int(row["token_estimate"] or 0),
         updated_at=row["updated_at"] or "",
         last_used_at=row["last_used_at"] or "",
+        use_count=int(row["use_count"] or 0) if "use_count" in row.keys() else 0,
     )
 
 
@@ -87,9 +89,9 @@ def upsert_context_candidate(conn: sqlite3.Connection, candidate: ContextCandida
         INSERT INTO context_candidates (
           candidate_id, workroot_id, source_type, source_id, title, summary,
           domains, related_tasks, related_assets, importance, confidence,
-          status, context_policy, safety_policy, token_estimate, updated_at, last_used_at
+          status, context_policy, safety_policy, token_estimate, updated_at, last_used_at, use_count
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(candidate_id) DO UPDATE SET
           workroot_id=excluded.workroot_id,
           source_type=excluded.source_type,
@@ -125,6 +127,7 @@ def upsert_context_candidate(conn: sqlite3.Connection, candidate: ContextCandida
             candidate.token_estimate,
             candidate.updated_at,
             candidate.last_used_at,
+            candidate.use_count,
         ),
     )
     conn.execute("DELETE FROM context_candidates_fts WHERE candidate_id = ?", (candidate.candidate_id,))
@@ -185,7 +188,7 @@ def mark_candidates_used(conn: sqlite3.Connection, candidate_ids: list[str], now
     if not candidate_ids:
         return
     conn.executemany(
-        "UPDATE context_candidates SET last_used_at = ? WHERE candidate_id = ?",
+        "UPDATE context_candidates SET last_used_at = ?, use_count = COALESCE(use_count, 0) + 1 WHERE candidate_id = ?",
         [(now, candidate_id) for candidate_id in candidate_ids],
     )
     conn.commit()

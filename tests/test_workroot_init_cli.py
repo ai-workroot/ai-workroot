@@ -112,6 +112,161 @@ class WorkrootInitCliTest(unittest.TestCase):
             self.assertNotEqual(second_result.returncode, 0)
             self.assertIn("already exists", second_result.stderr)
 
+    def test_init_rejects_workroot_id_with_path_separator(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            result = self.run_cli(
+                {"AI_WORKROOT_HOME": str(base / "home")},
+                "init",
+                "--name",
+                "Bad",
+                "--id",
+                "wr_bad/name",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid Workroot ID", result.stderr)
+
+    def test_init_rejects_workroot_id_with_backslash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            result = self.run_cli(
+                {"AI_WORKROOT_HOME": str(base / "home")},
+                "init",
+                "--name",
+                "Bad",
+                "--id",
+                "wr_bad\\name",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid Workroot ID", result.stderr)
+
+    def test_init_rejects_workroot_id_with_dotdot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            result = self.run_cli(
+                {"AI_WORKROOT_HOME": str(base / "home")},
+                "init",
+                "--name",
+                "Bad",
+                "--id",
+                "wr_../bad",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid Workroot ID", result.stderr)
+
+    def test_init_rejects_absolute_path_like_workroot_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            for bad_id in ("/bad", "C:\\bad"):
+                with self.subTest(workroot_id=bad_id):
+                    result = self.run_cli(
+                        {"AI_WORKROOT_HOME": str(base / "home")},
+                        "init",
+                        "--name",
+                        "Bad",
+                        "--id",
+                        bad_id,
+                        "--directory",
+                        str(base / f"project-{bad_id.replace('/', 'slash').replace(':', 'colon').replace(chr(92), 'backslash')}"),
+                        "--no-native-agent-entry",
+                    )
+
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("invalid Workroot ID", result.stderr)
+
+    def test_init_rejects_workroot_id_without_wr_prefix(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            result = self.run_cli(
+                {"AI_WORKROOT_HOME": str(base / "home")},
+                "init",
+                "--name",
+                "Bad",
+                "--id",
+                "bad_without_wr_prefix",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("invalid Workroot ID", result.stderr)
+
+    def test_state_directory_never_escapes_ai_workroot_home(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            result = self.run_cli(
+                {"AI_WORKROOT_HOME": str(home)},
+                "init",
+                "--name",
+                "Bad",
+                "--id",
+                "../../bad",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse((base / "bad").exists())
+            self.assertIn("invalid Workroot ID", result.stderr)
+
+    def test_init_rejects_duplicate_user_directory_with_different_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            env = {"AI_WORKROOT_HOME": str(home)}
+
+            first = self.run_cli(env, "init", "--name", "One", "--directory", str(user_dir), "--no-native-agent-entry")
+            second = self.run_cli(env, "init", "--name", "Two", "--directory", str(user_dir), "--no-native-agent-entry")
+
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertNotEqual(second.returncode, 0)
+            self.assertIn("already registered as Workroot", second.stderr)
+
+    def test_init_rejects_duplicate_user_directory_with_different_generated_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            env = {"AI_WORKROOT_HOME": str(home)}
+
+            first = self.run_cli(env, "init", "--name", "Same", "--directory", str(user_dir), "--no-native-agent-entry")
+            second = self.run_cli(env, "init", "--name", "Same", "--directory", str(user_dir), "--no-native-agent-entry")
+
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertNotEqual(second.returncode, 0)
+            records = json.loads(self.run_cli(env, "list", "--format", "json").stdout)
+            self.assertEqual(len(records), 1)
+
+    def test_duplicate_user_directory_error_mentions_existing_workroot_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            env = {"AI_WORKROOT_HOME": str(home)}
+
+            first = self.run_cli(env, "init", "--name", "One", "--id", "wr_existing", "--directory", str(user_dir), "--no-native-agent-entry")
+            second = self.run_cli(env, "init", "--name", "Two", "--id", "wr_other", "--directory", str(user_dir), "--no-native-agent-entry")
+
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertNotEqual(second.returncode, 0)
+            self.assertIn("wr_existing", second.stderr)
+
     def test_init_rejects_file_system_and_home_boundaries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

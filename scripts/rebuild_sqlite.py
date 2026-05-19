@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Rebuild the optional AI Workroot SQLite index from runtime registries."""
+"""Legacy public-seed SQLite rebuild tool for the file-first runtime registries.
+
+This script targets the legacy `space/ + .workroot/` public seed layout. It is
+not the Clean Mode SQLite path used by AI Workroot 0.9.529 managed state.
+"""
 
 from __future__ import annotations
 

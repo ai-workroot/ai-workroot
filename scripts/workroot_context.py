@@ -10,13 +10,13 @@ import sqlite3
 import time
 
 try:
-    from workroot_candidates import ContextCandidate, mark_candidates_used
+    from workroot_candidates import ContextCandidate, candidate_from_row, mark_candidates_used
     from workroot_indexing import search_fts
     from workroot_paths import workroot_sqlite_path
     from workroot_sqlite import open_sqlite
     from workroot_state import read_jsonl
 except ModuleNotFoundError:  # pragma: no cover - package import path for tests.
-    from scripts.workroot_candidates import ContextCandidate, mark_candidates_used
+    from scripts.workroot_candidates import ContextCandidate, candidate_from_row, mark_candidates_used
     from scripts.workroot_indexing import search_fts
     from scripts.workroot_paths import workroot_sqlite_path
     from scripts.workroot_sqlite import open_sqlite
@@ -98,6 +98,8 @@ DEFAULT_CONTEXT_GUIDE_CONFIG: dict[str, object] = {
         "allowMaintenanceJob": False,
     },
 }
+BLOCKED_SAFETY_POLICIES = {"never-auto", "needs-confirmation", "sensitive"}
+MAX_INITIAL_CANDIDATES = 200
 
 
 @dataclass(frozen=True)
@@ -285,6 +287,16 @@ def select_candidates(
     reason_boosts = reason_boosts or {}
     for candidate in candidates:
         score = candidate_score(candidate, score_boosts.get(candidate.candidate_id, 0.0))
+        if candidate.safety_policy in BLOCKED_SAFETY_POLICIES:
+            dropped.append(
+                {
+                    "candidateId": candidate.candidate_id,
+                    "sourceType": candidate.source_type,
+                    "reason": f"safety-{candidate.safety_policy}",
+                    "scoreBeforeDrop": score,
+                }
+            )
+            continue
         if candidate.context_policy == "never-auto":
             dropped.append(
                 {
@@ -393,38 +405,7 @@ def should_escalate_to_quality(
     return False
 
 
-def load_all_candidate_rows(conn: sqlite3.Connection, workroot_id: str) -> list[ContextCandidate]:
-    conn.row_factory = sqlite3.Row
-    rows = conn.execute(
-        "SELECT * FROM context_candidates WHERE workroot_id = ? ORDER BY updated_at DESC, candidate_id ASC",
-        (workroot_id,),
-    ).fetchall()
-    candidates = [
-        ContextCandidate(
-            candidate_id=row["candidate_id"],
-            workroot_id=row["workroot_id"],
-            source_type=row["source_type"],
-            source_id=row["source_id"],
-            title=row["title"] or "",
-            summary=row["summary"] or "",
-            domains=row["domains"] or "",
-            related_tasks=row["related_tasks"] or "",
-            related_assets=row["related_assets"] or "",
-            importance=row["importance"] or "normal",
-            confidence=float(row["confidence"] or 0.0),
-            status=row["status"] or "active",
-            context_policy=row["context_policy"] or "task-related",
-            safety_policy=row["safety_policy"] or "",
-            token_estimate=int(row["token_estimate"] or 0),
-            updated_at=row["updated_at"] or "",
-            last_used_at=row["last_used_at"] or "",
-        )
-        for row in rows
-    ]
-    return sorted(candidates, key=candidate_score, reverse=True)
-
-
-def query_candidate_fts(conn: sqlite3.Connection, query: str) -> set[str]:
+def query_candidate_fts(conn: sqlite3.Connection, workroot_id: str, query: str) -> set[str]:
     if not query.strip():
         return set()
     queries = [query, f'"{query}"']
@@ -437,18 +418,224 @@ def query_candidate_fts(conn: sqlite3.Connection, query: str) -> set[str]:
         try:
             rows = conn.execute(
                 """
-                SELECT candidate_id
+                SELECT context_candidates_fts.candidate_id
                 FROM context_candidates_fts
+                JOIN context_candidates c ON c.candidate_id = context_candidates_fts.candidate_id
                 WHERE context_candidates_fts MATCH ?
+                  AND c.workroot_id = ?
                 LIMIT 25
                 """,
-                (candidate_query,),
+                (candidate_query, workroot_id),
             ).fetchall()
         except sqlite3.OperationalError:
             continue
         if rows:
             break
     return {str(row[0]) for row in rows}
+
+
+def split_reference_ids(value: str) -> set[str]:
+    refs: set[str] = set()
+    for part in value.replace(";", ",").split(","):
+        ref = part.strip()
+        if ref:
+            refs.add(ref)
+    return refs
+
+
+def sql_placeholders(values: set[str] | list[str]) -> str:
+    return ",".join("?" for _ in values)
+
+
+def fetch_candidates_by_sql(
+    conn: sqlite3.Connection,
+    sql: str,
+    params: list[object],
+) -> list[ContextCandidate]:
+    conn.row_factory = sqlite3.Row
+    return [candidate_from_row(row) for row in conn.execute(sql, params).fetchall()]
+
+
+def fetch_candidates_by_ids(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    candidate_ids: set[str],
+) -> list[ContextCandidate]:
+    if not candidate_ids:
+        return []
+    ordered_ids = sorted(candidate_ids)
+    return fetch_candidates_by_sql(
+        conn,
+        f"""
+        SELECT *
+        FROM context_candidates
+        WHERE workroot_id = ?
+          AND candidate_id IN ({sql_placeholders(ordered_ids)})
+        ORDER BY candidate_id ASC
+        """,
+        [workroot_id, *ordered_ids],
+    )
+
+
+def build_candidate_pool(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    current_state: dict[str, object],
+    candidate_fts_matches: set[str],
+    fts_candidate_ids: set[str],
+    graph_candidate_ids: set[str],
+    max_initial_candidates: int = MAX_INITIAL_CANDIDATES,
+) -> tuple[list[ContextCandidate], dict[str, object]]:
+    total_available = int(
+        conn.execute("SELECT COUNT(*) FROM context_candidates WHERE workroot_id = ?", (workroot_id,)).fetchone()[0]
+    )
+    pool: dict[str, ContextCandidate] = {}
+    source_counts: dict[str, int] = {}
+
+    def add_candidates(source: str, rows: list[ContextCandidate]) -> None:
+        source_counts[source] = len(rows)
+        for candidate in rows:
+            if len(pool) >= max_initial_candidates and candidate.candidate_id not in pool:
+                continue
+            pool.setdefault(candidate.candidate_id, candidate)
+
+    always = fetch_candidates_by_sql(
+        conn,
+        """
+        SELECT *
+        FROM context_candidates
+        WHERE workroot_id = ?
+          AND status = 'active'
+          AND context_policy = 'always'
+        ORDER BY updated_at DESC, candidate_id ASC
+        LIMIT ?
+        """,
+        [workroot_id, max_initial_candidates],
+    )
+    add_candidates("always", always)
+
+    explicit_ids = candidate_fts_matches | fts_candidate_ids | graph_candidate_ids
+    add_candidates("explicit-matches", fetch_candidates_by_ids(conn, workroot_id, explicit_ids))
+
+    active_task = str(current_state.get("activeTaskId") or "")
+    if active_task and len(pool) < max_initial_candidates:
+        active_task_rows = fetch_candidates_by_sql(
+            conn,
+            """
+            SELECT *
+            FROM context_candidates
+            WHERE workroot_id = ?
+              AND status = 'active'
+              AND (source_id = ? OR related_tasks LIKE ?)
+            ORDER BY updated_at DESC, candidate_id ASC
+            LIMIT ?
+            """,
+            [workroot_id, active_task, f"%{active_task}%", max_initial_candidates],
+        )
+        add_candidates("active-task", active_task_rows)
+    else:
+        source_counts["active-task"] = 0
+
+    if len(pool) < max_initial_candidates:
+        remaining = max_initial_candidates - len(pool)
+        recent = fetch_candidates_by_sql(
+            conn,
+            """
+            SELECT *
+            FROM context_candidates
+            WHERE workroot_id = ?
+              AND status = 'active'
+              AND context_policy != 'never-auto'
+            ORDER BY
+              CASE importance
+                WHEN 'critical' THEN 0
+                WHEN 'high' THEN 1
+                WHEN 'normal' THEN 2
+                WHEN 'low' THEN 3
+                ELSE 4
+              END,
+              updated_at DESC,
+              candidate_id ASC
+            LIMIT ?
+            """,
+            [workroot_id, remaining],
+        )
+        add_candidates("recent-high-importance", recent)
+    else:
+        source_counts["recent-high-importance"] = 0
+
+    return list(pool.values()), {
+        "strategy": "bounded-sql-pool",
+        "size": len(pool),
+        "maxInitialCandidates": max_initial_candidates,
+        "totalAvailable": total_available,
+        "sources": source_counts,
+    }
+
+
+def load_diagnostic_drops(conn: sqlite3.Connection, workroot_id: str, existing_drop_ids: set[str], limit: int = 50) -> list[dict[str, object]]:
+    rows = fetch_candidates_by_sql(
+        conn,
+        """
+        SELECT *
+        FROM context_candidates
+        WHERE workroot_id = ?
+          AND (
+            status != 'active'
+            OR context_policy = 'never-auto'
+            OR safety_policy IN ('never-auto', 'needs-confirmation', 'sensitive')
+          )
+        ORDER BY updated_at DESC, candidate_id ASC
+        LIMIT ?
+        """,
+        [workroot_id, limit],
+    )
+    diagnostic_drops: list[dict[str, object]] = []
+    for candidate in rows:
+        if candidate.candidate_id in existing_drop_ids:
+            continue
+        score = candidate_score(candidate)
+        if candidate.safety_policy in BLOCKED_SAFETY_POLICIES:
+            reason = f"safety-{candidate.safety_policy}"
+        elif candidate.context_policy == "never-auto":
+            reason = "never-auto"
+        else:
+            reason = candidate.status
+        diagnostic_drops.append(
+            {
+                "candidateId": candidate.candidate_id,
+                "sourceType": candidate.source_type,
+                "reason": reason,
+                "scoreBeforeDrop": score,
+            }
+        )
+    return diagnostic_drops
+
+
+def load_candidate_quality_counts(conn: sqlite3.Connection, workroot_id: str) -> dict[str, int]:
+    row = conn.execute(
+        """
+        SELECT
+          COUNT(*) AS total_count,
+          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_count,
+          SUM(CASE WHEN status = 'stale' THEN 1 ELSE 0 END) AS stale_count,
+          SUM(CASE WHEN context_policy = 'never-auto' THEN 1 ELSE 0 END) AS never_auto_count
+        FROM context_candidates
+        WHERE workroot_id = ?
+        """,
+        (workroot_id,),
+    ).fetchone()
+    return {
+        "totalCount": int(row[0] or 0),
+        "activeCount": int(row[1] or 0),
+        "staleCount": int(row[2] or 0),
+        "neverAutoCount": int(row[3] or 0),
+    }
+
+
+def merge_candidate_quality_counts(candidate_quality: dict[str, object], counts: dict[str, int]) -> dict[str, object]:
+    candidate_quality.update(counts)
+    return candidate_quality
 
 
 def candidate_ids_from_fts_paths(conn: sqlite3.Connection, workroot_id: str, fts_matches: list[dict[str, object]]) -> set[str]:
@@ -492,18 +679,15 @@ def load_graph_candidate_matches(
     active_task = current_state.get("activeTaskId")
     if active_task:
         seed_ids.add(str(active_task))
-    query_terms = query_terms_for_graph(query)
-    candidate_source_by_id = {
-        str(row[0]): str(row[1])
-        for row in conn.execute(
-            "SELECT candidate_id, source_id FROM context_candidates WHERE workroot_id = ?",
-            (workroot_id,),
-        ).fetchall()
-    }
-    source_to_candidate = {source_id: candidate_id for candidate_id, source_id in candidate_source_by_id.items()}
+    seed_candidate_rows = fetch_candidates_by_ids(conn, workroot_id, seed_candidate_ids)
+    for candidate in seed_candidate_rows:
+        seed_ids.add(candidate.candidate_id)
+        seed_ids.add(candidate.source_id)
+        seed_ids.update(split_reference_ids(candidate.related_tasks))
+        seed_ids.update(split_reference_ids(candidate.related_assets))
     matched: set[str] = set()
     if seed_ids:
-        placeholders = ",".join("?" for _ in seed_ids)
+        seed_placeholders = ",".join("?" for _ in seed_ids)
         rel_placeholders = ",".join("?" for _ in RELATED_GRAPH_RELATIONS)
         rows = conn.execute(
             f"""
@@ -511,30 +695,26 @@ def load_graph_candidate_matches(
             FROM graph_edges e
             WHERE (e.status IS NULL OR e.status = 'active')
               AND e.relation IN ({rel_placeholders})
-              AND (e.from_node_id IN ({placeholders}) OR e.to_node_id IN ({placeholders}))
+              AND (e.from_node_id IN ({seed_placeholders}) OR e.to_node_id IN ({seed_placeholders}))
             """,
             [*RELATED_GRAPH_RELATIONS, *seed_ids, *seed_ids],
         ).fetchall()
+        adjacent_node_ids: set[str] = set()
         for from_node_id, to_node_id in rows:
             for node_id in (str(from_node_id), str(to_node_id)):
-                candidate_id = source_to_candidate.get(node_id)
-                if candidate_id:
-                    matched.add(candidate_id)
-    if query_terms:
-        rows = conn.execute(
-            """
-            SELECT c.candidate_id, n.title, n.summary
-            FROM context_candidates c
-            JOIN graph_nodes n ON n.node_id = c.source_id
-            WHERE c.workroot_id = ?
-              AND (n.status IS NULL OR n.status = 'active')
-            """,
-            (workroot_id,),
-        ).fetchall()
-        for candidate_id, title, summary in rows:
-            haystack = f"{title or ''} {summary or ''}".casefold()
-            if any(term in haystack for term in query_terms):
-                matched.add(str(candidate_id))
+                adjacent_node_ids.add(node_id)
+        if adjacent_node_ids:
+            ordered_node_ids = sorted(adjacent_node_ids)
+            candidate_rows = conn.execute(
+                f"""
+                SELECT candidate_id
+                FROM context_candidates
+                WHERE workroot_id = ?
+                  AND (candidate_id IN ({sql_placeholders(ordered_node_ids)}) OR source_id IN ({sql_placeholders(ordered_node_ids)}))
+                """,
+                [workroot_id, *ordered_node_ids, *ordered_node_ids],
+            ).fetchall()
+            matched.update(str(row[0]) for row in candidate_rows)
     return matched
 
 
@@ -542,23 +722,41 @@ def load_graph_signals(
     conn: sqlite3.Connection,
     selected: list[dict[str, object]],
     current_state: dict[str, object],
-    query: str,
-    allow_query_match: bool = False,
 ) -> list[dict[str, object]]:
-    seed_ids = {
-        str(item.get("sourceId") or item.get("candidateId"))
-        for item in selected
-        if item.get("sourceId") or item.get("candidateId")
-    }
+    seed_ids: set[str] = set()
+    for item in selected:
+        if item.get("candidateId"):
+            seed_ids.add(str(item["candidateId"]))
+        if item.get("sourceId"):
+            seed_ids.add(str(item["sourceId"]))
     active_task = current_state.get("activeTaskId")
     if active_task:
         seed_ids.add(str(active_task))
-    query_terms = query_terms_for_graph(query) if allow_query_match else set()
-    if not seed_ids and not query_terms:
+    if not seed_ids:
         return []
     edge_rows: list[sqlite3.Row] = []
+    seed_node_rows: list[sqlite3.Row] = []
     if seed_ids:
         placeholders = ",".join("?" for _ in seed_ids)
+        seed_node_rows = conn.execute(
+            f"""
+            SELECT NULL, 'selected-node', NULL, NULL, node_id, node_type, title, summary, importance
+            FROM graph_nodes
+            WHERE (status IS NULL OR status = 'active')
+              AND node_id IN ({placeholders})
+            ORDER BY
+              CASE importance
+                WHEN 'critical' THEN 0
+                WHEN 'high' THEN 1
+                WHEN 'normal' THEN 2
+                WHEN 'low' THEN 3
+                ELSE 4
+              END,
+              node_id ASC
+            LIMIT 10
+            """,
+            [*seed_ids],
+        ).fetchall()
         rel_placeholders = ",".join("?" for _ in RELATED_GRAPH_RELATIONS)
         edge_rows = conn.execute(
             f"""
@@ -595,37 +793,14 @@ def load_graph_signals(
             """,
             [*seed_ids, *RELATED_GRAPH_RELATIONS, *seed_ids, *seed_ids],
         ).fetchall()
-    query_rows = []
-    if query_terms:
-        query_rows = conn.execute(
-            """
-            SELECT NULL, 'query-match', NULL, NULL, node_id, node_type, title, summary, importance
-            FROM graph_nodes
-            WHERE (status IS NULL OR status = 'active')
-            ORDER BY
-              CASE importance
-                WHEN 'critical' THEN 0
-                WHEN 'high' THEN 1
-                WHEN 'normal' THEN 2
-                WHEN 'low' THEN 3
-                ELSE 4
-              END,
-              node_id ASC
-            LIMIT 25
-            """
-        ).fetchall()
     seen: set[str] = set()
     signals: list[dict[str, object]] = []
-    for row in [*edge_rows, *query_rows]:
+    for row in [*seed_node_rows, *edge_rows]:
         node_id = str(row[4])
         if node_id in seen:
             continue
         title = row[6] or ""
         summary = row[7] or ""
-        if row[1] == "query-match":
-            haystack = f"{title} {summary}".casefold()
-            if not any(term in haystack for term in query_terms):
-                continue
         seen.add(node_id)
         signals.append(
             {
@@ -644,6 +819,63 @@ def load_graph_signals(
 
 def estimate_context_package_tokens(markdown: str) -> int:
     return max(1, len(markdown.split()))
+
+
+def enforce_rendered_token_limit(
+    metadata: dict[str, object],
+    current_state: dict[str, object],
+    selected: list[dict[str, object]],
+    fts_matches: list[dict[str, object]],
+    graph_signals: list[dict[str, object]],
+    request: ContextRequest,
+    trace: dict[str, object],
+) -> tuple[str, list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], int, dict[str, object]]:
+    token_budget = trace.get("tokenBudget", {})
+    hard_limit = int(token_budget.get("hard", 0)) if isinstance(token_budget, dict) else 0
+    trim: dict[str, object] = {
+        "applied": False,
+        "reason": "",
+        "removedGraphSignals": 0,
+        "removedFtsMatches": 0,
+        "removedCandidates": [],
+    }
+    markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
+    estimated = estimate_context_package_tokens(markdown)
+    if hard_limit <= 0 or estimated <= hard_limit:
+        return markdown, selected, fts_matches, graph_signals, estimated, trim
+
+    trim["applied"] = True
+    trim["reason"] = "hard-token-limit"
+    removed_candidates: list[str] = []
+
+    while graph_signals and estimated > hard_limit:
+        graph_signals = graph_signals[:-1]
+        trim["removedGraphSignals"] = int(trim["removedGraphSignals"]) + 1
+        markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
+        estimated = estimate_context_package_tokens(markdown)
+
+    while fts_matches and estimated > hard_limit:
+        fts_matches = fts_matches[:-1]
+        trim["removedFtsMatches"] = int(trim["removedFtsMatches"]) + 1
+        markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
+        estimated = estimate_context_package_tokens(markdown)
+
+    while selected and estimated > hard_limit:
+        removable_indexes = [
+            index
+            for index, item in enumerate(selected)
+            if "always" not in item.get("reasons", [])
+        ]
+        if not removable_indexes:
+            removable_indexes = list(range(len(selected)))
+        remove_index = min(removable_indexes, key=lambda index: float(selected[index].get("score", 0.0)))
+        removed = selected.pop(remove_index)
+        removed_candidates.append(str(removed.get("candidateId")))
+        markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
+        estimated = estimate_context_package_tokens(markdown)
+
+    trim["removedCandidates"] = removed_candidates
+    return markdown, selected, fts_matches, graph_signals, estimated, trim
 
 
 def build_score_inputs(
@@ -733,12 +965,20 @@ def render_markdown(
     return "\n".join(lines) + "\n"
 
 
-def write_context_package(state_directory: Path, markdown: str) -> None:
+def write_context_package(state_directory: Path, markdown: str, trace: dict[str, object], retention: int = 50) -> None:
     package_dir = state_directory / "context/packages"
     package_dir.mkdir(parents=True, exist_ok=True)
     (package_dir / "latest.md").write_text(markdown, encoding="utf-8")
     history_dir = package_dir / "history"
     history_dir.mkdir(parents=True, exist_ok=True)
+    trace_id = str(trace.get("traceId", "trace"))
+    agent = str(trace.get("agent", "agent"))
+    mode = str(trace.get("contextMode", "standard"))
+    history_path = history_dir / f"{trace_id}-{agent}-{mode}.md"
+    history_path.write_text(markdown, encoding="utf-8")
+    history = sorted(history_dir.glob("*.md"), key=lambda path: path.stat().st_mtime)
+    for path in history[:-retention]:
+        path.unlink()
 
 
 def write_debug_trace(debug_dir: Path, trace: dict[str, object], retention: int = 50) -> None:
@@ -807,28 +1047,37 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
     }
 
     with open_sqlite(db_path) as conn:
+        workroot_id = str(metadata.get("workrootId"))
         trace["challengers"].append({"name": "current-state", "status": "pass", "count": 1 if current_state else 0})
         query = request.query or str(current_state.get("currentFocus", ""))
         span = time.perf_counter()
-        candidates = load_all_candidate_rows(conn, str(metadata.get("workrootId")))
-        timing["queryCandidates"] = int((time.perf_counter() - span) * 1000)
-        trace["challengers"].append({"name": "materialized-candidates", "status": "pass", "count": len(candidates)})
-        span = time.perf_counter()
-        fts_matches = search_fts(conn, str(metadata.get("workrootId")), query, limit=5) if query.strip() else []
+        fts_matches = search_fts(conn, workroot_id, query, limit=5) if query.strip() else []
         timing["fts"] = int((time.perf_counter() - span) * 1000)
         trace["challengers"].append({"name": "fts", "status": "pass", "count": len(fts_matches), "query": query})
         span = time.perf_counter()
-        candidate_fts_matches = query_candidate_fts(conn, query)
-        fts_candidate_ids = candidate_ids_from_fts_paths(conn, str(metadata.get("workrootId")), fts_matches)
+        candidate_fts_matches = query_candidate_fts(conn, workroot_id, query)
+        fts_candidate_ids = candidate_ids_from_fts_paths(conn, workroot_id, fts_matches)
         graph_candidate_ids = load_graph_candidate_matches(
             conn,
-            str(metadata.get("workrootId")),
+            workroot_id,
             current_state,
             query,
             candidate_fts_matches | fts_candidate_ids,
         )
         score_boosts, reason_boosts = build_score_inputs(candidate_fts_matches, fts_candidate_ids, graph_candidate_ids)
+        candidate_quality_counts = load_candidate_quality_counts(conn, workroot_id)
+        candidates, candidate_pool = build_candidate_pool(
+            conn,
+            workroot_id,
+            current_state,
+            candidate_fts_matches,
+            fts_candidate_ids,
+            graph_candidate_ids,
+        )
         candidates = sort_candidates(candidates, score_boosts)
+        timing["queryCandidates"] = int((time.perf_counter() - span) * 1000)
+        trace["candidatePool"] = candidate_pool
+        trace["challengers"].append({"name": "materialized-candidates", "status": "pass", "count": len(candidates)})
         trace["candidateQueryMatches"] = sorted(candidate_fts_matches | fts_candidate_ids | graph_candidate_ids)
         selected, dropped, estimated_used = select_candidates(
             candidates,
@@ -836,13 +1085,18 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
             score_boosts=score_boosts,
             reason_boosts=reason_boosts,
         )
+        dropped.extend(
+            load_diagnostic_drops(
+                conn,
+                workroot_id,
+                {str(item.get("candidateId")) for item in dropped},
+            )
+        )
         timing["scoring"] = int((time.perf_counter() - span) * 1000)
         span = time.perf_counter()
-        graph_signals = load_graph_signals(conn, selected, current_state, query, allow_query_match=bool(request.query.strip()))
+        graph_signals = load_graph_signals(conn, selected, current_state)
         timing["graphExpansion"] = int((time.perf_counter() - span) * 1000)
         trace["challengers"].append({"name": "graph", "status": "pass", "count": len(graph_signals)})
-        if selected:
-            mark_candidates_used(conn, [str(item["candidateId"]) for item in selected], now=now)
 
     latency_ms = int((time.perf_counter() - started) * 1000)
     trace["completedAt"] = now
@@ -858,6 +1112,9 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
         "source": budget.source,
     }
     candidate_quality = summarize_candidate_quality(candidates, dropped)
+    candidate_quality = merge_candidate_quality_counts(candidate_quality, candidate_quality_counts)
+    if "candidatePool" in trace and isinstance(trace["candidatePool"], dict):
+        candidate_quality["totalAvailable"] = trace["candidatePool"].get("totalAvailable", len(candidates))
     confidence, confidence_reasons = compute_confidence(current_state, selected, candidate_quality, fts_matches)
     trace["candidateQuality"] = candidate_quality
     trace["confidence"] = confidence
@@ -871,7 +1128,18 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
             score_boosts=score_boosts,
             reason_boosts=reason_boosts,
         )
+        with open_sqlite(db_path) as conn:
+            dropped.extend(
+                load_diagnostic_drops(
+                    conn,
+                    str(metadata.get("workrootId")),
+                    {str(item.get("candidateId")) for item in dropped},
+                )
+            )
         candidate_quality = summarize_candidate_quality(candidates, dropped)
+        candidate_quality = merge_candidate_quality_counts(candidate_quality, candidate_quality_counts)
+        if "candidatePool" in trace and isinstance(trace["candidatePool"], dict):
+            candidate_quality["totalAvailable"] = trace["candidatePool"].get("totalAvailable", len(candidates))
         confidence, confidence_reasons = compute_confidence(current_state, selected, candidate_quality, fts_matches)
         trace["selectedCandidates"] = selected
         trace["droppedCandidates"] = dropped
@@ -903,8 +1171,28 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
         token_budget["candidateTokens"] = estimated_used
         token_budget["estimatedUsed"] = full_token_estimate
         trace["tokenBudget"] = token_budget
+    markdown, selected, fts_matches, graph_signals, full_token_estimate, budget_trim = enforce_rendered_token_limit(
+        metadata,
+        current_state,
+        selected,
+        fts_matches,
+        graph_signals,
+        request,
+        trace,
+    )
+    trace["selectedCandidates"] = selected
+    trace["ftsMatches"] = fts_matches
+    trace["graphSignals"] = graph_signals
+    trace["budgetTrim"] = budget_trim
+    token_budget = trace.get("tokenBudget", {})
+    if isinstance(token_budget, dict):
+        token_budget["estimatedUsed"] = full_token_estimate
+        trace["tokenBudget"] = token_budget
     markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
-    write_context_package(state_directory, markdown)
+    if selected:
+        with open_sqlite(db_path) as conn:
+            mark_candidates_used(conn, [str(item["candidateId"]) for item in selected], now=now)
+    write_context_package(state_directory, markdown, trace)
 
     if request.debug:
         write_debug_trace(state_directory / "context/debug", trace)

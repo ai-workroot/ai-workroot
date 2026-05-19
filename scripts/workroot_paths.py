@@ -6,11 +6,24 @@ from __future__ import annotations
 import os
 import platform
 from pathlib import Path
+import re
 import uuid
 
 
 class CleanModeBoundaryError(ValueError):
     """Raised when Clean Mode managed state would live inside a user directory."""
+
+
+WORKROOT_ID_RE = re.compile(r"^wr_[a-z0-9][a-z0-9_]{0,80}$")
+
+
+def ensure_workroot_id(workroot_id: str) -> str:
+    if not WORKROOT_ID_RE.fullmatch(workroot_id):
+        raise ValueError(
+            "invalid Workroot ID: use wr_ followed by lowercase letters, numbers, or underscores, "
+            "with no path separators"
+        )
+    return workroot_id
 
 
 def resolve_ai_workroot_home(home: Path | None = None) -> Path:
@@ -27,7 +40,16 @@ def resolve_ai_workroot_home(home: Path | None = None) -> Path:
 
 
 def workroot_state_dir(ai_workroot_home: Path, workroot_id: str) -> Path:
-    return ai_workroot_home / "workroots" / workroot_id
+    safe_workroot_id = ensure_workroot_id(workroot_id)
+    home = ai_workroot_home.expanduser()
+    state_directory = home / "workroots" / safe_workroot_id
+    resolved_state_directory = state_directory.resolve()
+    workroots_dir = (home / "workroots").resolve()
+    try:
+        resolved_state_directory.relative_to(workroots_dir)
+    except ValueError as exc:
+        raise CleanModeBoundaryError(f"Workroot state directory escaped AI_WORKROOT_HOME/workroots: {resolved_state_directory}") from exc
+    return state_directory
 
 
 def workroot_sqlite_path(state_directory: Path) -> Path:

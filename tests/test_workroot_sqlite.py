@@ -37,6 +37,28 @@ class WorkrootSqliteTest(unittest.TestCase):
             issues = verify_workroot_sqlite(db_path)
             self.assertTrue(any("graph_nodes" in issue for issue in issues))
 
+    def test_sqlite_schema_contains_workroot_management_tables(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "workroot.sqlite"
+            initialize_workroot_sqlite(db_path)
+            with sqlite3.connect(db_path) as conn:
+                tables = {
+                    row[0]
+                    for row in conn.execute("SELECT name FROM sqlite_master WHERE type IN ('table', 'virtual table')")
+                }
+
+            for table in ("tasks", "assets", "knowledge_items", "domains", "handoffs", "time_events"):
+                self.assertIn(table, tables)
+
+    def test_context_candidates_include_use_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "workroot.sqlite"
+            initialize_workroot_sqlite(db_path)
+            with sqlite3.connect(db_path) as conn:
+                columns = {row[1] for row in conn.execute("PRAGMA table_info(context_candidates)").fetchall()}
+
+            self.assertIn("use_count", columns)
+
 
 if __name__ == "__main__":
     unittest.main()

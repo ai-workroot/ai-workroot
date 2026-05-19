@@ -34,6 +34,23 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         self.assertIn("continue rebuild", out)
         self.assertIn("schema", out)
 
+    def test_cli_help_separates_clean_mode_from_legacy_seed_commands(self) -> None:
+        out = run_cli("quickstart")
+
+        self.assertIn("Clean Mode user path:", out)
+        self.assertIn("workroot init", out)
+        self.assertIn("workroot context", out)
+        self.assertIn("workroot doctor", out)
+        self.assertIn("legacy public-seed agent-operation commands:", out)
+
+    def test_operation_manifest_marks_legacy_seed_commands(self) -> None:
+        manifest = json.loads(run_cli("manifest", "--format", "json"))
+
+        self.assertIn("legacy_mode", manifest)
+        self.assertIn("legacy public-seed", manifest["legacy_mode"]["description"])
+        self.assertIn("task", manifest["legacy_mode"]["commands"])
+        self.assertIn("init, context, doctor, status, list", manifest["legacy_mode"]["description"])
+
     def test_manifest_json_exposes_agent_operation_contract(self) -> None:
         manifest = json.loads(run_cli("manifest", "--format", "json"))
         self.assertEqual(manifest["manifest_id"], "agent-operation-manifest")

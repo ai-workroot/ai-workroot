@@ -58,6 +58,32 @@ class ReleaseGates0529Test(unittest.TestCase):
 
         self.assertIn(".ai-workroot-local/", gitignore.splitlines())
 
+    def test_windows_powershell_validation_gap_is_documented(self) -> None:
+        checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
+
+        self.assertIn("Windows PowerShell parse validation is pending", checklist)
+        self.assertIn("scripts/install.ps1", checklist)
+        self.assertIn("scripts/bootstrap-dev.ps1", checklist)
+
+    def test_rebuild_sqlite_is_marked_as_legacy_seed_tooling(self) -> None:
+        script = (ROOT / "scripts/rebuild_sqlite.py").read_text(encoding="utf-8")
+        instantiate = (ROOT / "docs/instantiate-workroot.md").read_text(encoding="utf-8")
+
+        self.assertIn("Legacy public-seed SQLite rebuild tool", script)
+        self.assertIn("legacy public seed", instantiate)
+        self.assertNotIn("Clean Mode users should run `python3 scripts/rebuild_sqlite.py`", instantiate)
+
+    def test_release_notes_include_known_limitations(self) -> None:
+        release_notes = (ROOT / "docs/releases/0.9.529.md").read_text(encoding="utf-8")
+
+        for text in (
+            "Windows PowerShell parse validation is pending",
+            "install.sh is a CLI wrapper installer",
+            "Quality Mode is currently labeled as quality-budget-expansion",
+            "scripts/rebuild_sqlite.py remains legacy public-seed tooling",
+        ):
+            self.assertIn(text, release_notes)
+
     def test_numbered_0529_specs_exist(self) -> None:
         errors: list[str] = []
 

@@ -65,7 +65,8 @@ CREATE TABLE IF NOT EXISTS context_candidates (
   safety_policy TEXT,
   token_estimate INTEGER,
   updated_at TEXT,
-  last_used_at TEXT
+  last_used_at TEXT,
+  use_count INTEGER DEFAULT 0
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS context_candidates_fts USING fts5(
@@ -79,6 +80,60 @@ CREATE INDEX IF NOT EXISTS idx_context_candidates_workroot ON context_candidates
 CREATE INDEX IF NOT EXISTS idx_context_candidates_status ON context_candidates(status);
 CREATE INDEX IF NOT EXISTS idx_context_candidates_policy ON context_candidates(context_policy);
 CREATE INDEX IF NOT EXISTS idx_context_candidates_importance ON context_candidates(importance);
+"""
+
+MANAGEMENT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS tasks (
+  task_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  title TEXT,
+  status TEXT,
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS assets (
+  asset_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  relative_path TEXT,
+  title TEXT,
+  status TEXT,
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_items (
+  knowledge_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  title TEXT,
+  summary TEXT,
+  status TEXT,
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS domains (
+  domain_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  name TEXT,
+  summary TEXT,
+  status TEXT,
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS handoffs (
+  handoff_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  title TEXT,
+  summary TEXT,
+  status TEXT,
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS time_events (
+  event_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  event_type TEXT,
+  occurred_at TEXT,
+  summary TEXT
+);
 """
 
 FTS_SCHEMA = """
@@ -126,6 +181,12 @@ def required_tables() -> list[str]:
         "indexed_files",
         "indexed_chunks",
         "indexed_chunks_fts",
+        "tasks",
+        "assets",
+        "knowledge_items",
+        "domains",
+        "handoffs",
+        "time_events",
     ]
 
 
@@ -141,8 +202,16 @@ def initialize_workroot_sqlite(path: Path) -> None:
     with open_sqlite(path) as conn:
         conn.executescript(GRAPH_SCHEMA)
         conn.executescript(CANDIDATE_SCHEMA)
+        ensure_context_candidate_columns(conn)
+        conn.executescript(MANAGEMENT_SCHEMA)
         conn.executescript(FTS_SCHEMA)
         conn.commit()
+
+
+def ensure_context_candidate_columns(conn: sqlite3.Connection) -> None:
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(context_candidates)").fetchall()}
+    if "use_count" not in columns:
+        conn.execute("ALTER TABLE context_candidates ADD COLUMN use_count INTEGER DEFAULT 0")
 
 
 def sqlite_table_names(conn: sqlite3.Connection) -> set[str]:

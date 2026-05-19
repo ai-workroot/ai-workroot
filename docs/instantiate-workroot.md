@@ -70,7 +70,7 @@ python3 scripts/new_task.py "Evidence review" --process-level L2
 
 When durable objects are created, update the CSV registries in `.workroot/runtime/index/`.
 
-If a local SQLite index is used, it must be rebuildable from these file sources.
+If a local SQLite index is used in the legacy public seed, it must be rebuildable from these file sources.
 
 For delegated or sub-agent scenarios:
 
@@ -85,6 +85,8 @@ python3 scripts/rebuild_sqlite.py
 python3 scripts/validate_kernel.py
 python3 scripts/add_registry_row.py link source_type=task source_id=my-task relation=produced target_type=artifact target_id=my-artifact created_at=2026-05-14
 ```
+
+`scripts/rebuild_sqlite.py` is legacy public seed tooling for `.workroot/runtime/data/indexes/workroot.sqlite`; Clean Mode users should use `workroot init`, `workroot context`, and `workroot doctor`, which use managed state under AI Workroot system home.
 
 ## 6. Promote What Matters
 

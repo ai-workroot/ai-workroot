@@ -6,11 +6,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
 
 try:
-    from workroot_paths import assert_clean_mode_boundary, validate_user_directory, workroot_state_dir
+    from workroot_paths import assert_clean_mode_boundary, ensure_workroot_id, validate_user_directory, workroot_state_dir
 except ModuleNotFoundError:  # pragma: no cover - package import path for tests.
-    from scripts.workroot_paths import assert_clean_mode_boundary, validate_user_directory, workroot_state_dir
+    from scripts.workroot_paths import assert_clean_mode_boundary, ensure_workroot_id, validate_user_directory, workroot_state_dir
 
 
 CONFIG_VERSION = "0.9.529"
@@ -148,6 +149,13 @@ def touch_jsonl(path: Path) -> None:
     path.touch(exist_ok=True)
 
 
+def backup_malformed_config(config_path: Path, now: str) -> None:
+    backup_stamp = re.sub(r"[^0-9A-Za-z]+", "", now) or "unknown"
+    backup_path = config_path.with_name(f"{config_path.name}.bak.{backup_stamp}")
+    if not backup_path.exists():
+        backup_path.write_text(config_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+
 def initialize_ai_workroot_home(home: Path, now: str) -> None:
     home.mkdir(parents=True, exist_ok=True)
     config_path = home / "config.json"
@@ -155,8 +163,10 @@ def initialize_ai_workroot_home(home: Path, now: str) -> None:
         try:
             config = json.loads(config_path.read_text(encoding="utf-8"))
             if not isinstance(config, dict):
+                backup_malformed_config(config_path, now)
                 config = {}
         except json.JSONDecodeError:
+            backup_malformed_config(config_path, now)
             config = {}
         config.setdefault("createdAt", now)
         config["version"] = CONFIG_VERSION
@@ -172,6 +182,7 @@ def initialize_ai_workroot_home(home: Path, now: str) -> None:
     write_json(config_path, config)
     for name in REGISTRY_FILES:
         touch_jsonl(home / "registry" / name)
+    touch_jsonl(home / "migrations/applied.jsonl")
     for name in GLOBAL_INDEX_FILES:
         touch_jsonl(home / "global-index" / name)
     (home / "global-index/levels").mkdir(parents=True, exist_ok=True)
@@ -201,6 +212,7 @@ def initialize_workroot_state(
     user_directory: Path,
     now: str,
 ) -> InitializedWorkroot:
+    workroot_id = ensure_workroot_id(workroot_id)
     canonical_user_directory = validate_user_directory(user_directory, home, create=True)
     state_directory = workroot_state_dir(home, workroot_id).resolve()
     assert_clean_mode_boundary(canonical_user_directory, state_directory)
@@ -208,6 +220,12 @@ def initialize_workroot_state(
     existing = read_jsonl(home / "registry/workroots.jsonl")
     if any(record.get("workrootId") == workroot_id for record in existing):
         raise ValueError(f"Workroot ID already exists: {workroot_id}")
+    for record in existing:
+        if record.get("status", "active") != "active":
+            continue
+        existing_user_directory = Path(str(record.get("userDirectory", ""))).resolve()
+        if existing_user_directory == canonical_user_directory:
+            raise ValueError(f"This directory is already registered as Workroot {record.get('workrootId')}.")
 
     for rel in WORKROOT_DIRECTORIES:
         (state_directory / rel).mkdir(parents=True, exist_ok=True)

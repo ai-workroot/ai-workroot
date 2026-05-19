@@ -136,6 +136,30 @@ class WorkrootCandidatesTest(unittest.TestCase):
 
             self.assertEqual(row.last_used_at, "2026-05-19T02:00:00Z")
 
+    def test_selected_candidate_use_count_increments(self) -> None:
+        with self.open_db() as conn:
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_used",
+                    workroot_id="wr_demo",
+                    source_type="handoff",
+                    source_id="handoff-1",
+                    title="Handoff",
+                    summary="Latest next action.",
+                    updated_at="2026-05-19T00:00:00Z",
+                ),
+            )
+            mark_candidates_used(conn, ["cand_used"], now="2026-05-19T02:00:00Z")
+            mark_candidates_used(conn, ["cand_used"], now="2026-05-19T03:00:00Z")
+            row = conn.execute(
+                "SELECT last_used_at, use_count FROM context_candidates WHERE candidate_id = ?",
+                ("cand_used",),
+            ).fetchone()
+
+            self.assertEqual(row[0], "2026-05-19T03:00:00Z")
+            self.assertEqual(row[1], 2)
+
     def test_candidate_fts_indexes_domains(self) -> None:
         with self.open_db() as conn:
             upsert_context_candidate(

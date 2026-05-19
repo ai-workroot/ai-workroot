@@ -19,6 +19,21 @@ class WorkrootStateTest(unittest.TestCase):
             self.assertTrue((home / "global-index").is_dir())
             self.assertTrue((home / "global-cache").is_dir())
 
+    def test_malformed_config_is_backed_up_before_repair(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            home.mkdir()
+            config = home / "config.json"
+            config.write_text("{not-json", encoding="utf-8")
+
+            initialize_ai_workroot_home(home, now="2026-05-19T00:00:00Z")
+
+            backups = list(home.glob("config.json.bak.*"))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(backups[0].read_text(encoding="utf-8"), "{not-json")
+            repaired = json.loads(config.read_text(encoding="utf-8"))
+            self.assertEqual(repaired["version"], "0.9.529")
+
     def test_initialize_workroot_state_keeps_state_outside_user_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -86,6 +101,31 @@ class WorkrootStateTest(unittest.TestCase):
             self.assertFalse((home / "registry").exists())
             self.assertFalse((home / "workroots").exists())
             self.assertFalse(user_dir.exists())
+
+    def test_initialize_rejects_duplicate_user_directory_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+
+            initialize_workroot_state(home, "wr_one", "One", user_dir, now="2026-05-19T00:00:00Z")
+
+            with self.assertRaisesRegex(ValueError, "wr_one"):
+                initialize_workroot_state(home, "wr_two", "Two", user_dir, now="2026-05-19T00:00:00Z")
+
+    def test_initialize_rejects_unsafe_workroot_id_before_creating_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+
+            with self.assertRaisesRegex(ValueError, "invalid Workroot ID"):
+                initialize_workroot_state(home, "../bad", "Bad", user_dir, now="2026-05-19T00:00:00Z")
+
+            self.assertFalse((base / "bad").exists())
+            self.assertFalse((home / "workroots").exists())
 
 
 if __name__ == "__main__":
