@@ -7,11 +7,13 @@ import argparse
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 from workroot_operation_manifest import manifest as operation_manifest
 from workroot_operation_manifest import recipe as operation_recipe
 from workroot_operation_manifest import schema as operation_schema
 from workroot_operation_manifest import recipes as operation_recipes
+from workroot_bootstrap import bootstrap_dev
 from workroot_client import (
     MIND_TYPES,
     OWNER_SCOPES,
@@ -20,7 +22,10 @@ from workroot_client import (
     VISIBILITIES,
     WorkrootClient,
     now_utc,
+    slugify,
 )
+from workroot_paths import resolve_ai_workroot_home
+from workroot_state import initialize_workroot_state, read_jsonl
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,6 +33,17 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="resource", required=True)
 
     subparsers.add_parser("quickstart")
+    init = subparsers.add_parser("init")
+    init.add_argument("--name", required=True)
+    init.add_argument("--directory", required=True)
+    init.add_argument("--id", dest="workroot_id")
+    init.add_argument("--no-native-agent-entry", action="store_true")
+    list_parser = subparsers.add_parser("list")
+    list_parser.add_argument("--format", choices=["text", "json"], default="text")
+    status = subparsers.add_parser("status")
+    status.add_argument("--cwd", default=".")
+    bootstrap = subparsers.add_parser("bootstrap-dev")
+    bootstrap.add_argument("--dry-run", action="store_true")
     manifest_parser = subparsers.add_parser("manifest")
     manifest_parser.add_argument("--format", choices=["text", "json"], default="text")
     schema_parser = subparsers.add_parser("schema")
@@ -229,6 +245,46 @@ def main() -> None:
         print("Use schema to inspect enum and path rules.")
         print("Use recipe task-l0-report, task-l1-report, or task-l2-evidence for examples.")
         print("Use continue rebuild for human-facing continuation.")
+        return
+
+    if args.resource == "init":
+        home = resolve_ai_workroot_home()
+        workroot_id = args.workroot_id or f"wr_{slugify(args.name).replace('-', '_')}"
+        initialized = initialize_workroot_state(
+            home,
+            workroot_id=workroot_id,
+            name=args.name,
+            user_directory=Path(args.directory),
+            now=now_utc(),
+        )
+        print(initialized.state_directory)
+        return
+
+    if args.resource == "list":
+        records = read_jsonl(resolve_ai_workroot_home() / "registry/workroots.jsonl")
+        if args.format == "json":
+            print(json.dumps(records, ensure_ascii=False, indent=2))
+            return
+        for record in records:
+            print(f"{record.get('workrootId')} {record.get('name')} {record.get('userDirectory')}")
+        return
+
+    if args.resource == "status":
+        cwd = Path(args.cwd).resolve()
+        records = read_jsonl(resolve_ai_workroot_home() / "registry/workroots.jsonl")
+        matches = [
+            record for record in records
+            if cwd == Path(str(record.get("userDirectory", ""))).resolve()
+            or cwd.is_relative_to(Path(str(record.get("userDirectory", ""))).resolve())
+        ]
+        if not matches:
+            raise SystemExit(f"no Workroot registered for cwd: {cwd}")
+        match = max(matches, key=lambda record: len(str(record.get("userDirectory", ""))))
+        print(f"{match.get('workrootId')} {match.get('name')} {match.get('stateDirectory')}")
+        return
+
+    if args.resource == "bootstrap-dev":
+        print(bootstrap_dev(Path("."), dry_run=args.dry_run))
         return
 
     if args.resource == "manifest":
