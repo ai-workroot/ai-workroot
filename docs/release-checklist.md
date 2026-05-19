@@ -89,3 +89,16 @@ git diff --check
 ```
 
 The final status should contain only intentional release changes.
+
+## 0.9.529 Clean Native Context Gates
+
+- Clean Mode init creates no managed folders or control files inside the user-selected directory by default.
+- Native Agent Entry files are created or modified only after explicit authorization.
+- Managed state, indexes, context packages, handoffs, runtime data, logs, and debug traces live outside the user-selected directory by default.
+- SQLite graph, candidate, and FTS tables are present in managed state.
+- Context Guide runs locally, prints a Markdown Context Package, and does not require remote calls.
+- Debug trace records resolution, challengers, selected and dropped candidates, FTS matches, token budget, and timing.
+- P0 retrieval does not require a vector database or remote embedding provider.
+- `bootstrap-dev` creates no commits, tags, releases, or pushes automatically.
+- `.ai-workroot-local/` is ignored and must not appear in release artifacts.
+- Release validation rejects generated caches, SQLite stores, debug traces, local metadata, and private residue.

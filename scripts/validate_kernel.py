@@ -212,6 +212,29 @@ GENERATED_SUFFIXES = {
     ".duckdb",
     ".wal",
 }
+GENERATED_STATE_PATH_PREFIXES = {
+    ".ai-workroot-local/",
+    "cache/",
+    "context/debug/",
+    "global-cache/",
+    "logs/",
+}
+REQUIRED_0529_SPECS = [
+    "001-project-structure-and-naming.spec.md",
+    "002-clean-mode-installation.spec.md",
+    "003-managed-state-layout.spec.md",
+    "004-bootstrap-process.spec.md",
+    "005-migrations.spec.md",
+    "006-doctor-command.spec.md",
+    "007-context-guide-builder.spec.md",
+    "008-materialized-context-candidates.spec.md",
+    "009-fts-indexing-and-retrieval.spec.md",
+    "010-debug-trace-and-observability.spec.md",
+    "011-cli-user-flows.spec.md",
+    "012-native-agent-entry.spec.md",
+    "013-sqlite-cache-and-provenance-graph.spec.md",
+    "014-release-and-test-gates.spec.md",
+]
 TASK_PLACEHOLDER_PATTERNS = {
     "Task created; no work completed yet.",
     "Nothing yet.",
@@ -783,6 +806,8 @@ def validate_release_surface(root: Path, errors: list[str]) -> None:
         if path.is_file() and path.suffix.lower() in GENERATED_SUFFIXES:
             add_error(errors, f"generated store must not be committed for release: {path.relative_to(root).as_posix()}")
         rel = path.relative_to(root).as_posix()
+        if path.is_file() and any(rel.startswith(prefix) for prefix in GENERATED_STATE_PATH_PREFIXES):
+            add_error(errors, f"generated managed state path must not be committed for release: {rel}")
         if path.is_file() and rel.startswith(".workroot/runtime/cache/") and path.name != ".gitkeep":
             add_error(errors, f"runtime cache file must not be present for release: {rel}")
         if path.is_file() and rel.startswith(".workroot/runtime/logs/") and path.name != ".gitkeep":
@@ -803,6 +828,13 @@ def validate_release_surface(root: Path, errors: list[str]) -> None:
             if pattern.search(text):
                 add_error(errors, f"possible private residue in {path.relative_to(root).as_posix()}")
                 break
+
+
+def validate_0529_specs(root: Path, errors: list[str]) -> None:
+    for name in REQUIRED_0529_SPECS:
+        path = root / "docs/specs" / name
+        if not path.exists():
+            add_error(errors, f"missing 0.9.529 spec: docs/specs/{name}")
 
 
 def main() -> int:
@@ -826,6 +858,7 @@ def main() -> int:
     validate_task_state_trust(root, errors)
     validate_context_budget(root, errors)
     if args.release:
+        validate_0529_specs(root, errors)
         validate_release_surface(root, errors)
 
     if errors:
