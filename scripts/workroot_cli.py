@@ -14,6 +14,7 @@ from workroot_operation_manifest import recipe as operation_recipe
 from workroot_operation_manifest import schema as operation_schema
 from workroot_operation_manifest import recipes as operation_recipes
 from workroot_bootstrap import bootstrap_dev
+from workroot_context import ContextRequest, build_context_package
 from workroot_doctor import render_json as render_doctor_json
 from workroot_doctor import render_text as render_doctor_text
 from workroot_doctor import run_doctor
@@ -47,6 +48,11 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--cwd", default=".")
     bootstrap = subparsers.add_parser("bootstrap-dev")
     bootstrap.add_argument("--dry-run", action="store_true")
+    context = subparsers.add_parser("context")
+    context.add_argument("--agent", choices=["codex", "claude"], required=True)
+    context.add_argument("--cwd", default=".")
+    context.add_argument("--query", default="")
+    context.add_argument("--debug", action="store_true")
     manifest_parser = subparsers.add_parser("manifest")
     manifest_parser.add_argument("--format", choices=["text", "json"], default="text")
     schema_parser = subparsers.add_parser("schema")
@@ -290,6 +296,20 @@ def main() -> None:
 
     if args.resource == "bootstrap-dev":
         print(bootstrap_dev(Path("."), dry_run=args.dry_run))
+        return
+
+    if args.resource == "context":
+        package = build_context_package(
+            ContextRequest(
+                home=resolve_ai_workroot_home(),
+                agent=args.agent,
+                cwd=Path(args.cwd),
+                query=args.query,
+                debug=args.debug,
+                now=now_utc(),
+            )
+        )
+        print(package.markdown, end="")
         return
 
     if args.resource == "manifest":
