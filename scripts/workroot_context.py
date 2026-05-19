@@ -543,6 +543,7 @@ def load_graph_signals(
     selected: list[dict[str, object]],
     current_state: dict[str, object],
     query: str,
+    allow_query_match: bool = False,
 ) -> list[dict[str, object]]:
     seed_ids = {
         str(item.get("sourceId") or item.get("candidateId"))
@@ -552,7 +553,7 @@ def load_graph_signals(
     active_task = current_state.get("activeTaskId")
     if active_task:
         seed_ids.add(str(active_task))
-    query_terms = query_terms_for_graph(query)
+    query_terms = query_terms_for_graph(query) if allow_query_match else set()
     if not seed_ids and not query_terms:
         return []
     edge_rows: list[sqlite3.Row] = []
@@ -837,7 +838,7 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
         )
         timing["scoring"] = int((time.perf_counter() - span) * 1000)
         span = time.perf_counter()
-        graph_signals = load_graph_signals(conn, selected, current_state, query)
+        graph_signals = load_graph_signals(conn, selected, current_state, query, allow_query_match=bool(request.query.strip()))
         timing["graphExpansion"] = int((time.perf_counter() - span) * 1000)
         trace["challengers"].append({"name": "graph", "status": "pass", "count": len(graph_signals)})
         if selected:

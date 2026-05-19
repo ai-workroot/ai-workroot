@@ -264,6 +264,53 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertIn("Clean Mode task", titles)
         self.assertNotIn("Unrelated critical node", titles)
 
+    def test_graph_signals_do_not_use_broad_focus_terms_for_unrelated_nodes(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+        write_json(
+            state_dir / "state/current.json",
+            {
+                "currentFocus": "Clean Mode local Context Guide review.",
+                "activeTaskId": "task-1",
+                "nextSuggestedAction": "Review context output.",
+                "contextVersion": 1,
+                "lastActivityAt": "2026-05-19T00:00:00Z",
+            },
+        )
+        db_path = workroot_sqlite_path(state_dir)
+        with open_sqlite(db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO graph_nodes (
+                  node_id, node_type, kind, title, summary, status, importance, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "unrelated-critical",
+                    "decision",
+                    "architecture",
+                    "Unrelated critical context node",
+                    "This unrelated node contains context and should not appear without a related edge.",
+                    "active",
+                    "critical",
+                    "2026-05-19T00:00:00Z",
+                    "2026-05-19T00:00:00Z",
+                ),
+            )
+            conn.commit()
+
+        package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        titles = {signal["title"] for signal in package.trace["graphSignals"]}
+        self.assertNotIn("Unrelated critical context node", titles)
+
     def test_graph_one_hop_match_promotes_candidate_selection(self) -> None:
         home, user_dir, state_dir = self.create_fixture()
         hints = json.loads((state_dir / "state/runtime-hints.json").read_text(encoding="utf-8"))
