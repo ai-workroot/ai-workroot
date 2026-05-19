@@ -225,21 +225,24 @@ def index_text_file(
 def search_fts(conn: sqlite3.Connection, workroot_id: str, query: str, limit: int = 10) -> list[dict[str, object]]:
     if not query.strip():
         return []
-    rows = conn.execute(
-        """
-        SELECT
-          c.relative_path,
-          c.heading,
-          snippet(indexed_chunks_fts, 3, '[', ']', '...', 12) AS snippet,
-          bm25(indexed_chunks_fts) AS score
-        FROM indexed_chunks_fts
-        JOIN indexed_chunks c ON c.chunk_id = indexed_chunks_fts.chunk_id
-        WHERE indexed_chunks_fts MATCH ? AND c.workroot_id = ?
-        ORDER BY score ASC
-        LIMIT ?
-        """,
-        (query, workroot_id, limit),
-    ).fetchall()
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+              c.relative_path,
+              c.heading,
+              snippet(indexed_chunks_fts, 3, '[', ']', '...', 12) AS snippet,
+              bm25(indexed_chunks_fts) AS score
+            FROM indexed_chunks_fts
+            JOIN indexed_chunks c ON c.chunk_id = indexed_chunks_fts.chunk_id
+            WHERE indexed_chunks_fts MATCH ? AND c.workroot_id = ?
+            ORDER BY score ASC
+            LIMIT ?
+            """,
+            (query, workroot_id, limit),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return []
     return [
         {
             "relativePath": row[0],

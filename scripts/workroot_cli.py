@@ -17,6 +17,7 @@ from workroot_bootstrap import bootstrap_dev
 from workroot_context import ContextRequest, build_context_package
 from workroot_doctor import render_json as render_doctor_json
 from workroot_doctor import render_text as render_doctor_text
+from workroot_doctor import resolve_state_record
 from workroot_doctor import run_doctor
 from workroot_client import (
     MIND_TYPES,
@@ -29,6 +30,7 @@ from workroot_client import (
     slugify,
 )
 from workroot_paths import resolve_ai_workroot_home
+from workroot_sqlite import initialize_workroot_sqlite
 from workroot_state import initialize_workroot_state, read_jsonl
 
 
@@ -268,6 +270,7 @@ def main() -> None:
             user_directory=Path(args.directory),
             now=now_utc(),
         )
+        initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
         print(initialized.state_directory)
         return
 
@@ -355,7 +358,15 @@ def main() -> None:
         return
 
     if args.resource == "doctor":
-        if args.format == "text" and args.cwd == ".":
+        home = resolve_ai_workroot_home()
+        cwd = Path(args.cwd).resolve()
+        should_run_kernel_doctor = (
+            args.format == "text"
+            and args.cwd == "."
+            and resolve_state_record(home, cwd) is None
+            and (cwd / "scripts/validate_kernel.py").exists()
+        )
+        if should_run_kernel_doctor:
             result = subprocess.run(
                 [sys.executable, "scripts/validate_kernel.py"],
                 text=True,
@@ -367,7 +378,7 @@ def main() -> None:
                 print(result.stderr, end="", file=sys.stderr)
                 raise SystemExit(result.returncode)
             return
-        result = run_doctor(resolve_ai_workroot_home(), cwd=Path(args.cwd))
+        result = run_doctor(home, cwd=cwd)
         if args.format == "json":
             print(render_doctor_json(result))
         else:

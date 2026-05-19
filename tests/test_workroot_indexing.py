@@ -69,6 +69,19 @@ class WorkrootIndexingTest(unittest.TestCase):
             self.assertIn("score", matches[0])
             self.assertEqual(matches[0]["reason"], "fts-match")
 
+    def test_malformed_fts_query_returns_no_matches(self) -> None:
+        tmp, conn = self.open_db()
+        with tmp, conn:
+            root = Path(tmp.name) / "project"
+            root.mkdir()
+            doc = root / "notes.md"
+            doc.write_text("# Notes\nClean Mode context is searchable.\n", encoding="utf-8")
+            index_text_file(conn, "wr_demo", root, doc, indexed_at="2026-05-19T00:00:00Z")
+
+            matches = search_fts(conn, "wr_demo", "clean OR", limit=5)
+
+            self.assertEqual(matches, [])
+
 
 if __name__ == "__main__":
     unittest.main()

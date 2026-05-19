@@ -125,6 +125,33 @@ class WorkrootDoctor0529Test(unittest.TestCase):
             for key in ("checkId", "category", "status", "severity", "suggestedAction"):
                 self.assertIn(key, first_check)
 
+    def test_default_doctor_from_registered_user_directory_runs_managed_doctor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialized = initialize_workroot_state(
+                home,
+                "wr_demo",
+                "Demo",
+                user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+
+            result = subprocess.run(
+                [sys.executable, str(CLI), "doctor"],
+                cwd=user_dir,
+                env={**os.environ, "AI_WORKROOT_HOME": str(home)},
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("AI Workroot doctor: PASS", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

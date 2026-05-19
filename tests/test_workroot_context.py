@@ -171,6 +171,44 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertIn("# AI Workroot Context Package", result.stdout)
         self.assertIn("Clean Mode decision", result.stdout)
 
+    def test_cli_context_after_init_uses_initialized_sqlite_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            env = {**os.environ, "AI_WORKROOT_HOME": str(home)}
+            init = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "init",
+                    "--name",
+                    "Demo",
+                    "--directory",
+                    str(user_dir),
+                    "--no-native-agent-entry",
+                ],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(init.returncode, 0, init.stderr)
+
+            result = subprocess.run(
+                [sys.executable, str(CLI), "context", "--agent", "codex", "--cwd", str(user_dir)],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("# AI Workroot Context Package", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
