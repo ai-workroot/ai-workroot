@@ -57,6 +57,10 @@ def build_parser() -> argparse.ArgumentParser:
     context.add_argument("--cwd", default=".")
     context.add_argument("--query", default="")
     context.add_argument("--debug", action="store_true")
+    context.add_argument("--mode", choices=["fast", "standard", "quality"])
+    context.add_argument("--deep", action="store_true")
+    context.add_argument("--target-tokens", type=int, default=0)
+    context.add_argument("--max-latency-ms", type=int, default=0)
     manifest_parser = subparsers.add_parser("manifest")
     manifest_parser.add_argument("--format", choices=["text", "json"], default="text")
     schema_parser = subparsers.add_parser("schema")
@@ -307,16 +311,23 @@ def main() -> None:
         return
 
     if args.resource == "context":
-        package = build_context_package(
-            ContextRequest(
-                home=resolve_ai_workroot_home(),
-                agent=args.agent,
-                cwd=Path(args.cwd),
-                query=args.query,
-                debug=args.debug,
-                now=now_utc(),
+        try:
+            package = build_context_package(
+                ContextRequest(
+                    home=resolve_ai_workroot_home(),
+                    agent=args.agent,
+                    cwd=Path(args.cwd),
+                    query=args.query,
+                    debug=args.debug,
+                    now=now_utc(),
+                    mode=args.mode or "",
+                    deep=args.deep,
+                    target_token_budget=args.target_tokens,
+                    max_latency_ms=args.max_latency_ms,
+                )
             )
-        )
+        except ValueError as exc:
+            parser.error(str(exc))
         print(package.markdown, end="")
         return
 

@@ -15,6 +15,61 @@ except ModuleNotFoundError:  # pragma: no cover - package import path for tests.
 
 CONFIG_VERSION = "0.9.529"
 SCHEMA_VERSION = "0.1"
+DEFAULT_RUNTIME_HINTS = {
+    "contextGuide": {
+        "defaultMode": "standard",
+        "latency": {
+            "targetMs": 1000,
+            "standardSoftLimitMs": 2000,
+            "qualitySoftLimitMs": 3000,
+        },
+        "agentBudgets": {
+            "codex": {
+                "targetTokens": 4000,
+                "hardTokenLimit": 6000,
+            },
+            "claude": {
+                "targetTokens": 5000,
+                "hardTokenLimit": 8000,
+            },
+            "default": {
+                "targetTokens": 4000,
+                "hardTokenLimit": 6000,
+            },
+        },
+        "modes": {
+            "fast": {
+                "targetTokens": 2500,
+                "hardTokenLimit": 4000,
+                "maxLatencyMs": 1000,
+            },
+            "standard": {
+                "targetTokens": 4000,
+                "hardTokenLimit": 6000,
+                "targetLatencyMs": 1000,
+                "softLatencyMs": 2000,
+            },
+            "quality": {
+                "targetTokens": 8000,
+                "hardTokenLimit": 12000,
+                "softLatencyMs": 3000,
+            },
+            "deep": {
+                "requiresExplicitRequest": True,
+                "targetTokens": 12000,
+                "hardTokenLimit": 20000,
+            },
+        },
+        "hotPath": {
+            "allowRemoteLlm": False,
+            "allowRemoteEmbedding": False,
+            "allowVectorSearch": False,
+            "allowFullDirectoryScan": False,
+            "allowIndexRebuild": False,
+            "allowMaintenanceJob": False,
+        },
+    }
+}
 REGISTRY_FILES = {
     "workroots.jsonl",
     "directory-bindings.jsonl",
@@ -166,18 +221,7 @@ def initialize_workroot_state(
         },
     )
     (state_directory / "state/continue.md").write_text("# Continue\n\nNo active work yet.\n", encoding="utf-8")
-    write_json(
-        state_directory / "state/runtime-hints.json",
-        {
-            "contextGuide": {
-                "targetLatencyMs": 1000,
-                "defaultTokenBudget": 4000,
-                "hardTokenBudget": 6000,
-                "allowRemoteCallsInHotPath": False,
-                "allowVectorSearch": False,
-            }
-        },
-    )
+    write_json(state_directory / "state/runtime-hints.json", DEFAULT_RUNTIME_HINTS)
 
     append_jsonl_unique(
         home / "registry/workroots.jsonl",

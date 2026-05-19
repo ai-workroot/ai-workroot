@@ -35,6 +35,7 @@ AI Workroot 0.9.529 needs a minimal but coherent CLI path for installation, init
 - Install-to-first-Workroot flow.
 - Clean Mode CLI defaults.
 - Context generation command behavior.
+- Context mode, Deep request, debug, and budget override command behavior.
 - Bootstrap developer command surface.
 - Safe error messages.
 
@@ -54,6 +55,7 @@ AI Workroot 0.9.529 needs a minimal but coherent CLI path for installation, init
 - `006-doctor-command.spec.md`
 - `007-context-guide-builder.spec.md`
 - `012-native-agent-entry.spec.md`
+- `015-context-guide-modes-budgets-and-confidence.spec.md`
 
 ## Requirements
 
@@ -82,6 +84,16 @@ FR-010: CLI must not create Native Agent Entry files without explicit authorizat
 FR-011: CLI must support text output for users and JSON output where useful for tooling.
 
 FR-012: CLI help must use Workroot terminology consistently.
+
+FR-013: `workroot context` must support `--mode fast|standard|quality`.
+
+FR-014: `workroot context` must support explicit `--deep`.
+
+FR-015: `workroot context` must support `--target-tokens` and `--max-latency-ms` overrides bounded by runtime configuration.
+
+FR-016: `workroot context` output must include Context Metadata with mode, confidence, latency, token usage, and fallback status.
+
+FR-017: `workroot context --debug` must include mode, confidence, budget, challenger counts, selected candidates, filtered candidates, and timing in the debug trace.
 
 ### Non-functional Requirements
 
@@ -141,6 +153,12 @@ workroot list
 workroot status
 workroot context --agent codex --cwd .
 workroot context --agent codex --cwd . --debug
+workroot context --agent codex --cwd . --mode fast
+workroot context --agent codex --cwd . --mode standard
+workroot context --agent codex --cwd . --mode quality
+workroot context --agent codex --cwd . --deep
+workroot context --agent codex --cwd . --target-tokens 4000
+workroot context --agent codex --cwd . --max-latency-ms 3000
 workroot doctor
 workroot doctor --format json
 workroot bootstrap-dev
@@ -188,9 +206,10 @@ Init flow:
 Context flow:
 
 1. Resolve Workroot from cwd.
-2. Generate Context Package.
-3. Write managed package and optional trace.
-4. Print package.
+2. Resolve Context Guide mode, runtime hints, and agent token budget.
+3. Generate Context Package.
+4. Write managed package and optional trace.
+5. Print package.
 
 ### Error Handling
 
@@ -199,6 +218,9 @@ Context flow:
 - Pending migration: suggest migration command or doctor.
 - Dirty Clean Mode boundary: suggest doctor details.
 - Context unavailable: suggest `workroot doctor`.
+- Invalid context mode: show supported modes.
+- Deep context unavailable or reserved: explain that `--deep` is explicit and report the supported behavior for this version.
+- Token or latency override beyond hard limit: reject or cap consistently and show the configured bound.
 
 ### Security / Privacy
 
@@ -230,7 +252,7 @@ Then the user directory receives no generated files.
 AC-003:
 Given a registered Workroot
 When `workroot context --agent codex --cwd .` runs
-Then a Context Package is printed.
+Then a Context Package with Context Metadata is printed.
 
 AC-004:
 Given a registered Workroot
@@ -242,6 +264,21 @@ Given `workroot bootstrap-dev`
 When the current directory is not the AI Workroot repository
 Then the command aborts with a developer preflight message.
 
+AC-006:
+Given `workroot context --agent codex --cwd . --mode quality --debug`
+When the command runs
+Then output and debug trace record Quality Mode or an explicit reserved-mode fallback.
+
+AC-007:
+Given `workroot context --agent codex --cwd . --deep`
+When the command runs
+Then Deep Mode is treated as explicitly requested and is not silently substituted without trace.
+
+AC-008:
+Given `workroot context --target-tokens 999999`
+When the configured hard limit is lower
+Then the CLI rejects or caps the override and reports the bound.
+
 ## Test Plan
 
 ### Unit Tests
@@ -250,12 +287,16 @@ Then the command aborts with a developer preflight message.
 - Test command help copy.
 - Test safe default option values.
 - Test error message mapping.
+- Test context mode and budget flag parsing.
+- Test invalid context mode errors.
 
 ### Integration Tests
 
 - Run `workroot init` in a temporary directory.
 - Run `workroot list` and `workroot status`.
 - Run `workroot context` and `workroot doctor`.
+- Run `workroot context --mode quality --debug`.
+- Run `workroot context --deep`.
 - Run `workroot bootstrap-dev` preflight in valid and invalid directories.
 
 ### Manual Verification
@@ -272,6 +313,8 @@ CLI commands rely on migration readiness from `005-migrations.spec.md`. If a com
 
 CLI should support `--debug` only where useful and safe. Doctor and Context Guide debug traces are primary observability surfaces. CLI errors should include command suggestions.
 
+Context CLI debug behavior must surface trace path or JSON fields that include mode, confidence, token budget, selected candidates, filtered candidates, and timing.
+
 ## Task Breakdown
 
 T1: Add P0 command skeleton
@@ -285,7 +328,7 @@ T2: Wire init and list/status
 - Verification: Init/list/status integration test.
 
 T3: Wire context and doctor
-- Change: Connect Context Guide and Doctor to CLI.
+- Change: Connect Context Guide and Doctor to CLI, including mode, Deep, debug, token, and latency flags.
 - Files likely affected: CLI module, context module, doctor module.
 - Verification: CLI integration tests.
 

@@ -79,6 +79,8 @@ FR-009: Path resolution must reject or warn when the managed state directory is 
 
 FR-010: State layout initialization must be idempotent.
 
+FR-011: Per-Workroot runtime hints must live under the per-Workroot managed state directory.
+
 ### Non-functional Requirements
 
 NFR-001: State layout creation must work offline.
@@ -165,6 +167,7 @@ AI Workroot home:
       workroot.json
       agent/
       state/
+        runtime-hints.json
       tasks/
       handoffs/
       assets/

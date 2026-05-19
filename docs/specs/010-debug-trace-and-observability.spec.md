@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-Context generation and retrieval must be explainable. AI Workroot 0.9.529 needs debug traces that show how Context Guide resolved the Workroot, which retrieval channels ran, what matched, what was selected, what was dropped, why, and how long each step took.
+Context generation and retrieval must be explainable. AI Workroot 0.9.529 needs debug traces that show how Context Guide resolved the Workroot, which mode and budget were used, which retrieval channels ran, what matched, what was selected, what was dropped, why confidence was assigned, whether mode escalation happened, and how long each step took.
 
 ## Goals
 
@@ -18,6 +18,7 @@ Context generation and retrieval must be explainable. AI Workroot 0.9.529 needs 
 - Store debug traces in managed state only.
 - Keep recent traces bounded.
 - Include timing, selected candidates, dropped candidates, scores, and reasons.
+- Include Context Guide mode, confidence, token budget, mode switch reason, and fallback details.
 - Support developer inspection without exposing excessive private content.
 
 ## Non-goals
@@ -33,6 +34,7 @@ Context generation and retrieval must be explainable. AI Workroot 0.9.529 needs 
 
 - Context debug trace schema.
 - Retrieval trace requirements.
+- Mode, confidence, and budget trace requirements.
 - Doctor output relationship.
 - Timing and candidate selection observability.
 - Trace retention.
@@ -52,6 +54,7 @@ Context generation and retrieval must be explainable. AI Workroot 0.9.529 needs 
 - `008-materialized-context-candidates.spec.md`
 - `009-fts-indexing-and-retrieval.spec.md`
 - `013-sqlite-cache-and-provenance-graph.spec.md`
+- `015-context-guide-modes-budgets-and-confidence.spec.md`
 
 ## Requirements
 
@@ -80,6 +83,18 @@ FR-010: Debug trace must include token budget usage.
 FR-011: Debug trace must include latency breakdown.
 
 FR-012: Debug trace retention must keep a bounded recent history, defaulting to the last 50 records.
+
+FR-013: Debug trace must include requested mode, effective mode, and mode switch reason when applicable.
+
+FR-014: Debug trace must include context confidence and confidence reasons.
+
+FR-015: Debug trace must include target tokens, hard token limit, used token estimate, and budget source.
+
+FR-016: Debug trace must include Quality soft-limit status when Quality Mode is used or attempted.
+
+FR-017: Debug trace must indicate whether Deep Mode was explicitly requested.
+
+FR-018: Debug trace must include fallback reasons for malformed runtime hints, missing indexes, missing candidate tables, sparse FTS, stale candidates, or trace write limitations.
 
 ### Non-functional Requirements
 
@@ -115,9 +130,26 @@ Debug trace:
   "startedAt": "2026-05-19T00:00:00Z",
   "completedAt": "2026-05-19T00:00:00Z",
   "latencyMs": 128,
+  "requestedMode": "standard",
+  "contextMode": "standard",
+  "modeSwitchReason": null,
+  "confidence": "high",
+  "confidenceReasons": [
+    "active task resolved",
+    "high-confidence required candidates available"
+  ],
   "resolution": {
     "strategy": "nearest-registered-workroot",
     "matchedDirectory": "/path/to/user/directory"
+  },
+  "timing": {
+    "resolveWorkroot": 8,
+    "loadState": 11,
+    "queryCandidates": 34,
+    "fts": 20,
+    "graphExpansion": 17,
+    "scoring": 6,
+    "packageBuild": 12
   },
   "challengers": [],
   "selectedCandidates": [],
@@ -125,8 +157,11 @@ Debug trace:
   "tokenBudget": {
     "target": 4000,
     "hard": 6000,
-    "estimatedUsed": 2180
+    "estimatedUsed": 2180,
+    "source": "agent:codex"
   },
+  "qualitySoftLimitMs": null,
+  "deepExplicitlyRequested": false,
   "fallbacks": []
 }
 ```
@@ -179,11 +214,13 @@ Trace flow:
 2. Record resolution.
 3. Record each challenger start, result, skip, or failure.
 4. Record candidate filtering and scoring.
-5. Record token budgeting.
-6. Record package write result.
-7. Write `latest.json`.
-8. Append/copy to `history/`.
-9. Prune history beyond retention.
+5. Record confidence calculation and reasons.
+6. Record token budgeting and budget source.
+7. Record mode switch and Quality soft-limit status when applicable.
+8. Record package write result.
+9. Write `latest.json`.
+10. Append/copy to `history/`.
+11. Prune history beyond retention.
 
 ### Error Handling
 
@@ -191,6 +228,7 @@ Trace flow:
 - If a challenger fails, trace the failure and continue when safe.
 - If trace pruning fails, warn but do not fail Context Guide.
 - If trace JSON serialization fails, write a minimal failure trace.
+- If a mode escalation attempt exceeds the soft limit, trace the partial result and fallback confidence.
 
 ### Security / Privacy
 
@@ -227,6 +265,21 @@ Given a trace write failure
 When Context Guide runs
 Then context generation does not fail solely because the trace could not be stored.
 
+AC-006:
+Given Context Guide escalates from Standard to Quality
+When debug trace is inspected
+Then effective mode, mode switch reason, soft-limit status, and confidence reasons are present.
+
+AC-007:
+Given a Context Package is generated for Codex
+When debug trace is inspected
+Then token budget source, target, hard limit, and used token estimate are present.
+
+AC-008:
+Given Deep Mode is not requested
+When debug trace is inspected
+Then `deepExplicitlyRequested` is false and effective mode is not `deep`.
+
 ## Test Plan
 
 ### Unit Tests
@@ -236,6 +289,8 @@ Then context generation does not fail solely because the trace could not be stor
 - Test selected and dropped candidate recording.
 - Test retention pruning.
 - Test trace write failure handling.
+- Test mode and confidence trace fields.
+- Test token budget source trace fields.
 
 ### Integration Tests
 
@@ -243,6 +298,8 @@ Then context generation does not fail solely because the trace could not be stor
 - Run FTS challenger and validate FTS trace fields.
 - Run graph challenger and validate graph edge trace fields.
 - Simulate challenger failure and validate fallback trace.
+- Run Quality Mode fixture and validate mode switch fields.
+- Run Deep Mode request and validate explicit request field.
 
 ### Manual Verification
 
@@ -258,15 +315,26 @@ Initial migration creates debug directories under managed state. Rollback may de
 
 This Spec defines observability for context generation. Doctor should validate trace directory writability and may show the latest trace path when Context Guide fails.
 
+Context debug trace should include:
+
+- package mode and requested mode;
+- mode switch reason;
+- confidence and confidence reasons;
+- target, hard, and used token budget;
+- agent budget source;
+- Quality soft-limit status;
+- Deep explicit-request status;
+- fallback reasons.
+
 ## Task Breakdown
 
 T1: Add trace schema and writer
-- Change: Implement trace builder and JSON writer.
+- Change: Implement trace builder and JSON writer with mode, confidence, budget, and fallback fields.
 - Files likely affected: debug module, context module.
 - Verification: Unit tests validate schema.
 
 T2: Instrument Context Guide
-- Change: Record resolution, challengers, selection, drops, token usage, and timing.
+- Change: Record resolution, challengers, selection, drops, token usage, confidence, mode switches, and timing.
 - Files likely affected: context module.
 - Verification: Integration test validates trace after context generation.
 

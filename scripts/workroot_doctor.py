@@ -9,11 +9,13 @@ from pathlib import Path
 
 try:
     from workroot_agent_entry import BEGIN, END
+    from workroot_context import DEFAULT_CONTEXT_GUIDE_CONFIG
     from workroot_paths import CleanModeBoundaryError, assert_clean_mode_boundary
     from workroot_sqlite import verify_workroot_sqlite
     from workroot_state import read_jsonl
 except ModuleNotFoundError:  # pragma: no cover - package import path for tests.
     from scripts.workroot_agent_entry import BEGIN, END
+    from scripts.workroot_context import DEFAULT_CONTEXT_GUIDE_CONFIG
     from scripts.workroot_paths import CleanModeBoundaryError, assert_clean_mode_boundary
     from scripts.workroot_sqlite import verify_workroot_sqlite
     from scripts.workroot_state import read_jsonl
@@ -193,6 +195,134 @@ def check_context_directories(state_directory: Path) -> DoctorCheck:
     return pass_check("context-directories", "context", "context package and debug directories are present")
 
 
+def check_context_runtime_hints(state_directory: Path) -> DoctorCheck:
+    path = state_directory / "state/runtime-hints.json"
+    if not path.exists():
+        return pass_check(
+            "context-runtime-hints",
+            "context",
+            "runtime hints are absent; Context Guide will use built-in defaults",
+        )
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return fail_check(
+            "context-runtime-hints",
+            "context",
+            f"malformed runtime hints: {exc}",
+            f"Repair or remove {path}; Context Guide can use built-in defaults when the file is absent.",
+        )
+    context = payload.get("contextGuide")
+    if not isinstance(context, dict):
+        return fail_check(
+            "context-runtime-hints",
+            "context",
+            "runtime hints missing contextGuide object",
+            f"Repair {path} or remove it to use built-in defaults.",
+        )
+    required = [
+        ("defaultMode", str),
+        ("agentBudgets", dict),
+        ("modes", dict),
+        ("hotPath", dict),
+    ]
+    for key, expected_type in required:
+        if not isinstance(context.get(key), expected_type):
+            return fail_check(
+                "context-runtime-hints",
+                "context",
+                f"runtime hints contextGuide.{key} is missing or invalid",
+                f"Repair {path} or remove it to use built-in defaults.",
+            )
+    agent_budgets = context["agentBudgets"]
+    for agent in ("codex", "claude", "default"):
+        budget = agent_budgets.get(agent)
+        if not isinstance(budget, dict):
+            return fail_check(
+                "context-runtime-hints",
+                "context",
+                f"runtime hints missing agent budget for {agent}",
+                f"Add contextGuide.agentBudgets.{agent} or remove {path} to use built-in defaults.",
+            )
+        for key in ("targetTokens", "hardTokenLimit"):
+            if not isinstance(budget.get(key), int) or int(budget[key]) <= 0:
+                return fail_check(
+                    "context-runtime-hints",
+                    "context",
+                    f"runtime hints agentBudgets.{agent}.{key} must be a positive integer",
+                    f"Repair contextGuide.agentBudgets.{agent}.{key} in {path}.",
+                )
+        if int(budget["targetTokens"]) > int(budget["hardTokenLimit"]):
+            return fail_check(
+                "context-runtime-hints",
+                "context",
+                f"runtime hints agentBudgets.{agent}.targetTokens exceeds hardTokenLimit",
+                f"Repair contextGuide.agentBudgets.{agent} in {path}.",
+            )
+    modes = context["modes"]
+    for mode in ("fast", "standard", "quality", "deep"):
+        mode_payload = modes.get(mode)
+        if not isinstance(mode_payload, dict):
+            return fail_check(
+                "context-runtime-hints",
+                "context",
+                f"runtime hints missing mode {mode}",
+                f"Add contextGuide.modes.{mode} or remove {path} to use built-in defaults.",
+            )
+        for key in ("targetTokens", "hardTokenLimit"):
+            if key in mode_payload and (not isinstance(mode_payload.get(key), int) or int(mode_payload[key]) <= 0):
+                return fail_check(
+                    "context-runtime-hints",
+                    "context",
+                    f"runtime hints modes.{mode}.{key} must be a positive integer",
+                    f"Repair contextGuide.modes.{mode}.{key} in {path}.",
+                )
+        if (
+            isinstance(mode_payload.get("targetTokens"), int)
+            and isinstance(mode_payload.get("hardTokenLimit"), int)
+            and int(mode_payload["targetTokens"]) > int(mode_payload["hardTokenLimit"])
+        ):
+            return fail_check(
+                "context-runtime-hints",
+                "context",
+                f"runtime hints modes.{mode}.targetTokens exceeds hardTokenLimit",
+                f"Repair contextGuide.modes.{mode} in {path}.",
+            )
+        for key in ("maxLatencyMs", "targetLatencyMs", "softLatencyMs"):
+            if key in mode_payload and (not isinstance(mode_payload.get(key), int) or int(mode_payload[key]) <= 0):
+                return fail_check(
+                    "context-runtime-hints",
+                    "context",
+                    f"runtime hints modes.{mode}.{key} must be a positive integer",
+                    f"Repair contextGuide.modes.{mode}.{key} in {path}.",
+                )
+    if context.get("defaultMode") != "standard":
+        return warn_check(
+            "context-runtime-hints",
+            "context",
+            f"runtime hints default mode is {context.get('defaultMode')}, not standard",
+            "Use Standard Mode as the default unless intentionally configured otherwise.",
+        )
+    if modes["deep"].get("requiresExplicitRequest") is not True:
+        return fail_check(
+            "context-runtime-hints",
+            "context",
+            "Deep Mode must require explicit request",
+            "Set contextGuide.modes.deep.requiresExplicitRequest to true.",
+        )
+    hot_path = context["hotPath"]
+    for key in ("allowRemoteLlm", "allowRemoteEmbedding", "allowVectorSearch"):
+        if hot_path.get(key) is not False:
+            return fail_check(
+                "context-runtime-hints",
+                "context",
+                f"hot-path setting {key} must be false",
+                f"Set contextGuide.hotPath.{key} to false.",
+            )
+    _ = DEFAULT_CONTEXT_GUIDE_CONFIG
+    return pass_check("context-runtime-hints", "context", "runtime hints are valid")
+
+
 def check_native_agent_entry(metadata: dict[str, object]) -> DoctorCheck:
     user_directory = Path(str(metadata.get("userDirectory", ""))).resolve()
     warnings = []
@@ -246,6 +376,7 @@ def run_doctor(home: Path, cwd: Path, state_directory: Path | None = None) -> Do
             check_migration_records(home),
             check_sqlite_schema(resolved_state),
             check_context_directories(resolved_state),
+            check_context_runtime_hints(resolved_state),
             check_native_agent_entry(metadata),
         ]
     )

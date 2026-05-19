@@ -18,6 +18,7 @@ AI Workroot needs an actionable verification command for Clean Mode, managed sta
 - Verify managed state layout and schema versions.
 - Verify bootstrap and migration readiness.
 - Verify index, SQLite, Context Guide, and debug-trace health.
+- Verify Context Guide runtime hints, mode defaults, and budget configuration.
 - Provide actionable diagnostics without requiring ordinary users to inspect internals.
 
 ## Non-goals
@@ -54,6 +55,7 @@ AI Workroot needs an actionable verification command for Clean Mode, managed sta
 - `009-fts-indexing-and-retrieval.spec.md`
 - `010-debug-trace-and-observability.spec.md`
 - `013-sqlite-cache-and-provenance-graph.spec.md`
+- `015-context-guide-modes-budgets-and-confidence.spec.md`
 
 ## Requirements
 
@@ -82,6 +84,14 @@ FR-010: Doctor must verify Context Guide can generate a minimal package without 
 FR-011: Doctor must verify debug trace storage and retention configuration.
 
 FR-012: Doctor must emit actionable diagnostics with severity levels.
+
+FR-013: Doctor must verify Context Guide runtime hints are readable when present and compatible with built-in defaults when absent.
+
+FR-014: Doctor must verify Standard Mode remains the default unless explicitly configured otherwise.
+
+FR-015: Doctor must verify Deep Mode requires explicit request.
+
+FR-016: Doctor must verify agent-specific budgets exist for Codex, Claude, and default agents when runtime hints are present.
 
 ### Non-functional Requirements
 
@@ -177,6 +187,7 @@ Doctor flow:
 - If SQLite is malformed, report cache rebuild or migration instructions.
 - If migration status is failed, report migration ID and recovery action.
 - If Context Guide generation fails, report the stage and debug trace path when available.
+- If runtime hints are malformed, report the managed-state path and suggest removing or repairing the file.
 
 ### Security / Privacy
 
@@ -213,6 +224,16 @@ Given `--format json`
 When doctor runs
 Then it emits valid JSON with check IDs, categories, severities, statuses, and suggested actions.
 
+AC-006:
+Given malformed `runtime-hints.json`
+When doctor runs
+Then it reports a Context Guide configuration error with an actionable repair suggestion.
+
+AC-007:
+Given no `runtime-hints.json`
+When doctor runs
+Then it reports that built-in defaults will be used rather than failing.
+
 ## Test Plan
 
 ### Unit Tests
@@ -222,6 +243,7 @@ Then it emits valid JSON with check IDs, categories, severities, statuses, and s
 - Test Clean Mode boundary check.
 - Test missing SQLite table check.
 - Test JSON output formatting.
+- Test runtime hints validation.
 
 ### Integration Tests
 
@@ -229,6 +251,7 @@ Then it emits valid JSON with check IDs, categories, severities, statuses, and s
 - Run doctor after `workroot bootstrap-dev`.
 - Corrupt or remove required state in a fixture and assert diagnostics.
 - Run doctor on a legacy public-seed layout and assert migration guidance.
+- Run doctor with missing and malformed runtime hints.
 
 ### Manual Verification
 
@@ -249,6 +272,7 @@ Doctor output is part of observability. It should include:
 - failed check details;
 - suggested actions;
 - optional JSON output for developer tooling.
+- runtime hints readability and context mode defaults.
 
 ## Task Breakdown
 
@@ -268,7 +292,7 @@ T3: Add state and migration checks
 - Verification: Fixture tests for missing and failed migrations.
 
 T4: Add SQLite and context checks
-- Change: Validate required SQLite tables and minimal Context Guide generation.
+- Change: Validate required SQLite tables, runtime hints, mode defaults, and minimal Context Guide generation.
 - Files likely affected: doctor module, SQLite module, context module.
 - Verification: Integration test checks healthy initialized Workroot.
 

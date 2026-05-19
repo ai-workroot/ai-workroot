@@ -16,8 +16,11 @@ class WorkrootAgentEntryTest(unittest.TestCase):
     def test_codex_block_uses_relative_context_command(self) -> None:
         block = codex_block()
         self.assertIn("workroot context --agent codex --cwd .", block)
+        self.assertIn("workroot doctor", block)
+        self.assertIn("If the context command fails", block)
         self.assertNotIn(str(Path.home()), block)
         self.assertNotIn(".ai-workroot/workroots", block)
+        self.assertLess(len(block.encode("utf-8")), 3 * 1024)
 
     def test_apply_block_preserves_user_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

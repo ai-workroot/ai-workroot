@@ -17,6 +17,7 @@ Native Agent Entry lets Codex and Claude Code enter Workroot mode naturally when
 - Provide optional Native Agent Entry files for Codex and Claude Code.
 - Preserve Clean Mode by requiring explicit authorization.
 - Avoid absolute paths, state paths, private IDs, handoffs, logs, indexes, and runtime state in entry files.
+- Keep entry files short; they are launch instructions, not full Workroot Context Packages.
 - Preserve existing user content through managed blocks.
 - Keep hooks out of 0.9.529.
 
@@ -35,6 +36,7 @@ Native Agent Entry lets Codex and Claude Code enter Workroot mode naturally when
 - Managed block format.
 - Authorization requirements.
 - Agent command content.
+- Entry file size and content boundaries.
 - Existing file preservation.
 
 ### Excluded
@@ -42,6 +44,7 @@ Native Agent Entry lets Codex and Claude Code enter Workroot mode naturally when
 - Clean Mode init flow, covered by `002-clean-mode-installation.spec.md`.
 - CLI command matrix, covered by `011-cli-user-flows.spec.md`.
 - Context Guide internals, covered by `007-context-guide-builder.spec.md`.
+- Context mode and token budget policy, covered by `015-context-guide-modes-budgets-and-confidence.spec.md`.
 
 ## Dependencies
 
@@ -50,6 +53,7 @@ Native Agent Entry lets Codex and Claude Code enter Workroot mode naturally when
 - `002-clean-mode-installation.spec.md`
 - `007-context-guide-builder.spec.md`
 - `011-cli-user-flows.spec.md`
+- `015-context-guide-modes-budgets-and-confidence.spec.md`
 
 ## Requirements
 
@@ -77,9 +81,17 @@ FR-010: Updates must be limited to `<!-- AI_WORKROOT_BEGIN -->` and `<!-- AI_WOR
 
 FR-011: Hooks must not be used in 0.9.529.
 
+FR-012: Entry files must remain concise and must not embed a full Context Package.
+
+FR-013: Entry files must describe fallback behavior if `workroot context` fails.
+
+FR-014: Entry files must mention that Workroot managed state must not be written into the user directory.
+
+FR-015: Entry files may recommend agent-appropriate context commands but must not hardcode token budgets or latency policy.
+
 ### Non-functional Requirements
 
-NFR-001: Entry files must be short enough for agents to read quickly.
+NFR-001: Entry files must be short enough for agents to read quickly; target size is 1-3 KB per entry file.
 
 NFR-002: Entry files must be portable across machines.
 
@@ -167,6 +179,8 @@ workroot context --agent codex --cwd .
 Use the returned Context Package for current focus, active task, recent decisions, handoffs, artifact guidance, and write-routing rules.
 
 Do not write Workroot managed state into this directory.
+
+If the context command fails, keep working from explicit user instructions only for low-risk questions, and ask the user to run `workroot doctor` before making major changes.
 <!-- AI_WORKROOT_END -->
 ````
 
@@ -219,6 +233,16 @@ Given malformed managed block markers
 When entry generation runs
 Then it aborts and does not rewrite the file.
 
+AC-006:
+Given a generated entry file
+When its content is inspected
+Then it is a short launcher that tells agents to run `workroot context`, not a full Context Package.
+
+AC-007:
+Given a generated entry file
+When `workroot context` fails
+Then the entry instructions tell agents to use low-risk explicit user instructions only and ask for `workroot doctor` before major changes.
+
 ## Test Plan
 
 ### Unit Tests
@@ -228,6 +252,8 @@ Then it aborts and does not rewrite the file.
 - Test malformed marker detection.
 - Test forbidden content validation.
 - Test authorization gate.
+- Test generated file size stays within the configured entry-file target.
+- Test fallback instruction is present.
 
 ### Integration Tests
 
@@ -263,7 +289,7 @@ T1: Add managed block utility
 - Verification: Unit tests for file merge cases.
 
 T2: Add generated content templates
-- Change: Add Codex and Claude Code managed block templates.
+- Change: Add concise Codex and Claude Code managed block templates with context command, fallback behavior, and no embedded Context Package.
 - Files likely affected: Native Agent Entry module, templates if used.
 - Verification: Snapshot tests.
 

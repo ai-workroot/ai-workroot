@@ -136,6 +136,67 @@ class WorkrootCandidatesTest(unittest.TestCase):
 
             self.assertEqual(row.last_used_at, "2026-05-19T02:00:00Z")
 
+    def test_candidate_fts_indexes_domains(self) -> None:
+        with self.open_db() as conn:
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_architecture",
+                    workroot_id="wr_demo",
+                    source_type="decision",
+                    source_id="decision-architecture",
+                    title="Context mode decision",
+                    summary="Context Guide uses configurable budgets.",
+                    domains="architecture retrieval",
+                    updated_at="2026-05-19T00:00:00Z",
+                ),
+            )
+
+            columns = [row[1] for row in conn.execute("PRAGMA table_info(context_candidates_fts)").fetchall()]
+            matches = conn.execute(
+                "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH ?",
+                ("architecture",),
+            ).fetchall()
+
+            self.assertIn("domains", columns)
+            self.assertEqual(matches[0][0], "cand_architecture")
+
+    def test_upsert_candidate_rebuilds_legacy_candidate_fts_without_domains(self) -> None:
+        with self.open_db() as conn:
+            conn.execute("DROP TABLE context_candidates_fts")
+            conn.execute(
+                """
+                CREATE VIRTUAL TABLE context_candidates_fts USING fts5(
+                  candidate_id,
+                  title,
+                  summary
+                )
+                """
+            )
+            conn.commit()
+
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_legacy",
+                    workroot_id="wr_demo",
+                    source_type="decision",
+                    source_id="decision-legacy",
+                    title="Legacy FTS",
+                    summary="Legacy table should be rebuilt.",
+                    domains="retrieval",
+                    updated_at="2026-05-19T00:00:00Z",
+                ),
+            )
+
+            columns = [row[1] for row in conn.execute("PRAGMA table_info(context_candidates_fts)").fetchall()]
+            matches = conn.execute(
+                "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH ?",
+                ("retrieval",),
+            ).fetchall()
+            self.assertIn("domains", columns)
+            self.assertEqual(matches[0][0], "cand_legacy")
+
 
 if __name__ == "__main__":
     unittest.main()

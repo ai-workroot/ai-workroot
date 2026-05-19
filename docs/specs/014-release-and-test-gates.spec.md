@@ -61,6 +61,7 @@ AI Workroot 0.9.529 changes core product behavior, storage layout, bootstrap, CL
 - `011-cli-user-flows.spec.md`
 - `012-native-agent-entry.spec.md`
 - `013-sqlite-cache-and-provenance-graph.spec.md`
+- `015-context-guide-modes-budgets-and-confidence.spec.md`
 
 ## Requirements
 
@@ -85,6 +86,16 @@ FR-008: Any version bump or tag must have an explicit reason and approval before
 FR-009: Meaningful implementation changes must happen on a branch, be reviewed, then merged to main and pushed.
 
 FR-010: Bootstrap must not auto-commit, auto-tag, or auto-release.
+
+FR-011: Release gate must verify Context Guide latency and token budgets are loaded from runtime hints or built-in defaults, not scattered hardcoded constants.
+
+FR-012: Release gate must verify Context Packages include mode, confidence, latency, token usage, and fallback metadata.
+
+FR-013: Release gate must verify Codex, Claude, and default agent budgets are represented and bounded.
+
+FR-014: Release gate must verify Deep Mode is explicit and not used silently in normal startup.
+
+FR-015: Release gate must verify `AGENTS.md` and `CLAUDE.md` remain short launcher files and do not embed full Context Packages.
 
 ### Non-functional Requirements
 
@@ -225,6 +236,7 @@ Then the rationale is documented and explicitly approved before execution.
 - Migration runner tests.
 - Doctor check tests.
 - Context Guide scoring and filtering tests.
+- Context Guide mode, confidence, runtime hints, and budget tests.
 - Candidate lifecycle tests.
 - FTS chunking and search tests.
 - Debug trace schema tests.
@@ -237,6 +249,9 @@ Then the rationale is documented and explicitly approved before execution.
 - `workroot init` Clean Mode test.
 - `workroot context` package generation test.
 - `workroot context --debug` trace test.
+- `workroot context --mode quality --debug` trace test.
+- `workroot context --deep` explicit request test.
+- Agent-specific token budget test.
 - `workroot doctor` healthy and unhealthy fixture tests.
 - `workroot bootstrap-dev` preflight and temporary-repo test.
 
@@ -248,6 +263,8 @@ Then the rationale is documented and explicitly approved before execution.
 - Clean Mode init with Native Agent Entry authorized.
 - Bootstrap-dev on the AI Workroot repository.
 - Diff review for generated state, private paths, and terminology.
+- Inspect Native Agent Entry files for short launcher behavior.
+- Inspect Context Package metadata for mode, confidence, latency, token usage, and fallback status.
 
 ## Migration / Rollback
 
@@ -260,6 +277,7 @@ Release evidence should include:
 - test command outputs;
 - doctor output;
 - context debug trace summary;
+- context mode, confidence, and token budget summary;
 - manual verification notes;
 - generated/private file scan results;
 - version/tag rationale if applicable.
@@ -267,7 +285,7 @@ Release evidence should include:
 ## Task Breakdown
 
 T1: Add automated release checks
-- Change: Ensure tests cover each P0 feature boundary.
+- Change: Ensure tests cover each P0 feature boundary, including context modes, confidence, runtime hints, and agent budgets.
 - Files likely affected: `tests/`, validation scripts.
 - Verification: Full test suite passes.
 
@@ -277,7 +295,7 @@ T2: Add generated file scan
 - Verification: Fixture test catches generated files.
 
 T3: Add manual checklist
-- Change: Update release checklist with Clean Mode, bootstrap, context, and no-vector checks.
+- Change: Update release checklist with Clean Mode, bootstrap, context mode/budget/confidence, short entry files, and no-vector checks.
 - Files likely affected: `docs/release-checklist.md`.
 - Verification: Checklist reviewed against Specs.
 

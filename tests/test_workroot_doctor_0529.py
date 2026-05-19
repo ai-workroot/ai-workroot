@@ -152,6 +152,113 @@ class WorkrootDoctor0529Test(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("AI Workroot doctor: PASS", result.stdout)
 
+    def test_runtime_hints_check_passes_when_missing_and_defaults_are_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialized = initialize_workroot_state(
+                home,
+                "wr_demo",
+                "Demo",
+                user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            (initialized.state_directory / "state/runtime-hints.json").unlink()
+
+            result = run_doctor(home, cwd=user_dir)
+            check = next(item for item in result.checks if item.check_id == "context-runtime-hints")
+
+            self.assertEqual(check.status, "pass")
+            self.assertIn("built-in defaults", check.message)
+
+    def test_malformed_runtime_hints_fail_doctor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialized = initialize_workroot_state(
+                home,
+                "wr_demo",
+                "Demo",
+                user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            (initialized.state_directory / "state/runtime-hints.json").write_text("{not json", encoding="utf-8")
+
+            result = run_doctor(home, cwd=user_dir)
+            check = next(item for item in result.checks if item.check_id == "context-runtime-hints")
+
+            self.assertEqual(check.status, "fail")
+            self.assertIn("malformed", check.message)
+            self.assertTrue(result.has_errors())
+
+    def test_invalid_runtime_hint_budget_values_fail_doctor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialized = initialize_workroot_state(
+                home,
+                "wr_demo",
+                "Demo",
+                user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            hints = json.loads((initialized.state_directory / "state/runtime-hints.json").read_text(encoding="utf-8"))
+            hints["contextGuide"]["agentBudgets"]["codex"]["targetTokens"] = "abc"
+            write_json(initialized.state_directory / "state/runtime-hints.json", hints)
+
+            result = run_doctor(home, cwd=user_dir)
+            check = next(item for item in result.checks if item.check_id == "context-runtime-hints")
+
+            self.assertEqual(check.status, "fail")
+            self.assertIn("targetTokens", check.message)
+            self.assertTrue(result.has_errors())
+
+    def test_cli_context_rejects_negative_target_tokens(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialized = initialize_workroot_state(
+                home,
+                "wr_demo",
+                "Demo",
+                user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "context",
+                    "--agent",
+                    "codex",
+                    "--cwd",
+                    str(user_dir),
+                    "--target-tokens",
+                    "-1",
+                ],
+                cwd=ROOT,
+                env={**os.environ, "AI_WORKROOT_HOME": str(home)},
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("target token budget must be positive", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

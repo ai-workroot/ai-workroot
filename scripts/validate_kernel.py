@@ -234,6 +234,7 @@ REQUIRED_0529_SPECS = [
     "012-native-agent-entry.spec.md",
     "013-sqlite-cache-and-provenance-graph.spec.md",
     "014-release-and-test-gates.spec.md",
+    "015-context-guide-modes-budgets-and-confidence.spec.md",
 ]
 TASK_PLACEHOLDER_PATTERNS = {
     "Task created; no work completed yet.",

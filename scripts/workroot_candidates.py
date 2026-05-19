@@ -9,6 +9,7 @@ import sqlite3
 
 ACTIVE_STATUS = "active"
 AUTO_EXCLUDED_POLICIES = {"never-auto"}
+REQUIRED_CANDIDATE_FTS_COLUMNS = {"candidate_id", "title", "summary", "domains"}
 
 
 @dataclass(frozen=True)
@@ -54,7 +55,33 @@ def candidate_from_row(row: sqlite3.Row) -> ContextCandidate:
     )
 
 
+def candidate_fts_columns(conn: sqlite3.Connection) -> set[str]:
+    return {row[1] for row in conn.execute("PRAGMA table_info(context_candidates_fts)").fetchall()}
+
+
+def ensure_candidate_fts_schema(conn: sqlite3.Connection) -> None:
+    if REQUIRED_CANDIDATE_FTS_COLUMNS.issubset(candidate_fts_columns(conn)):
+        return
+    conn.execute("DROP TABLE IF EXISTS context_candidates_fts")
+    conn.execute(
+        """
+        CREATE VIRTUAL TABLE context_candidates_fts USING fts5(
+          candidate_id,
+          title,
+          summary,
+          domains
+        )
+        """
+    )
+    rows = conn.execute("SELECT candidate_id, title, summary, domains FROM context_candidates").fetchall()
+    conn.executemany(
+        "INSERT INTO context_candidates_fts (candidate_id, title, summary, domains) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+
+
 def upsert_context_candidate(conn: sqlite3.Connection, candidate: ContextCandidate) -> None:
+    ensure_candidate_fts_schema(conn)
     conn.execute(
         """
         INSERT INTO context_candidates (
@@ -102,8 +129,8 @@ def upsert_context_candidate(conn: sqlite3.Connection, candidate: ContextCandida
     )
     conn.execute("DELETE FROM context_candidates_fts WHERE candidate_id = ?", (candidate.candidate_id,))
     conn.execute(
-        "INSERT INTO context_candidates_fts (candidate_id, title, summary) VALUES (?, ?, ?)",
-        (candidate.candidate_id, candidate.title, candidate.summary),
+        "INSERT INTO context_candidates_fts (candidate_id, title, summary, domains) VALUES (?, ?, ?, ?)",
+        (candidate.candidate_id, candidate.title, candidate.summary, candidate.domains),
     )
     conn.commit()
 

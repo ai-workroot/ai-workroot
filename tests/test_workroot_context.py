@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 import tempfile
@@ -130,6 +131,10 @@ class WorkrootContextTest(unittest.TestCase):
         )
 
         self.assertIn("# AI Workroot Context Package", package.markdown)
+        self.assertIn("## Context Metadata", package.markdown)
+        self.assertIn("Mode: standard", package.markdown)
+        self.assertIn("Confidence: high", package.markdown)
+        self.assertIn("Tokens:", package.markdown)
         self.assertIn("## Current State", package.markdown)
         self.assertIn("Ship Clean Mode", package.markdown)
         self.assertIn("## Selected Context", package.markdown)
@@ -144,6 +149,106 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertFalse((user_dir / ".workroot").exists())
         self.assertFalse((user_dir / ".ai-workroot").exists())
         self.assertFalse((user_dir / "context").exists())
+
+    def test_context_uses_agent_specific_token_budgets(self) -> None:
+        home, user_dir, _ = self.create_fixture()
+
+        codex_package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="clean mode",
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+        claude_package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="claude",
+                cwd=user_dir,
+                query="clean mode",
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        self.assertEqual(codex_package.trace["tokenBudget"]["source"], "agent:codex")
+        self.assertEqual(codex_package.trace["tokenBudget"]["hard"], 6000)
+        self.assertEqual(claude_package.trace["tokenBudget"]["source"], "agent:claude")
+        self.assertEqual(claude_package.trace["tokenBudget"]["hard"], 8000)
+        self.assertIn("Tokens:", codex_package.markdown)
+
+    def test_standard_to_quality_escalation_reselects_with_quality_budget(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+        hints = json.loads((state_dir / "state/runtime-hints.json").read_text(encoding="utf-8"))
+        hints["contextGuide"]["agentBudgets"]["codex"]["targetTokens"] = 5
+        hints["contextGuide"]["modes"]["quality"]["targetTokens"] = 50
+        (state_dir / "state/runtime-hints.json").write_text(json.dumps(hints, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_json(
+            state_dir / "state/current.json",
+            {
+                "currentFocus": "clean mode",
+                "activeTaskId": None,
+                "nextSuggestedAction": "",
+                "contextVersion": 1,
+                "lastActivityAt": "2026-05-19T00:00:00Z",
+            },
+        )
+        db_path = state_dir / "indexes/workroot.sqlite"
+        with open_sqlite(db_path) as conn:
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_quality_extra",
+                    workroot_id="wr_demo",
+                    source_type="decision",
+                    source_id="decision-quality",
+                    title="Quality extra context",
+                    summary="Quality mode should include this candidate after escalation.",
+                    importance="high",
+                    confidence=0.9,
+                    context_policy="always",
+                    token_estimate=4,
+                    updated_at="2026-05-19T00:00:00Z",
+                ),
+            )
+
+        package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="clean mode",
+                debug=True,
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        self.assertEqual(package.trace["contextMode"], "quality")
+        selected_ids = {item["candidateId"] for item in package.trace["selectedCandidates"]}
+        dropped = {item["candidateId"]: item["reason"] for item in package.trace["droppedCandidates"]}
+        self.assertIn("cand_quality_extra", selected_ids)
+        self.assertNotEqual(dropped.get("cand_quality_extra"), "token-budget")
+        self.assertEqual(package.trace["tokenBudget"]["target"], 50)
+
+    def test_malformed_runtime_hint_numeric_values_fall_back_safely(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+        hints = json.loads((state_dir / "state/runtime-hints.json").read_text(encoding="utf-8"))
+        hints["contextGuide"]["agentBudgets"]["codex"]["targetTokens"] = "abc"
+        (state_dir / "state/runtime-hints.json").write_text(json.dumps(hints, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="clean mode",
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        self.assertIn("runtime-hints-invalid-budget", package.trace["fallbacks"])
+        self.assertEqual(package.trace["tokenBudget"]["hard"], 6000)
 
     def test_cli_context_prints_markdown_package(self) -> None:
         home, user_dir, _ = self.create_fixture()
@@ -170,6 +275,91 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("# AI Workroot Context Package", result.stdout)
         self.assertIn("Clean Mode decision", result.stdout)
+
+    def test_cli_context_supports_quality_mode_and_debug_trace(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(CLI),
+                "context",
+                "--agent",
+                "codex",
+                "--cwd",
+                str(user_dir),
+                "--query",
+                "clean mode",
+                "--mode",
+                "quality",
+                "--debug",
+            ],
+            cwd=ROOT,
+            env={**os.environ, "AI_WORKROOT_HOME": str(home)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Mode: quality", result.stdout)
+        trace = json.loads((state_dir / "context/debug/latest.json").read_text(encoding="utf-8"))
+        self.assertEqual(trace["requestedMode"], "quality")
+        self.assertEqual(trace["contextMode"], "quality")
+        self.assertEqual(trace["tokenBudget"]["hard"], 12000)
+
+    def test_cli_context_deep_requires_explicit_request_and_records_it(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(CLI),
+                "context",
+                "--agent",
+                "codex",
+                "--cwd",
+                str(user_dir),
+                "--deep",
+                "--debug",
+            ],
+            cwd=ROOT,
+            env={**os.environ, "AI_WORKROOT_HOME": str(home)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Mode: deep", result.stdout)
+        trace = json.loads((state_dir / "context/debug/latest.json").read_text(encoding="utf-8"))
+        self.assertTrue(trace["deepExplicitlyRequested"])
+        self.assertEqual(trace["contextMode"], "deep")
+
+    def test_cli_context_rejects_target_tokens_over_hard_limit(self) -> None:
+        home, user_dir, _ = self.create_fixture()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(CLI),
+                "context",
+                "--agent",
+                "codex",
+                "--cwd",
+                str(user_dir),
+                "--target-tokens",
+                "999999",
+            ],
+            cwd=ROOT,
+            env={**os.environ, "AI_WORKROOT_HOME": str(home)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("exceeds hard token limit", result.stderr)
 
     def test_cli_context_after_init_uses_initialized_sqlite_schema(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

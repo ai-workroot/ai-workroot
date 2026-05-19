@@ -71,7 +71,8 @@ CREATE TABLE IF NOT EXISTS context_candidates (
 CREATE VIRTUAL TABLE IF NOT EXISTS context_candidates_fts USING fts5(
   candidate_id,
   title,
-  summary
+  summary,
+  domains
 );
 
 CREATE INDEX IF NOT EXISTS idx_context_candidates_workroot ON context_candidates(workroot_id);

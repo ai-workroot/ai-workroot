@@ -52,6 +52,8 @@ workroot context --agent codex --cwd .
 Use the returned Context Package for current focus, active task, recent decisions, handoffs, artifact guidance, and write-routing rules.
 
 Do not write Workroot managed state into this directory.
+
+If the context command fails, answer only low-risk questions from explicit user instructions and ask the user to run `workroot doctor` before major changes.
 """
     )
 
@@ -68,6 +70,8 @@ Before answering, editing, creating files, or making decisions in this directory
 ```bash
 workroot context --agent claude --cwd .
 ```
+
+If the context command fails, answer only low-risk questions from explicit user instructions and ask the user to run `workroot doctor` before major changes.
 """
     )
 

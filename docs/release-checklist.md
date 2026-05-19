@@ -97,7 +97,13 @@ The final status should contain only intentional release changes.
 - Managed state, indexes, context packages, handoffs, runtime data, logs, and debug traces live outside the user-selected directory by default.
 - SQLite graph, candidate, and FTS tables are present in managed state.
 - Context Guide runs locally, prints a Markdown Context Package, and does not require remote calls.
-- Debug trace records resolution, challengers, selected and dropped candidates, FTS matches, token budget, and timing.
+- Context Guide treats 1 second as the normal hot-path target, not a hard accuracy limit.
+- Context Guide reads latency and token budgets from runtime hints or built-in defaults.
+- Standard Mode is the default; Quality Mode is local and bounded; Deep Mode requires explicit request.
+- Context Package includes mode, confidence, latency, token usage, fallback status, and low-confidence reasons when applicable.
+- Codex, Claude, and default agent token budgets are represented and bounded.
+- `AGENTS.md` and `CLAUDE.md` remain short launcher files and do not embed full Context Packages.
+- Debug trace records resolution, mode, confidence, challengers, selected and dropped candidates, FTS matches, token budget, and timing.
 - P0 retrieval does not require a vector database or remote embedding provider.
 - `bootstrap-dev` creates no commits, tags, releases, or pushes automatically.
 - `.ai-workroot-local/` is ignored and must not appear in release artifacts.

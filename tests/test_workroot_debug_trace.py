@@ -99,15 +99,54 @@ class WorkrootDebugTraceTest(unittest.TestCase):
             "ftsMatches",
             "tokenBudget",
             "latencyMs",
+            "requestedMode",
+            "contextMode",
+            "modeSwitchReason",
+            "confidence",
+            "confidenceReasons",
+            "candidateQuality",
+            "timing",
+            "deepExplicitlyRequested",
         ):
             self.assertIn(key, trace)
         self.assertEqual(trace["resolution"]["workrootId"], "wr_demo")
+        self.assertEqual(trace["requestedMode"], "standard")
+        self.assertIn(trace["contextMode"], {"standard", "quality"})
+        self.assertEqual(trace["confidence"], "medium")
+        self.assertIn("active task missing", trace["confidenceReasons"])
         self.assertEqual(trace["challengers"][0]["name"], "current-state")
         self.assertEqual(trace["selectedCandidates"][0]["candidateId"], "cand_active")
         dropped = {item["candidateId"]: item["reason"] for item in trace["droppedCandidates"]}
         self.assertEqual(dropped["cand_never"], "never-auto")
         self.assertEqual(dropped["cand_stale"], "stale")
         self.assertEqual(trace["ftsMatches"][0]["relativePath"], "notes.md")
+        self.assertEqual(trace["tokenBudget"]["source"], "agent:codex")
+        self.assertEqual(trace["candidateQuality"]["staleCount"], 1)
+        self.assertEqual(trace["candidateQuality"]["neverAutoCount"], 1)
+        self.assertIn("queryCandidates", trace["timing"])
+
+    def test_standard_low_confidence_escalates_to_quality(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+
+        build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="missing",
+                debug=True,
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        trace = json.loads((state_dir / "context/debug/latest.json").read_text(encoding="utf-8"))
+        self.assertEqual(trace["requestedMode"], "standard")
+        self.assertEqual(trace["contextMode"], "quality")
+        self.assertEqual(
+            trace["modeSwitchReason"],
+            "standard candidate set had medium confidence and missing active task",
+        )
+        self.assertEqual(trace["qualitySoftLimitMs"], 3000)
 
     def test_debug_trace_history_prunes_beyond_retention(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

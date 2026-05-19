@@ -52,6 +52,27 @@ class WorkrootStateTest(unittest.TestCase):
             self.assertEqual(payload["userDirectory"], str(user_dir.resolve()))
             self.assertEqual(payload["stateDirectory"], str((home / "workroots/wr_demo").resolve()))
 
+    def test_initialize_workroot_state_writes_context_runtime_hints(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialize_workroot_state(home, "wr_demo", "Demo", user_dir, now="2026-05-19T00:00:00Z")
+
+            hints = json.loads((home / "workroots/wr_demo/state/runtime-hints.json").read_text(encoding="utf-8"))
+            context = hints["contextGuide"]
+
+            self.assertEqual(context["defaultMode"], "standard")
+            self.assertEqual(context["agentBudgets"]["codex"]["hardTokenLimit"], 6000)
+            self.assertGreater(context["agentBudgets"]["claude"]["hardTokenLimit"], context["agentBudgets"]["codex"]["hardTokenLimit"])
+            self.assertEqual(context["modes"]["standard"]["targetLatencyMs"], 1000)
+            self.assertEqual(context["modes"]["quality"]["softLatencyMs"], 3000)
+            self.assertTrue(context["modes"]["deep"]["requiresExplicitRequest"])
+            self.assertFalse(context["hotPath"]["allowRemoteLlm"])
+            self.assertFalse(context["hotPath"]["allowRemoteEmbedding"])
+            self.assertFalse(context["hotPath"]["allowVectorSearch"])
+
 
 if __name__ == "__main__":
     unittest.main()

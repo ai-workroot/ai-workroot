@@ -35,6 +35,21 @@ class ReleaseGates0529Test(unittest.TestCase):
 
         self.assertEqual(errors, [])
 
+    def test_context_amendment_release_gate_requirements_are_present(self) -> None:
+        errors: list[str] = []
+
+        validate_0529_specs(ROOT, errors)
+
+        self.assertEqual(errors, [])
+        spec = (ROOT / "docs/specs/015-context-guide-modes-budgets-and-confidence.spec.md").read_text(encoding="utf-8")
+        checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
+        context_source = (ROOT / "scripts/workroot_context.py").read_text(encoding="utf-8")
+
+        self.assertIn("runtime-hints.json", spec)
+        self.assertIn("Deep Mode requires explicit request", checklist)
+        self.assertIn("Context Package includes mode, confidence, latency, token usage", checklist)
+        self.assertIn("DEFAULT_CONTEXT_GUIDE_CONFIG", context_source)
+
     def test_release_validation_rejects_generated_state_and_cache_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
