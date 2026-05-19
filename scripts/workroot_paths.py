@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import platform
 from pathlib import Path
+import uuid
 
 
 class CleanModeBoundaryError(ValueError):
@@ -29,6 +30,10 @@ def workroot_state_dir(ai_workroot_home: Path, workroot_id: str) -> Path:
     return ai_workroot_home / "workroots" / workroot_id
 
 
+def workroot_sqlite_path(state_directory: Path) -> Path:
+    return state_directory / "cache/workroot.sqlite"
+
+
 def is_relative_to(path: Path, parent: Path) -> bool:
     try:
         path.resolve().relative_to(parent.resolve())
@@ -42,3 +47,33 @@ def assert_clean_mode_boundary(user_directory: Path, state_directory: Path) -> N
         raise CleanModeBoundaryError(
             f"Clean Mode violation: managed state would be written inside the user directory: {state_directory}"
         )
+
+
+def validate_user_directory(user_directory: Path, ai_workroot_home: Path, create: bool = True) -> Path:
+    expanded = user_directory.expanduser()
+    if expanded.exists() and not expanded.is_dir():
+        raise ValueError(f"user directory is not a directory: {expanded}")
+    resolved = expanded.resolve() if expanded.exists() else expanded.parent.resolve() / expanded.name
+    home = ai_workroot_home.expanduser().resolve()
+    if resolved == home or is_relative_to(resolved, home):
+        raise ValueError("user directory must not be AI_WORKROOT_HOME or inside AI_WORKROOT_HOME")
+    obvious_system_dirs = {Path(Path.home().resolve().anchor).resolve()}
+    if resolved == Path.home().resolve():
+        raise ValueError(f"user directory looks like a system directory: {resolved}")
+    if platform.system() != "Windows":
+        obvious_system_dirs.update(Path(path).resolve() for path in ("/bin", "/sbin", "/usr", "/etc", "/var", "/System", "/Library"))
+    if resolved in obvious_system_dirs:
+        raise ValueError(f"user directory looks like a system directory: {resolved}")
+    if not expanded.exists():
+        if not create:
+            raise ValueError(f"user directory does not exist: {expanded}")
+        expanded.mkdir(parents=True)
+        resolved = expanded.resolve()
+    probe = resolved / f".ai-workroot-write-probe-{uuid.uuid4().hex}"
+    try:
+        probe.write_text("probe", encoding="utf-8")
+        _ = probe.read_text(encoding="utf-8")
+    finally:
+        if probe.exists():
+            probe.unlink()
+    return resolved

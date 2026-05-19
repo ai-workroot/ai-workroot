@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -22,6 +24,34 @@ class ReleaseGates0529Test(unittest.TestCase):
 
         for path in expected:
             self.assertTrue(path.exists(), f"missing script: {path}")
+
+    def test_install_script_help_and_dry_run_do_not_write_wrapper(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            install_dir = Path(tmp) / "bin"
+            env = {**os.environ, "AI_WORKROOT_INSTALL_DIR": str(install_dir)}
+
+            help_result = subprocess.run(
+                [str(ROOT / "scripts/install.sh"), "--help"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            dry_run_result = subprocess.run(
+                [str(ROOT / "scripts/install.sh"), "--dry-run"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(help_result.returncode, 0, help_result.stderr)
+            self.assertIn("CLI wrapper installer", help_result.stdout)
+            self.assertEqual(dry_run_result.returncode, 0, dry_run_result.stderr)
+            self.assertIn("would install", dry_run_result.stdout)
+            self.assertFalse((install_dir / "workroot").exists())
 
     def test_local_bootstrap_state_is_ignored(self) -> None:
         gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")

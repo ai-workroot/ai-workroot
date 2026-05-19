@@ -8,6 +8,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+import uuid
 
 from workroot_operation_manifest import manifest as operation_manifest
 from workroot_operation_manifest import recipe as operation_recipe
@@ -30,7 +31,7 @@ from workroot_client import (
     now_utc,
     slugify,
 )
-from workroot_paths import resolve_ai_workroot_home
+from workroot_paths import resolve_ai_workroot_home, workroot_sqlite_path
 from workroot_sqlite import initialize_workroot_sqlite
 from workroot_state import initialize_workroot_state, read_jsonl
 
@@ -247,12 +248,39 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def generate_workroot_id(name: str) -> str:
+    slug = slugify(name).replace("-", "_")
+    return f"wr_{slug}_{uuid.uuid4().hex[:8]}"
+
+
+def nested_workroot_warnings(home: Path, user_directory: Path) -> list[str]:
+    warnings: list[str] = []
+    resolved = user_directory.resolve()
+    for record in read_jsonl(home / "registry/workroots.jsonl"):
+        existing = Path(str(record.get("userDirectory", ""))).resolve()
+        try:
+            if resolved != existing and (resolved.is_relative_to(existing) or existing.is_relative_to(resolved)):
+                warnings.append(f"warning: nested Workroot directory relationship with {record.get('workrootId')}: {existing}")
+        except ValueError:
+            continue
+    return warnings
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     client = WorkrootClient()
 
     if args.resource == "quickstart":
+        print("Clean Mode user path:")
+        print("workroot init --name <name> --directory <directory> --no-native-agent-entry")
+        print("workroot context --agent codex --cwd <directory>")
+        print("workroot doctor --cwd <directory>")
+        print("scripts/install.sh is a CLI wrapper installer; it does not run first-use setup.")
+        print("")
+        print("legacy public-seed agent-operation commands:")
+        print("task, run, action, artifact, retrieval-card, checkpoint, invalidation, mind, session, continue, and batch remain available for the file-first seed.")
+        print("")
         print("For normal agent operations, read manifest first:")
         print("python3 scripts/workroot_cli.py manifest --format json")
         print("Use JSON schema for exact fields:")
@@ -268,15 +296,20 @@ def main() -> None:
 
     if args.resource == "init":
         home = resolve_ai_workroot_home()
-        workroot_id = args.workroot_id or f"wr_{slugify(args.name).replace('-', '_')}"
-        initialized = initialize_workroot_state(
-            home,
-            workroot_id=workroot_id,
-            name=args.name,
-            user_directory=Path(args.directory),
-            now=now_utc(),
-        )
-        initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+        workroot_id = args.workroot_id or generate_workroot_id(args.name)
+        try:
+            initialized = initialize_workroot_state(
+                home,
+                workroot_id=workroot_id,
+                name=args.name,
+                user_directory=Path(args.directory),
+                now=now_utc(),
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+        initialize_workroot_sqlite(workroot_sqlite_path(initialized.state_directory))
+        for warning in nested_workroot_warnings(home, initialized.user_directory):
+            print(warning, file=sys.stderr)
         if args.native_agent_entry:
             apply_managed_block(initialized.user_directory / "AGENTS.md", codex_block())
             apply_managed_block(initialized.user_directory / "CLAUDE.md", claude_block())

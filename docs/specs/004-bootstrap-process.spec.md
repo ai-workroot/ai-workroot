@@ -84,6 +84,10 @@ FR-010: Bootstrap must not automatically commit, tag, push, or create releases.
 
 FR-011: Bootstrap must not create managed state inside the user directory except explicitly authorized Native Agent Entry files and developer-only `.ai-workroot-local/`.
 
+FR-012: `workroot bootstrap-dev` must initialize per-Workroot SQLite at `<stateDirectory>/cache/workroot.sqlite` so `workroot context` and `workroot doctor` work immediately after bootstrap.
+
+FR-013: `workroot bootstrap-dev` must use a real current UTC timestamp unless a test injects an explicit timestamp.
+
 ### Non-functional Requirements
 
 NFR-001: Bootstrap must work without network access.

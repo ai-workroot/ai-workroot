@@ -99,12 +99,18 @@ The final status should contain only intentional release changes.
 - Context Guide runs locally, prints a Markdown Context Package, and does not require remote calls.
 - Context Guide treats 1 second as the normal hot-path target, not a hard accuracy limit.
 - Context Guide reads latency and token budgets from runtime hints or built-in defaults.
+- Context Guide token usage estimates the full Context Package, not only selected candidates.
+- Context Guide uses query, candidate FTS, file FTS, and related one-hop graph signals to influence selection or scoring.
 - Standard Mode is the default; Quality Mode is local and bounded; Deep Mode requires explicit request.
+- If Quality Mode only expands candidate budget, debug trace labels it as `quality-budget-expansion`.
 - Context Package includes mode, confidence, latency, token usage, fallback status, and low-confidence reasons when applicable.
 - Codex, Claude, and default agent token budgets are represented and bounded.
 - `AGENTS.md` and `CLAUDE.md` remain short launcher files and do not embed full Context Packages.
 - Debug trace records resolution, mode, confidence, challengers, selected and dropped candidates, FTS matches, token budget, and timing.
 - P0 retrieval does not require a vector database or remote embedding provider.
 - `bootstrap-dev` creates no commits, tags, releases, or pushes automatically.
+- `bootstrap-dev` initializes SQLite and supports `context` and `doctor` immediately after bootstrap.
+- Install scripts are documented as CLI wrapper installers unless full first-run setup is implemented.
+- Legacy public-seed commands are clearly marked apart from the Clean Mode user path.
 - `.ai-workroot-local/` is ignored and must not appear in release artifacts.
 - Release validation rejects generated caches, SQLite stores, debug traces, local metadata, and private residue.

@@ -10,13 +10,13 @@ from pathlib import Path
 try:
     from workroot_agent_entry import BEGIN, END
     from workroot_context import DEFAULT_CONTEXT_GUIDE_CONFIG
-    from workroot_paths import CleanModeBoundaryError, assert_clean_mode_boundary
+    from workroot_paths import CleanModeBoundaryError, assert_clean_mode_boundary, workroot_sqlite_path
     from workroot_sqlite import verify_workroot_sqlite
     from workroot_state import read_jsonl
 except ModuleNotFoundError:  # pragma: no cover - package import path for tests.
     from scripts.workroot_agent_entry import BEGIN, END
     from scripts.workroot_context import DEFAULT_CONTEXT_GUIDE_CONFIG
-    from scripts.workroot_paths import CleanModeBoundaryError, assert_clean_mode_boundary
+    from scripts.workroot_paths import CleanModeBoundaryError, assert_clean_mode_boundary, workroot_sqlite_path
     from scripts.workroot_sqlite import verify_workroot_sqlite
     from scripts.workroot_state import read_jsonl
 
@@ -168,7 +168,7 @@ def check_migration_records(home: Path) -> DoctorCheck:
 
 
 def check_sqlite_schema(state_directory: Path) -> DoctorCheck:
-    issues = verify_workroot_sqlite(state_directory / "indexes/workroot.sqlite")
+    issues = verify_workroot_sqlite(workroot_sqlite_path(state_directory))
     if issues:
         return fail_check(
             "sqlite-schema",

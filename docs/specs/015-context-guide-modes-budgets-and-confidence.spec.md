@@ -248,7 +248,7 @@ workroot context --target-tokens 4000
 workroot context --max-latency-ms 3000
 ```
 
-Implementation may treat Quality and Deep as reserved local modes in 0.9.529 if full expansion is not yet implemented, but it must preserve the explicit mode contract and trace the effective behavior.
+Implementation may treat Quality and Deep as reserved local modes in 0.9.529 if full expansion is not yet implemented, but it must preserve the explicit mode contract and trace the effective behavior. If Quality Mode only expands the local candidate budget, debug trace must label the behavior as `quality-budget-expansion`.
 
 ### Runtime Behavior
 
@@ -259,7 +259,7 @@ Mode selection flow:
 3. Select agent budget from `agentBudgets`.
 4. Select mode from CLI, `--deep`, runtime default, or built-in default.
 5. Apply explicit token or latency overrides only within configured hard limits.
-6. Build the Standard Mode candidate set by default.
+6. Build the Standard Mode candidate set from required rules, active task state, Materialized Context Candidates, candidate FTS matches, file FTS matches, and related one-hop graph signals.
 7. Compute confidence from active task resolution, candidate count, candidate confidence, stale source state, FTS quality, and graph conflict/supersession signals.
 8. Escalate to Quality Mode only when Standard confidence is insufficient and local time budget remains.
 9. Build the Context Package with metadata.

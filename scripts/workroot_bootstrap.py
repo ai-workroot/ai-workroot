@@ -7,13 +7,15 @@ from pathlib import Path
 
 try:
     from workroot_agent_entry import apply_managed_block, claude_block, codex_block
-    from workroot_client import slugify
-    from workroot_paths import resolve_ai_workroot_home
+    from workroot_client import now_utc, slugify
+    from workroot_paths import resolve_ai_workroot_home, workroot_sqlite_path
+    from workroot_sqlite import initialize_workroot_sqlite
     from workroot_state import initialize_workroot_state
 except ModuleNotFoundError:  # pragma: no cover - package import path for tests.
     from scripts.workroot_agent_entry import apply_managed_block, claude_block, codex_block
-    from scripts.workroot_client import slugify
-    from scripts.workroot_paths import resolve_ai_workroot_home
+    from scripts.workroot_client import now_utc, slugify
+    from scripts.workroot_paths import resolve_ai_workroot_home, workroot_sqlite_path
+    from scripts.workroot_sqlite import initialize_workroot_sqlite
     from scripts.workroot_state import initialize_workroot_state
 
 
@@ -45,10 +47,11 @@ def bootstrap_dev(repo: Path, dry_run: bool = False, now: str | None = None) -> 
     if dry_run:
         return "bootstrap-dev preflight ok"
 
-    timestamp = now or "2026-05-19T00:00:00Z"
+    timestamp = now or now_utc()
     workroot_id = f"wr_{slugify(repo.name).replace('-', '_')}"
     home = resolve_ai_workroot_home()
-    initialize_workroot_state(home, workroot_id, "AI Workroot Project", repo, now=timestamp)
+    initialized = initialize_workroot_state(home, workroot_id, "AI Workroot Project", repo, now=timestamp)
+    initialize_workroot_sqlite(workroot_sqlite_path(initialized.state_directory))
 
     local_dir = repo / BOOTSTRAP_LOCAL_DIR
     for rel in ("drafts", "reviews", "patches", "context-packages"):

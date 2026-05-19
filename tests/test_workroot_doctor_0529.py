@@ -32,7 +32,7 @@ class WorkrootDoctor0529Test(unittest.TestCase):
                 user_dir,
                 now="2026-05-19T00:00:00Z",
             )
-            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            initialize_workroot_sqlite(initialized.state_directory / "cache/workroot.sqlite")
 
             result = run_doctor(home, cwd=user_dir)
 
@@ -77,7 +77,7 @@ class WorkrootDoctor0529Test(unittest.TestCase):
                 user_dir,
                 now="2026-05-19T00:00:00Z",
             )
-            sqlite3.connect(initialized.state_directory / "indexes/workroot.sqlite").close()
+            sqlite3.connect(initialized.state_directory / "cache/workroot.sqlite").close()
 
             result = run_doctor(home, cwd=user_dir)
             sqlite_check = next(check for check in result.checks if check.check_id == "sqlite-schema")
@@ -99,7 +99,7 @@ class WorkrootDoctor0529Test(unittest.TestCase):
                 user_dir,
                 now="2026-05-19T00:00:00Z",
             )
-            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            initialize_workroot_sqlite(initialized.state_directory / "cache/workroot.sqlite")
             result = subprocess.run(
                 [
                     sys.executable,
@@ -138,7 +138,7 @@ class WorkrootDoctor0529Test(unittest.TestCase):
                 user_dir,
                 now="2026-05-19T00:00:00Z",
             )
-            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            initialize_workroot_sqlite(initialized.state_directory / "cache/workroot.sqlite")
 
             result = subprocess.run(
                 [sys.executable, str(CLI), "doctor"],
@@ -165,7 +165,7 @@ class WorkrootDoctor0529Test(unittest.TestCase):
                 user_dir,
                 now="2026-05-19T00:00:00Z",
             )
-            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            initialize_workroot_sqlite(initialized.state_directory / "cache/workroot.sqlite")
             (initialized.state_directory / "state/runtime-hints.json").unlink()
 
             result = run_doctor(home, cwd=user_dir)
@@ -187,7 +187,7 @@ class WorkrootDoctor0529Test(unittest.TestCase):
                 user_dir,
                 now="2026-05-19T00:00:00Z",
             )
-            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            initialize_workroot_sqlite(initialized.state_directory / "cache/workroot.sqlite")
             (initialized.state_directory / "state/runtime-hints.json").write_text("{not json", encoding="utf-8")
 
             result = run_doctor(home, cwd=user_dir)
@@ -210,7 +210,7 @@ class WorkrootDoctor0529Test(unittest.TestCase):
                 user_dir,
                 now="2026-05-19T00:00:00Z",
             )
-            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            initialize_workroot_sqlite(initialized.state_directory / "cache/workroot.sqlite")
             hints = json.loads((initialized.state_directory / "state/runtime-hints.json").read_text(encoding="utf-8"))
             hints["contextGuide"]["agentBudgets"]["codex"]["targetTokens"] = "abc"
             write_json(initialized.state_directory / "state/runtime-hints.json", hints)
@@ -235,7 +235,7 @@ class WorkrootDoctor0529Test(unittest.TestCase):
                 user_dir,
                 now="2026-05-19T00:00:00Z",
             )
-            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            initialize_workroot_sqlite(initialized.state_directory / "cache/workroot.sqlite")
 
             result = subprocess.run(
                 [

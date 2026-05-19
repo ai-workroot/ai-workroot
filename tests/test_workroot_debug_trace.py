@@ -8,6 +8,7 @@ from pathlib import Path
 from scripts.workroot_candidates import ContextCandidate, upsert_context_candidate
 from scripts.workroot_context import ContextRequest, build_context_package, write_debug_trace
 from scripts.workroot_indexing import index_text_file
+from scripts.workroot_paths import workroot_sqlite_path
 from scripts.workroot_sqlite import initialize_workroot_sqlite, open_sqlite
 from scripts.workroot_state import initialize_workroot_state
 
@@ -27,7 +28,7 @@ class WorkrootDebugTraceTest(unittest.TestCase):
             user_dir,
             now="2026-05-19T00:00:00Z",
         )
-        db_path = initialized.state_directory / "indexes/workroot.sqlite"
+        db_path = workroot_sqlite_path(initialized.state_directory)
         initialize_workroot_sqlite(db_path)
         with open_sqlite(db_path) as conn:
             upsert_context_candidate(

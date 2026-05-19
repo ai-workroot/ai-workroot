@@ -73,6 +73,20 @@ class WorkrootStateTest(unittest.TestCase):
             self.assertFalse(context["hotPath"]["allowRemoteEmbedding"])
             self.assertFalse(context["hotPath"]["allowVectorSearch"])
 
+    def test_rejected_user_directory_does_not_initialize_home_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = home / "project"
+
+            with self.assertRaises(ValueError):
+                initialize_workroot_state(home, "wr_bad", "Bad", user_dir, now="2026-05-19T00:00:00Z")
+
+            self.assertFalse((home / "config.json").exists())
+            self.assertFalse((home / "registry").exists())
+            self.assertFalse((home / "workroots").exists())
+            self.assertFalse(user_dir.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

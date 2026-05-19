@@ -25,6 +25,9 @@ def run_cli(*args: str) -> str:
 class WorkrootCliDiscoveryTest(unittest.TestCase):
     def test_quickstart_mentions_happy_path(self) -> None:
         out = run_cli("quickstart")
+        self.assertIn("Clean Mode", out)
+        self.assertIn("CLI wrapper installer", out)
+        self.assertIn("legacy public-seed", out)
         self.assertIn("task complete", out)
         self.assertIn("manifest --format json", out)
         self.assertIn("recipe batch-12-tasks --format json", out)
@@ -39,6 +42,7 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         self.assertIn("run.add", manifest["batch_operations"])
         self.assertIn("mind.add", manifest["batch_operations"])
         self.assertIn("session.summarize", manifest["batch_operations"])
+        self.assertIn("legacy public-seed", manifest["legacy_mode"]["description"])
         self.assertNotIn("mind.add", manifest["unsupported_batch_operations"])
         self.assertNotIn("run.add", manifest["unsupported_batch_operations"])
         self.assertTrue(manifest["batch_operations"]["artifact.add"]["fields"]["content"]["optional"])

@@ -8,9 +8,9 @@ import json
 from pathlib import Path
 
 try:
-    from workroot_paths import assert_clean_mode_boundary, workroot_state_dir
+    from workroot_paths import assert_clean_mode_boundary, validate_user_directory, workroot_state_dir
 except ModuleNotFoundError:  # pragma: no cover - package import path for tests.
-    from scripts.workroot_paths import assert_clean_mode_boundary, workroot_state_dir
+    from scripts.workroot_paths import assert_clean_mode_boundary, validate_user_directory, workroot_state_dir
 
 
 CONFIG_VERSION = "0.9.529"
@@ -150,15 +150,26 @@ def touch_jsonl(path: Path) -> None:
 
 def initialize_ai_workroot_home(home: Path, now: str) -> None:
     home.mkdir(parents=True, exist_ok=True)
-    write_json(
-        home / "config.json",
-        {
+    config_path = home / "config.json"
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            if not isinstance(config, dict):
+                config = {}
+        except json.JSONDecodeError:
+            config = {}
+        config.setdefault("createdAt", now)
+        config["version"] = CONFIG_VERSION
+        config.setdefault("schemaVersion", SCHEMA_VERSION)
+        config.setdefault("defaultMode", "clean")
+    else:
+        config = {
             "version": CONFIG_VERSION,
             "schemaVersion": SCHEMA_VERSION,
             "createdAt": now,
             "defaultMode": "clean",
-        },
-    )
+        }
+    write_json(config_path, config)
     for name in REGISTRY_FILES:
         touch_jsonl(home / "registry" / name)
     for name in GLOBAL_INDEX_FILES:
@@ -190,10 +201,13 @@ def initialize_workroot_state(
     user_directory: Path,
     now: str,
 ) -> InitializedWorkroot:
-    initialize_ai_workroot_home(home, now=now)
-    canonical_user_directory = user_directory.resolve()
+    canonical_user_directory = validate_user_directory(user_directory, home, create=True)
     state_directory = workroot_state_dir(home, workroot_id).resolve()
     assert_clean_mode_boundary(canonical_user_directory, state_directory)
+    initialize_ai_workroot_home(home, now=now)
+    existing = read_jsonl(home / "registry/workroots.jsonl")
+    if any(record.get("workrootId") == workroot_id for record in existing):
+        raise ValueError(f"Workroot ID already exists: {workroot_id}")
 
     for rel in WORKROOT_DIRECTORIES:
         (state_directory / rel).mkdir(parents=True, exist_ok=True)

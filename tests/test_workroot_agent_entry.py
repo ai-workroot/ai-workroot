@@ -36,6 +36,17 @@ class WorkrootAgentEntryTest(unittest.TestCase):
         with self.assertRaises(NativeAgentEntryError):
             validate_entry_content("state at /Users/example/.ai-workroot/workroots/wr_demo")
 
+    def test_apply_block_does_not_reject_user_owned_existing_content(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "AGENTS.md"
+            path.write_text("# Existing\n\nUser notes may mention logs/ and indexes/.\n", encoding="utf-8")
+
+            apply_managed_block(path, codex_block())
+
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("User notes may mention logs/ and indexes/.", text)
+            self.assertIn("<!-- AI_WORKROOT_BEGIN -->", text)
+
 
 if __name__ == "__main__":
     unittest.main()

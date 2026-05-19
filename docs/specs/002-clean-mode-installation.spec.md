@@ -69,7 +69,7 @@ FR-004: `workroot init` must ask for explicit authorization before creating or m
 
 FR-005: `workroot init` must support a non-interactive flag that disables Native Agent Entry file creation.
 
-FR-006: `workroot init` must validate that the user directory exists or can be created when the user requests a new directory.
+FR-006: `workroot init` must validate that the user directory exists or create it when using the non-interactive Clean Mode path.
 
 FR-007: `workroot init` must validate read and write permissions without leaving test files behind.
 
@@ -78,6 +78,14 @@ FR-008: `workroot init` must register the user directory binding in managed stat
 FR-009: `workroot init` must run doctor or a doctor-compatible validation after initialization.
 
 FR-010: Install scripts may offer to run `workroot init --wizard`, but must not silently initialize a user directory.
+
+FR-011: `workroot init` must reject a file path, `AI_WORKROOT_HOME`, directories inside `AI_WORKROOT_HOME`, and obvious system directories as the user directory.
+
+FR-012: Generated default Workroot IDs must include a uniqueness suffix so duplicate Workroot names can coexist.
+
+FR-013: Explicit duplicate Workroot IDs must be rejected.
+
+FR-014: `workroot init` must warn when the selected user directory is nested inside an existing registered Workroot or contains one.
 
 ### Non-functional Requirements
 

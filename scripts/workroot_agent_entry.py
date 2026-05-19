@@ -76,6 +76,15 @@ If the context command fails, answer only low-risk questions from explicit user 
     )
 
 
+def validate_managed_blocks(text: str) -> None:
+    position = 0
+    while BEGIN in text[position:]:
+        start = text.index(BEGIN, position)
+        end = text.index(END, start) + len(END)
+        validate_entry_content(text[start:end])
+        position = end
+
+
 def replace_existing_block(text: str, block: str) -> str:
     begin_count = text.count(BEGIN)
     end_count = text.count(END)
@@ -95,6 +104,6 @@ def apply_managed_block(path: Path, block: str) -> None:
     validate_entry_content(block)
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     updated = replace_existing_block(text, block)
-    validate_entry_content(updated)
+    validate_managed_blocks(updated)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(updated, encoding="utf-8")

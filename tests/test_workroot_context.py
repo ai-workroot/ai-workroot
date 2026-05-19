@@ -11,6 +11,7 @@ from pathlib import Path
 from scripts.workroot_candidates import ContextCandidate, upsert_context_candidate
 from scripts.workroot_context import ContextRequest, build_context_package
 from scripts.workroot_indexing import index_text_file
+from scripts.workroot_paths import workroot_sqlite_path
 from scripts.workroot_sqlite import initialize_workroot_sqlite, open_sqlite
 from scripts.workroot_state import initialize_workroot_state, write_json
 
@@ -44,7 +45,7 @@ class WorkrootContextTest(unittest.TestCase):
                 "lastActivityAt": "2026-05-19T00:00:00Z",
             },
         )
-        db_path = initialized.state_directory / "indexes/workroot.sqlite"
+        db_path = workroot_sqlite_path(initialized.state_directory)
         initialize_workroot_sqlite(db_path)
         with open_sqlite(db_path) as conn:
             upsert_context_candidate(
@@ -150,6 +151,232 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertFalse((user_dir / ".ai-workroot").exists())
         self.assertFalse((user_dir / "context").exists())
 
+    def test_fts_match_promotes_related_context_candidate(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+        db_path = workroot_sqlite_path(state_dir)
+        with open_sqlite(db_path) as conn:
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_query_match",
+                    workroot_id="wr_demo",
+                    source_type="knowledge",
+                    source_id="knowledge-query",
+                    title="Query specific retrieval",
+                    summary="This summary is found only through context candidate FTS.",
+                    domains="rare-domain",
+                    importance="low",
+                    confidence=0.8,
+                    context_policy="on-demand",
+                    token_estimate=6,
+                    updated_at="2026-05-19T00:00:00Z",
+                ),
+            )
+
+        package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="rare-domain",
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        selected = {item["candidateId"]: item for item in package.trace["selectedCandidates"]}
+        self.assertIn("cand_query_match", selected)
+        self.assertIn("candidate-fts-match", selected["cand_query_match"]["reasons"])
+
+    def test_graph_signals_are_related_to_selected_candidates(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+        db_path = workroot_sqlite_path(state_dir)
+        with open_sqlite(db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO graph_nodes (
+                  node_id, node_type, kind, title, summary, status, importance, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "unrelated-critical",
+                    "decision",
+                    "architecture",
+                    "Unrelated critical node",
+                    "This high priority node is unrelated and should not appear.",
+                    "active",
+                    "critical",
+                    "2026-05-19T00:00:00Z",
+                    "2026-05-19T00:00:00Z",
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO graph_edges (
+                  edge_id, from_node_id, to_node_id, relation, strength, confidence, status, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "edge-clean-task",
+                    "decision-1",
+                    "task-1",
+                    "belongs_to_task",
+                    1.0,
+                    0.9,
+                    "active",
+                    "2026-05-19T00:00:00Z",
+                    "2026-05-19T00:00:00Z",
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO graph_nodes (
+                  node_id, node_type, kind, title, summary, status, importance, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "task-1",
+                    "task",
+                    "work",
+                    "Clean Mode task",
+                    "Task linked by one-hop graph edge.",
+                    "active",
+                    "normal",
+                    "2026-05-19T00:00:00Z",
+                    "2026-05-19T00:00:00Z",
+                ),
+            )
+            conn.commit()
+
+        package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="clean mode",
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        titles = {signal["title"] for signal in package.trace["graphSignals"]}
+        self.assertIn("Clean Mode task", titles)
+        self.assertNotIn("Unrelated critical node", titles)
+
+    def test_graph_one_hop_match_promotes_candidate_selection(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+        hints = json.loads((state_dir / "state/runtime-hints.json").read_text(encoding="utf-8"))
+        hints["contextGuide"]["agentBudgets"]["codex"]["targetTokens"] = 5
+        (state_dir / "state/runtime-hints.json").write_text(json.dumps(hints, ensure_ascii=False, indent=2), encoding="utf-8")
+        db_path = workroot_sqlite_path(state_dir)
+        with open_sqlite(db_path) as conn:
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_unrelated",
+                    workroot_id="wr_demo",
+                    source_type="knowledge",
+                    source_id="knowledge-unrelated",
+                    title="Unrelated normal context",
+                    summary="This candidate has a stronger base score but no graph relation.",
+                    importance="normal",
+                    confidence=0.8,
+                    context_policy="task-related",
+                    token_estimate=5,
+                    updated_at="2026-05-19T00:00:00Z",
+                ),
+            )
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_graph_task",
+                    workroot_id="wr_demo",
+                    source_type="decision",
+                    source_id="decision-task-related",
+                    title="Task graph context",
+                    summary="This candidate is related through a one-hop active task graph edge.",
+                    importance="low",
+                    confidence=0.8,
+                    context_policy="on-demand",
+                    token_estimate=5,
+                    updated_at="2026-05-19T00:00:00Z",
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO graph_nodes (
+                  node_id, node_type, kind, title, summary, status, importance, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "decision-task-related",
+                    "decision",
+                    "architecture",
+                    "Task related graph node",
+                    "Graph node connected to the active task.",
+                    "active",
+                    "low",
+                    "2026-05-19T00:00:00Z",
+                    "2026-05-19T00:00:00Z",
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO graph_edges (
+                  edge_id, from_node_id, to_node_id, relation, strength, confidence, status, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "edge-task-related-decision",
+                    "decision-task-related",
+                    "task-1",
+                    "belongs_to_task",
+                    1.0,
+                    0.9,
+                    "active",
+                    "2026-05-19T00:00:00Z",
+                    "2026-05-19T00:00:00Z",
+                ),
+            )
+            conn.commit()
+
+        package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="",
+                mode="fast",
+                target_token_budget=5,
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        selected = {item["candidateId"]: item for item in package.trace["selectedCandidates"]}
+        self.assertIn("cand_graph_task", selected)
+        self.assertIn("graph-one-hop-match", selected["cand_graph_task"]["reasons"])
+        self.assertNotIn("cand_unrelated", selected)
+
+    def test_token_usage_estimates_full_context_package(self) -> None:
+        home, user_dir, _ = self.create_fixture()
+
+        package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="clean mode",
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        estimated = package.trace["tokenBudget"]["estimatedUsed"]
+        self.assertGreater(estimated, sum(item["tokenEstimate"] for item in package.trace["selectedCandidates"]))
+        self.assertNotIn("Tokens: 0", package.markdown)
+
     def test_context_uses_agent_specific_token_budgets(self) -> None:
         home, user_dir, _ = self.create_fixture()
 
@@ -194,7 +421,7 @@ class WorkrootContextTest(unittest.TestCase):
                 "lastActivityAt": "2026-05-19T00:00:00Z",
             },
         )
-        db_path = state_dir / "indexes/workroot.sqlite"
+        db_path = workroot_sqlite_path(state_dir)
         with open_sqlite(db_path) as conn:
             upsert_context_candidate(
                 conn,
@@ -225,6 +452,7 @@ class WorkrootContextTest(unittest.TestCase):
         )
 
         self.assertEqual(package.trace["contextMode"], "quality")
+        self.assertEqual(package.trace["qualityBehavior"], "quality-budget-expansion")
         selected_ids = {item["candidateId"] for item in package.trace["selectedCandidates"]}
         dropped = {item["candidateId"]: item["reason"] for item in package.trace["droppedCandidates"]}
         self.assertIn("cand_quality_extra", selected_ids)

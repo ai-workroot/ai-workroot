@@ -48,6 +48,25 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
             self.assertIn("bootstrap-dev preflight ok", result.stdout)
             self.assertFalse((repo / ".ai-workroot-local").exists())
 
+    def test_bootstrap_dev_initializes_context_and_doctor_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            home = Path(tmp) / "home"
+            self.copy_repo(repo)
+            env = {"AI_WORKROOT_HOME": str(home)}
+
+            bootstrap = self.run_cli(repo, env, "bootstrap-dev")
+            self.assertEqual(bootstrap.returncode, 0, bootstrap.stderr)
+            self.assertTrue((home / "workroots/wr_repo/cache/workroot.sqlite").exists())
+
+            context = self.run_cli(repo, env, "context", "--agent", "codex", "--cwd", str(repo))
+            self.assertEqual(context.returncode, 0, context.stderr)
+            self.assertIn("# AI Workroot Context Package", context.stdout)
+
+            doctor = self.run_cli(repo, env, "doctor", "--cwd", str(repo))
+            self.assertEqual(doctor.returncode, 0, doctor.stderr)
+            self.assertIn("AI Workroot doctor: PASS", doctor.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
