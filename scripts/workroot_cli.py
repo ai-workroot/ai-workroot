@@ -14,6 +14,9 @@ from workroot_operation_manifest import recipe as operation_recipe
 from workroot_operation_manifest import schema as operation_schema
 from workroot_operation_manifest import recipes as operation_recipes
 from workroot_bootstrap import bootstrap_dev
+from workroot_doctor import render_json as render_doctor_json
+from workroot_doctor import render_text as render_doctor_text
+from workroot_doctor import run_doctor
 from workroot_client import (
     MIND_TYPES,
     OWNER_SCOPES,
@@ -51,7 +54,9 @@ def build_parser() -> argparse.ArgumentParser:
     recipe = subparsers.add_parser("recipe")
     recipe.add_argument("name", choices=sorted(operation_recipes()))
     recipe.add_argument("--format", choices=["text", "json"], default="text")
-    subparsers.add_parser("doctor")
+    doctor = subparsers.add_parser("doctor")
+    doctor.add_argument("--format", choices=["text", "json"], default="text")
+    doctor.add_argument("--cwd", default=".")
 
     task = subparsers.add_parser("task")
     task_sub = task.add_subparsers(dest="action", required=True)
@@ -330,16 +335,25 @@ def main() -> None:
         return
 
     if args.resource == "doctor":
-        result = subprocess.run(
-            [sys.executable, "scripts/validate_kernel.py"],
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        print(result.stdout, end="")
-        if result.returncode:
-            print(result.stderr, end="", file=sys.stderr)
-            raise SystemExit(result.returncode)
+        if args.format == "text" and args.cwd == ".":
+            result = subprocess.run(
+                [sys.executable, "scripts/validate_kernel.py"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            print(result.stdout, end="")
+            if result.returncode:
+                print(result.stderr, end="", file=sys.stderr)
+                raise SystemExit(result.returncode)
+            return
+        result = run_doctor(resolve_ai_workroot_home(), cwd=Path(args.cwd))
+        if args.format == "json":
+            print(render_doctor_json(result))
+        else:
+            print(render_doctor_text(result))
+        if result.has_errors():
+            raise SystemExit(1)
         return
 
     if args.resource == "task" and args.action == "create":

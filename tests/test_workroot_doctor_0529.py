@@ -1,0 +1,130 @@
+from __future__ import annotations
+
+import json
+import os
+import sqlite3
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+from scripts.workroot_doctor import run_doctor
+from scripts.workroot_sqlite import initialize_workroot_sqlite
+from scripts.workroot_state import initialize_workroot_state, write_json
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CLI = ROOT / "scripts/workroot_cli.py"
+
+
+class WorkrootDoctor0529Test(unittest.TestCase):
+    def test_healthy_clean_mode_state_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialized = initialize_workroot_state(
+                home,
+                "wr_demo",
+                "Demo",
+                user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+
+            result = run_doctor(home, cwd=user_dir)
+
+            self.assertFalse(result.has_errors())
+            self.assertTrue(any(check.check_id == "clean-mode-boundary" for check in result.checks))
+
+    def test_state_inside_user_directory_fails_clean_mode_check(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            bad_state_dir = user_dir / ".ai-workroot/workroots/wr_demo"
+            bad_state_dir.mkdir(parents=True)
+            write_json(
+                bad_state_dir / "workroot.json",
+                {
+                    "workrootId": "wr_demo",
+                    "name": "Demo",
+                    "mode": "clean",
+                    "userDirectory": str(user_dir.resolve()),
+                    "stateDirectory": str(bad_state_dir.resolve()),
+                },
+            )
+
+            result = run_doctor(home, cwd=user_dir, state_directory=bad_state_dir)
+            clean_mode = next(check for check in result.checks if check.check_id == "clean-mode-boundary")
+
+            self.assertEqual(clean_mode.status, "fail")
+            self.assertEqual(clean_mode.severity, "error")
+            self.assertTrue(result.has_errors())
+
+    def test_missing_sqlite_table_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialized = initialize_workroot_state(
+                home,
+                "wr_demo",
+                "Demo",
+                user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+            sqlite3.connect(initialized.state_directory / "indexes/workroot.sqlite").close()
+
+            result = run_doctor(home, cwd=user_dir)
+            sqlite_check = next(check for check in result.checks if check.check_id == "sqlite-schema")
+
+            self.assertEqual(sqlite_check.status, "fail")
+            self.assertIn("missing SQLite table", sqlite_check.message)
+            self.assertTrue(result.has_errors())
+
+    def test_cli_json_output_contains_actionable_check_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialized = initialize_workroot_state(
+                home,
+                "wr_demo",
+                "Demo",
+                user_dir,
+                now="2026-05-19T00:00:00Z",
+            )
+            initialize_workroot_sqlite(initialized.state_directory / "indexes/workroot.sqlite")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "doctor",
+                    "--format",
+                    "json",
+                    "--cwd",
+                    str(user_dir),
+                ],
+                cwd=ROOT,
+                env={**os.environ, "AI_WORKROOT_HOME": str(home)},
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertIn("checks", payload)
+            self.assertTrue(payload["checks"])
+            first_check = payload["checks"][0]
+            for key in ("checkId", "category", "status", "severity", "suggestedAction"):
+                self.assertIn(key, first_check)
+
+
+if __name__ == "__main__":
+    unittest.main()
