@@ -333,6 +333,22 @@ def manifest() -> dict[str, object]:
             ],
             "source_code_exception": "Read implementation source only when debugging or changing AI Workroot itself.",
         },
+        "legacy_mode": {
+            "description": "task, run, action, artifact, retrieval-card, checkpoint, invalidation, mind, session, continue, and batch commands are legacy public-seed agent-operation commands. The 0.9.529 Clean Mode user path is init, context, doctor, status, list, and bootstrap-dev for developer dogfooding.",
+            "commands": [
+                "task",
+                "run",
+                "action",
+                "artifact",
+                "retrieval-card",
+                "checkpoint",
+                "invalidation",
+                "mind",
+                "session",
+                "continue",
+                "batch",
+            ],
+        },
         "commands": {
             "quickstart": "Print short human-readable CLI path.",
             "manifest --format json": "Print this operation contract.",

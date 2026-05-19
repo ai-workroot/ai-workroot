@@ -25,11 +25,31 @@ def run_cli(*args: str) -> str:
 class WorkrootCliDiscoveryTest(unittest.TestCase):
     def test_quickstart_mentions_happy_path(self) -> None:
         out = run_cli("quickstart")
+        self.assertIn("Clean Mode", out)
+        self.assertIn("CLI wrapper installer", out)
+        self.assertIn("legacy public-seed", out)
         self.assertIn("task complete", out)
         self.assertIn("manifest --format json", out)
         self.assertIn("recipe batch-12-tasks --format json", out)
         self.assertIn("continue rebuild", out)
         self.assertIn("schema", out)
+
+    def test_cli_help_separates_clean_mode_from_legacy_seed_commands(self) -> None:
+        out = run_cli("quickstart")
+
+        self.assertIn("Clean Mode user path:", out)
+        self.assertIn("workroot init", out)
+        self.assertIn("workroot context", out)
+        self.assertIn("workroot doctor", out)
+        self.assertIn("legacy public-seed agent-operation commands:", out)
+
+    def test_operation_manifest_marks_legacy_seed_commands(self) -> None:
+        manifest = json.loads(run_cli("manifest", "--format", "json"))
+
+        self.assertIn("legacy_mode", manifest)
+        self.assertIn("legacy public-seed", manifest["legacy_mode"]["description"])
+        self.assertIn("task", manifest["legacy_mode"]["commands"])
+        self.assertIn("init, context, doctor, status, list", manifest["legacy_mode"]["description"])
 
     def test_manifest_json_exposes_agent_operation_contract(self) -> None:
         manifest = json.loads(run_cli("manifest", "--format", "json"))
@@ -39,6 +59,7 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         self.assertIn("run.add", manifest["batch_operations"])
         self.assertIn("mind.add", manifest["batch_operations"])
         self.assertIn("session.summarize", manifest["batch_operations"])
+        self.assertIn("legacy public-seed", manifest["legacy_mode"]["description"])
         self.assertNotIn("mind.add", manifest["unsupported_batch_operations"])
         self.assertNotIn("run.add", manifest["unsupported_batch_operations"])
         self.assertTrue(manifest["batch_operations"]["artifact.add"]["fields"]["content"]["optional"])

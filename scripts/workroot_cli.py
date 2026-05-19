@@ -7,11 +7,20 @@ import argparse
 import json
 import subprocess
 import sys
+from pathlib import Path
+import uuid
 
 from workroot_operation_manifest import manifest as operation_manifest
 from workroot_operation_manifest import recipe as operation_recipe
 from workroot_operation_manifest import schema as operation_schema
 from workroot_operation_manifest import recipes as operation_recipes
+from workroot_agent_entry import apply_managed_block, claude_block, codex_block
+from workroot_bootstrap import bootstrap_dev
+from workroot_context import ContextRequest, build_context_package
+from workroot_doctor import render_json as render_doctor_json
+from workroot_doctor import render_text as render_doctor_text
+from workroot_doctor import resolve_state_record
+from workroot_doctor import run_doctor
 from workroot_client import (
     MIND_TYPES,
     OWNER_SCOPES,
@@ -20,7 +29,11 @@ from workroot_client import (
     VISIBILITIES,
     WorkrootClient,
     now_utc,
+    slugify,
 )
+from workroot_paths import resolve_ai_workroot_home, workroot_sqlite_path
+from workroot_sqlite import initialize_workroot_sqlite
+from workroot_state import initialize_workroot_state, read_jsonl
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,6 +41,27 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="resource", required=True)
 
     subparsers.add_parser("quickstart")
+    init = subparsers.add_parser("init")
+    init.add_argument("--name", required=True)
+    init.add_argument("--directory", required=True)
+    init.add_argument("--id", dest="workroot_id")
+    init.add_argument("--native-agent-entry", action="store_true")
+    init.add_argument("--no-native-agent-entry", action="store_true")
+    list_parser = subparsers.add_parser("list")
+    list_parser.add_argument("--format", choices=["text", "json"], default="text")
+    status = subparsers.add_parser("status")
+    status.add_argument("--cwd", default=".")
+    bootstrap = subparsers.add_parser("bootstrap-dev")
+    bootstrap.add_argument("--dry-run", action="store_true")
+    context = subparsers.add_parser("context")
+    context.add_argument("--agent", choices=["codex", "claude"], required=True)
+    context.add_argument("--cwd", default=".")
+    context.add_argument("--query", default="")
+    context.add_argument("--debug", action="store_true")
+    context.add_argument("--mode", choices=["fast", "standard", "quality"])
+    context.add_argument("--deep", action="store_true")
+    context.add_argument("--target-tokens", type=int, default=0)
+    context.add_argument("--max-latency-ms", type=int, default=0)
     manifest_parser = subparsers.add_parser("manifest")
     manifest_parser.add_argument("--format", choices=["text", "json"], default="text")
     schema_parser = subparsers.add_parser("schema")
@@ -35,7 +69,9 @@ def build_parser() -> argparse.ArgumentParser:
     recipe = subparsers.add_parser("recipe")
     recipe.add_argument("name", choices=sorted(operation_recipes()))
     recipe.add_argument("--format", choices=["text", "json"], default="text")
-    subparsers.add_parser("doctor")
+    doctor = subparsers.add_parser("doctor")
+    doctor.add_argument("--format", choices=["text", "json"], default="text")
+    doctor.add_argument("--cwd", default=".")
 
     task = subparsers.add_parser("task")
     task_sub = task.add_subparsers(dest="action", required=True)
@@ -212,12 +248,39 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def generate_workroot_id(name: str) -> str:
+    slug = slugify(name).replace("-", "_")
+    return f"wr_{slug}_{uuid.uuid4().hex[:8]}"
+
+
+def nested_workroot_warnings(home: Path, user_directory: Path) -> list[str]:
+    warnings: list[str] = []
+    resolved = user_directory.resolve()
+    for record in read_jsonl(home / "registry/workroots.jsonl"):
+        existing = Path(str(record.get("userDirectory", ""))).resolve()
+        try:
+            if resolved != existing and (resolved.is_relative_to(existing) or existing.is_relative_to(resolved)):
+                warnings.append(f"warning: nested Workroot directory relationship with {record.get('workrootId')}: {existing}")
+        except ValueError:
+            continue
+    return warnings
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     client = WorkrootClient()
 
     if args.resource == "quickstart":
+        print("Clean Mode user path:")
+        print("workroot init --name <name> --directory <directory> --no-native-agent-entry")
+        print("workroot context --agent codex --cwd <directory>")
+        print("workroot doctor --cwd <directory>")
+        print("scripts/install.sh is a CLI wrapper installer; it does not run first-use setup.")
+        print("")
+        print("legacy public-seed agent-operation commands:")
+        print("task, run, action, artifact, retrieval-card, checkpoint, invalidation, mind, session, continue, and batch remain available for the file-first seed.")
+        print("")
         print("For normal agent operations, read manifest first:")
         print("python3 scripts/workroot_cli.py manifest --format json")
         print("Use JSON schema for exact fields:")
@@ -229,6 +292,76 @@ def main() -> None:
         print("Use schema to inspect enum and path rules.")
         print("Use recipe task-l0-report, task-l1-report, or task-l2-evidence for examples.")
         print("Use continue rebuild for human-facing continuation.")
+        return
+
+    if args.resource == "init":
+        home = resolve_ai_workroot_home()
+        workroot_id = args.workroot_id or generate_workroot_id(args.name)
+        try:
+            initialized = initialize_workroot_state(
+                home,
+                workroot_id=workroot_id,
+                name=args.name,
+                user_directory=Path(args.directory),
+                now=now_utc(),
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+        initialize_workroot_sqlite(workroot_sqlite_path(initialized.state_directory))
+        for warning in nested_workroot_warnings(home, initialized.user_directory):
+            print(warning, file=sys.stderr)
+        if args.native_agent_entry:
+            apply_managed_block(initialized.user_directory / "AGENTS.md", codex_block())
+            apply_managed_block(initialized.user_directory / "CLAUDE.md", claude_block())
+        print(initialized.state_directory)
+        return
+
+    if args.resource == "list":
+        records = read_jsonl(resolve_ai_workroot_home() / "registry/workroots.jsonl")
+        if args.format == "json":
+            print(json.dumps(records, ensure_ascii=False, indent=2))
+            return
+        for record in records:
+            print(f"{record.get('workrootId')} {record.get('name')} {record.get('userDirectory')}")
+        return
+
+    if args.resource == "status":
+        cwd = Path(args.cwd).resolve()
+        records = read_jsonl(resolve_ai_workroot_home() / "registry/workroots.jsonl")
+        matches = [
+            record for record in records
+            if cwd == Path(str(record.get("userDirectory", ""))).resolve()
+            or cwd.is_relative_to(Path(str(record.get("userDirectory", ""))).resolve())
+        ]
+        if not matches:
+            raise SystemExit(f"no Workroot registered for cwd: {cwd}")
+        match = max(matches, key=lambda record: len(str(record.get("userDirectory", ""))))
+        print(f"{match.get('workrootId')} {match.get('name')} {match.get('stateDirectory')}")
+        return
+
+    if args.resource == "bootstrap-dev":
+        print(bootstrap_dev(Path("."), dry_run=args.dry_run))
+        return
+
+    if args.resource == "context":
+        try:
+            package = build_context_package(
+                ContextRequest(
+                    home=resolve_ai_workroot_home(),
+                    agent=args.agent,
+                    cwd=Path(args.cwd),
+                    query=args.query,
+                    debug=args.debug,
+                    now=now_utc(),
+                    mode=args.mode or "",
+                    deep=args.deep,
+                    target_token_budget=args.target_tokens,
+                    max_latency_ms=args.max_latency_ms,
+                )
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(package.markdown, end="")
         return
 
     if args.resource == "manifest":
@@ -274,16 +407,33 @@ def main() -> None:
         return
 
     if args.resource == "doctor":
-        result = subprocess.run(
-            [sys.executable, "scripts/validate_kernel.py"],
-            text=True,
-            capture_output=True,
-            check=False,
+        home = resolve_ai_workroot_home()
+        cwd = Path(args.cwd).resolve()
+        should_run_kernel_doctor = (
+            args.format == "text"
+            and args.cwd == "."
+            and resolve_state_record(home, cwd) is None
+            and (cwd / "scripts/validate_kernel.py").exists()
         )
-        print(result.stdout, end="")
-        if result.returncode:
-            print(result.stderr, end="", file=sys.stderr)
-            raise SystemExit(result.returncode)
+        if should_run_kernel_doctor:
+            result = subprocess.run(
+                [sys.executable, "scripts/validate_kernel.py"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            print(result.stdout, end="")
+            if result.returncode:
+                print(result.stderr, end="", file=sys.stderr)
+                raise SystemExit(result.returncode)
+            return
+        result = run_doctor(home, cwd=cwd)
+        if args.format == "json":
+            print(render_doctor_json(result))
+        else:
+            print(render_doctor_text(result))
+        if result.has_errors():
+            raise SystemExit(1)
         return
 
     if args.resource == "task" and args.action == "create":

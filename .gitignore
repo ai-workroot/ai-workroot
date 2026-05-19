@@ -22,3 +22,4 @@ config/*_servers.json
 *.db
 *.duckdb
 *.duckdb.wal
+.ai-workroot-local/
