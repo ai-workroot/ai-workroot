@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -24,6 +25,18 @@ class ReleaseGates0529Test(unittest.TestCase):
 
         for path in expected:
             self.assertTrue(path.exists(), f"missing script: {path}")
+
+    def test_kernel_required_test_commands_reference_existing_scripts(self) -> None:
+        contract = ast.literal_eval((ROOT / ".workroot/kernel/contracts/test-policy.json").read_text(encoding="utf-8"))
+
+        for command in contract["required_test_commands"]:
+            parts = command.split()
+            script_paths = [part for part in parts if part.startswith("scripts/")]
+            for script_path in script_paths:
+                if any(char in script_path for char in "*?["):
+                    self.assertTrue(list(ROOT.glob(script_path)), f"missing required test command script glob: {script_path}")
+                else:
+                    self.assertTrue((ROOT / script_path).exists(), f"missing required test command script: {script_path}")
 
     def test_install_script_help_and_dry_run_do_not_write_wrapper(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -191,6 +204,18 @@ class ReleaseGates0529Test(unittest.TestCase):
                     self.assertNotIn(node.module.split(".")[0], forbidden_import_roots, rel)
                 if isinstance(node, ast.Attribute):
                     self.assertNotIn(node.attr, forbidden_calls, rel)
+
+    def test_test_like_python_files_are_under_tests(self) -> None:
+        pattern = re.compile(r"(^|/)test_.*\.py$|(^|/).*_test\.py$")
+        test_like_paths: list[str] = []
+        for path in ROOT.rglob("*.py"):
+            rel = path.relative_to(ROOT).as_posix()
+            if rel.startswith(".git/") or rel.startswith(".venv/") or "__pycache__/" in rel:
+                continue
+            if pattern.search(rel) and not rel.startswith("tests/"):
+                test_like_paths.append(rel)
+
+        self.assertEqual(test_like_paths, [])
 
 
 if __name__ == "__main__":

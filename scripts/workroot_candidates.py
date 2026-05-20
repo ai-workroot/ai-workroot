@@ -9,6 +9,7 @@ import sqlite3
 
 ACTIVE_STATUS = "active"
 AUTO_EXCLUDED_POLICIES = {"never-auto"}
+BLOCKED_SAFETY_POLICIES = {"never-auto", "needs-confirmation", "sensitive"}
 REQUIRED_CANDIDATE_FTS_COLUMNS = {"candidate_id", "title", "summary", "domains"}
 
 
@@ -150,14 +151,21 @@ def query_context_candidates(
     conn: sqlite3.Connection,
     workroot_id: str,
     include_never_auto: bool = False,
+    include_blocked_safety: bool = False,
     limit: int | None = None,
 ) -> list[ContextCandidate]:
     conn.row_factory = sqlite3.Row
     params: list[object] = [workroot_id, ACTIVE_STATUS]
-    policy_filter = ""
+    filters: list[str] = []
     if not include_never_auto:
-        policy_filter = "AND context_policy NOT IN ({})".format(",".join("?" for _ in AUTO_EXCLUDED_POLICIES))
+        filters.append("context_policy NOT IN ({})".format(",".join("?" for _ in AUTO_EXCLUDED_POLICIES)))
         params.extend(sorted(AUTO_EXCLUDED_POLICIES))
+    if not include_blocked_safety:
+        filters.append("(safety_policy IS NULL OR safety_policy = '' OR safety_policy NOT IN ({}))".format(",".join("?" for _ in BLOCKED_SAFETY_POLICIES)))
+        params.extend(sorted(BLOCKED_SAFETY_POLICIES))
+    filter_sql = ""
+    if filters:
+        filter_sql = "AND " + " AND ".join(filters)
     limit_sql = ""
     if limit is not None:
         limit_sql = "LIMIT ?"
@@ -166,7 +174,7 @@ def query_context_candidates(
         f"""
         SELECT * FROM context_candidates
         WHERE workroot_id = ? AND status = ?
-        {policy_filter}
+        {filter_sql}
         ORDER BY
           CASE importance
             WHEN 'critical' THEN 0
@@ -184,11 +192,29 @@ def query_context_candidates(
     return [candidate_from_row(row) for row in rows]
 
 
-def mark_candidates_used(conn: sqlite3.Connection, candidate_ids: list[str], now: str) -> None:
+def mark_candidates_used(
+    conn: sqlite3.Connection,
+    workroot_id: str | list[str],
+    candidate_ids: list[str] | None = None,
+    now: str = "",
+) -> None:
+    if candidate_ids is None:
+        candidate_ids = list(workroot_id) if isinstance(workroot_id, list) else []
+        workroot_id = ""
     if not candidate_ids:
         return
-    conn.executemany(
-        "UPDATE context_candidates SET last_used_at = ?, use_count = COALESCE(use_count, 0) + 1 WHERE candidate_id = ?",
-        [(now, candidate_id) for candidate_id in candidate_ids],
-    )
+    if workroot_id:
+        conn.executemany(
+            """
+            UPDATE context_candidates
+            SET last_used_at = ?, use_count = COALESCE(use_count, 0) + 1
+            WHERE workroot_id = ? AND candidate_id = ?
+            """,
+            [(now, str(workroot_id), candidate_id) for candidate_id in candidate_ids],
+        )
+    else:
+        conn.executemany(
+            "UPDATE context_candidates SET last_used_at = ?, use_count = COALESCE(use_count, 0) + 1 WHERE candidate_id = ?",
+            [(now, candidate_id) for candidate_id in candidate_ids],
+        )
     conn.commit()

@@ -10,7 +10,7 @@
     "python3 -m unittest discover tests",
     "python3 scripts/validate_kernel.py",
     "python3 scripts/validate_kernel.py --release",
-    "python3 scripts/test_new_task.py",
+    "python3 scripts/new_task_smoke.py",
     "python3 scripts/setup_workroot.py --help",
     "git diff --check"
   ],

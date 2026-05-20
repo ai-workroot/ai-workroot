@@ -6,10 +6,17 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from scripts.workroot_candidates import ContextCandidate, upsert_context_candidate
-from scripts.workroot_context import ContextRequest, build_context_package
+from scripts.workroot_context import (
+    ContextRequest,
+    build_candidate_pool,
+    build_context_package,
+    estimate_context_package_tokens,
+    load_context_guide_config,
+)
 from scripts.workroot_indexing import index_text_file
 from scripts.workroot_paths import workroot_sqlite_path
 from scripts.workroot_sqlite import initialize_workroot_sqlite, open_sqlite
@@ -111,6 +118,44 @@ class WorkrootContextTest(unittest.TestCase):
                     "Clean Mode protects user directories.",
                     "active",
                     "high",
+                    "2026-05-19T00:00:00Z",
+                    "2026-05-19T00:00:00Z",
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO graph_nodes (
+                  node_id, node_type, kind, title, summary, status, importance, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "clean-mode-signal",
+                    "knowledge",
+                    "context",
+                    "Clean Mode signal",
+                    "Clean Mode protects user directories.",
+                    "active",
+                    "high",
+                    "2026-05-19T00:00:00Z",
+                    "2026-05-19T00:00:00Z",
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO graph_edges (
+                  edge_id, from_node_id, to_node_id, relation, strength, confidence, status, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "edge-clean-mode-task",
+                    "decision-1",
+                    "clean-mode-signal",
+                    "supports",
+                    1.0,
+                    0.9,
+                    "active",
                     "2026-05-19T00:00:00Z",
                     "2026-05-19T00:00:00Z",
                 ),
@@ -327,6 +372,107 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertIn("cand_rare_fts", selected)
         self.assertIn("candidate-fts-match", selected["cand_rare_fts"]["reasons"])
 
+    def test_explicit_candidate_is_not_starved_by_many_always_candidates(self) -> None:
+        home, _user_dir, state_dir = self.create_fixture()
+        db_path = workroot_sqlite_path(state_dir)
+        with open_sqlite(db_path) as conn:
+            for i in range(12):
+                upsert_context_candidate(
+                    conn,
+                    ContextCandidate(
+                        candidate_id=f"cand_always_starve_{i:02d}",
+                        workroot_id="wr_demo",
+                        source_type="knowledge",
+                        source_id=f"knowledge-always-starve-{i:02d}",
+                        title=f"Always filler {i:02d}",
+                        summary="Always filler candidate.",
+                        importance="normal",
+                        confidence=0.6,
+                        context_policy="always",
+                        token_estimate=1,
+                        updated_at=f"2026-05-19T00:{i:02d}:00Z",
+                    ),
+                )
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_explicit_starved",
+                    workroot_id="wr_demo",
+                    source_type="knowledge",
+                    source_id="knowledge-explicit-starved",
+                    title="Explicit match",
+                    summary="Explicit candidate must enter bounded pool.",
+                    importance="low",
+                    confidence=0.5,
+                    context_policy="on-demand",
+                    token_estimate=1,
+                    updated_at="2020-01-01T00:00:00Z",
+                ),
+            )
+
+            candidates, pool = build_candidate_pool(
+                conn,
+                "wr_demo",
+                {"activeTaskId": ""},
+                {"cand_explicit_starved"},
+                set(),
+                set(),
+                max_initial_candidates=5,
+            )
+
+        self.assertEqual(pool["maxInitialCandidates"], 5)
+        self.assertIn("cand_explicit_starved", {candidate.candidate_id for candidate in candidates})
+
+    def test_graph_candidate_is_not_starved_by_many_always_candidates(self) -> None:
+        home, _user_dir, state_dir = self.create_fixture()
+        db_path = workroot_sqlite_path(state_dir)
+        with open_sqlite(db_path) as conn:
+            for i in range(12):
+                upsert_context_candidate(
+                    conn,
+                    ContextCandidate(
+                        candidate_id=f"cand_graph_always_starve_{i:02d}",
+                        workroot_id="wr_demo",
+                        source_type="knowledge",
+                        source_id=f"knowledge-graph-always-starve-{i:02d}",
+                        title=f"Graph always filler {i:02d}",
+                        summary="Always filler candidate.",
+                        importance="normal",
+                        confidence=0.6,
+                        context_policy="always",
+                        token_estimate=1,
+                        updated_at=f"2026-05-19T00:{i:02d}:00Z",
+                    ),
+                )
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_graph_starved",
+                    workroot_id="wr_demo",
+                    source_type="knowledge",
+                    source_id="knowledge-graph-starved",
+                    title="Graph match",
+                    summary="Graph candidate must enter bounded pool.",
+                    importance="low",
+                    confidence=0.5,
+                    context_policy="on-demand",
+                    token_estimate=1,
+                    updated_at="2020-01-01T00:00:00Z",
+                ),
+            )
+
+            candidates, _pool = build_candidate_pool(
+                conn,
+                "wr_demo",
+                {"activeTaskId": ""},
+                set(),
+                set(),
+                {"cand_graph_starved"},
+                max_initial_candidates=5,
+            )
+
+        self.assertIn("cand_graph_starved", {candidate.candidate_id for candidate in candidates})
+
     def test_always_candidates_are_included_even_when_candidate_pool_is_bounded(self) -> None:
         home, user_dir, state_dir = self.create_fixture()
         db_path = workroot_sqlite_path(state_dir)
@@ -371,6 +517,57 @@ class WorkrootContextTest(unittest.TestCase):
 
         selected_ids = {item["candidateId"] for item in package.trace["selectedCandidates"]}
         self.assertIn("cand_old_always", selected_ids)
+
+    def test_blocked_safety_candidates_do_not_starve_safe_candidates_from_pool(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+        db_path = workroot_sqlite_path(state_dir)
+        with open_sqlite(db_path) as conn:
+            for i in range(205):
+                upsert_context_candidate(
+                    conn,
+                    ContextCandidate(
+                        candidate_id=f"cand_blocked_starve_{i:03d}",
+                        workroot_id="wr_demo",
+                        source_type="knowledge",
+                        source_id=f"knowledge-blocked-starve-{i:03d}",
+                        title=f"Blocked starve filler {i:03d}",
+                        summary="Blocked safety candidates must not occupy the auto-selection pool.",
+                        importance="critical",
+                        confidence=1.0,
+                        context_policy="always",
+                        safety_policy="sensitive",
+                        token_estimate=1,
+                        updated_at=f"2026-05-19T03:{i % 60:02d}:00Z",
+                    ),
+                )
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_safe_not_starved",
+                    workroot_id="wr_demo",
+                    source_type="knowledge",
+                    source_id="knowledge-safe-not-starved",
+                    title="Safe not starved",
+                    summary="Safe candidate should remain eligible even when blocked candidates are numerous.",
+                    importance="low",
+                    confidence=0.5,
+                    context_policy="task-related",
+                    token_estimate=1,
+                    updated_at="2020-01-01T00:00:00Z",
+                ),
+            )
+
+        package = build_context_package(
+            ContextRequest(home=home, agent="codex", cwd=user_dir, query="", debug=True, now="2026-05-19T00:00:00Z")
+        )
+
+        selected_ids = {item["candidateId"] for item in package.trace["selectedCandidates"]}
+        pool = package.trace["candidatePool"]
+        dropped = {item["candidateId"]: item["reason"] for item in package.trace["droppedCandidates"]}
+        self.assertIn("cand_safe_not_starved", selected_ids)
+        self.assertEqual(pool["totalAvailable"], 209)
+        self.assertFalse(any(candidate_id.startswith("cand_blocked_starve_") for candidate_id in selected_ids))
+        self.assertIn("safety-sensitive", set(dropped.values()))
 
     def test_graph_signals_are_related_to_selected_candidates(self) -> None:
         home, user_dir, state_dir = self.create_fixture()
@@ -867,6 +1064,17 @@ class WorkrootContextTest(unittest.TestCase):
         titles = {signal["title"] for signal in package.trace["graphSignals"]}
         self.assertIn("Signal neighbor node", titles)
 
+    def test_graph_signals_exclude_selected_node_pseudo_signals(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+
+        package = build_context_package(
+            ContextRequest(home=home, agent="codex", cwd=user_dir, query="clean mode", debug=True, now="2026-05-19T00:00:00Z")
+        )
+
+        relations = {signal.get("relation") for signal in package.trace["graphSignals"]}
+        self.assertNotIn("selected-node", relations)
+        self.assertIn("graphSeedExplanations", package.trace)
+
     def test_context_candidate_safety_never_auto_is_dropped(self) -> None:
         home, user_dir, state_dir = self.create_fixture()
         db_path = workroot_sqlite_path(state_dir)
@@ -1007,6 +1215,15 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertGreater(estimated, sum(item["tokenEstimate"] for item in package.trace["selectedCandidates"]))
         self.assertNotIn("Tokens: 0", package.markdown)
 
+    def test_token_estimator_is_conservative_for_cjk_and_code(self) -> None:
+        english = estimate_context_package_tokens("Clean Mode keeps managed state outside user directories.")
+        cjk = estimate_context_package_tokens("干净模式确保用户目录不会写入托管状态")
+        code = estimate_context_package_tokens("def f():\n    return very_long_identifier_without_spaces_abcdefghijklmnopqrstuvwxyz0123456789\n")
+
+        self.assertGreaterEqual(english, 8)
+        self.assertGreaterEqual(cjk, 10)
+        self.assertGreaterEqual(code, 12)
+
     def test_context_package_trims_to_hard_token_limit_after_render(self) -> None:
         home, user_dir, state_dir = self.create_fixture()
         hints = json.loads((state_dir / "state/runtime-hints.json").read_text(encoding="utf-8"))
@@ -1050,6 +1267,51 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertLessEqual(package.trace["tokenBudget"]["estimatedUsed"], package.trace["tokenBudget"]["hard"])
         self.assertTrue(package.trace["budgetTrim"]["applied"])
         self.assertEqual(package.trace["budgetTrim"]["reason"], "hard-token-limit")
+
+    def test_context_package_uses_final_fallback_when_optional_content_cannot_satisfy_hard_limit(self) -> None:
+        home, user_dir, _state_dir = self.create_fixture()
+
+        package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="clean mode",
+                mode="fast",
+                target_token_budget=1,
+                hard_token_budget=12,
+                debug=True,
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        self.assertTrue(package.trace["budgetTrim"]["applied"])
+        self.assertTrue(package.trace["budgetTrim"]["finalFallback"])
+        self.assertLessEqual(package.trace["tokenBudget"]["estimatedUsed"], package.trace["tokenBudget"]["hard"])
+        self.assertLessEqual(estimate_context_package_tokens(package.markdown), package.trace["tokenBudget"]["hard"])
+        self.assertNotEqual(package.markdown.strip(), "")
+
+    def test_context_package_final_fallback_handles_tiny_hard_limit(self) -> None:
+        home, user_dir, _state_dir = self.create_fixture()
+
+        package = build_context_package(
+            ContextRequest(
+                home=home,
+                agent="codex",
+                cwd=user_dir,
+                query="clean mode",
+                mode="fast",
+                target_token_budget=1,
+                hard_token_budget=1,
+                debug=True,
+                now="2026-05-19T00:00:00Z",
+            )
+        )
+
+        self.assertTrue(package.trace["budgetTrim"]["finalFallback"])
+        self.assertLessEqual(package.trace["tokenBudget"]["estimatedUsed"], package.trace["tokenBudget"]["hard"])
+        self.assertLessEqual(estimate_context_package_tokens(package.markdown), package.trace["tokenBudget"]["hard"])
+        self.assertNotEqual(package.markdown.strip(), "")
 
     def test_candidates_trimmed_after_render_are_not_marked_used(self) -> None:
         home, user_dir, state_dir = self.create_fixture()
@@ -1320,6 +1582,50 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertIn("runtime-hints-invalid-budget", package.trace["fallbacks"])
         self.assertEqual(package.trace["tokenBudget"]["hard"], 6000)
 
+    def test_runtime_hints_deep_merge_preserves_nested_defaults(self) -> None:
+        _home, _user_dir, state_dir = self.create_fixture()
+        hints = {
+            "contextGuide": {
+                "agentBudgets": {
+                    "codex": {
+                        "targetTokens": 1234,
+                    }
+                }
+            }
+        }
+        (state_dir / "state/runtime-hints.json").write_text(json.dumps(hints, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        config, fallbacks = load_context_guide_config(state_dir)
+
+        self.assertEqual(fallbacks, [])
+        self.assertEqual(config["agentBudgets"]["codex"]["targetTokens"], 1234)
+        self.assertEqual(config["agentBudgets"]["codex"]["hardTokenLimit"], 6000)
+        self.assertEqual(config["agentBudgets"]["claude"]["hardTokenLimit"], 8000)
+
+    def test_fts_operational_error_is_recorded_in_debug_trace(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+
+        def broken_search(*_args, **_kwargs):
+            import sqlite3
+
+            raise sqlite3.OperationalError("malformed MATCH expression")
+
+        with patch("scripts.workroot_context.search_fts", side_effect=broken_search):
+            package = build_context_package(
+                ContextRequest(
+                    home=home,
+                    agent="codex",
+                    cwd=user_dir,
+                    query="clean mode",
+                    debug=True,
+                    now="2026-05-19T00:00:00Z",
+                )
+            )
+
+        trace = json.loads((state_dir / "context/debug/latest.json").read_text(encoding="utf-8"))
+        self.assertEqual(package.trace["ftsFallbacks"], trace["ftsFallbacks"])
+        self.assertTrue(any("malformed MATCH expression" in item["error"] for item in trace["ftsFallbacks"]))
+
     def test_cli_context_prints_markdown_package(self) -> None:
         home, user_dir, _ = self.create_fixture()
 
@@ -1430,6 +1736,37 @@ class WorkrootContextTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("exceeds hard token limit", result.stderr)
+
+    def test_cli_context_accepts_hard_token_limit_override(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(CLI),
+                "context",
+                "--agent",
+                "codex",
+                "--cwd",
+                str(user_dir),
+                "--target-tokens",
+                "40",
+                "--hard-token-limit",
+                "80",
+                "--debug",
+            ],
+            cwd=ROOT,
+            env={**os.environ, "AI_WORKROOT_HOME": str(home)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads((state_dir / "context/debug/latest.json").read_text(encoding="utf-8"))
+        self.assertEqual(trace["tokenBudget"]["target"], 40)
+        self.assertEqual(trace["tokenBudget"]["hard"], 80)
+        self.assertIn("source", trace["tokenBudget"])
 
     def test_cli_context_after_init_uses_initialized_sqlite_schema(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

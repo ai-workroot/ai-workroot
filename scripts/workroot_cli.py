@@ -38,15 +38,41 @@ from workroot_state import initialize_workroot_state, read_jsonl
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    subparsers = parser.add_subparsers(dest="resource", required=True)
+    visible_resources = (
+        "quickstart",
+        "init",
+        "list",
+        "status",
+        "bootstrap-dev",
+        "context",
+        "manifest",
+        "schema",
+        "recipe",
+        "doctor",
+    )
+    subparsers = parser.add_subparsers(dest="resource", required=True, metavar="{" + ",".join(visible_resources) + "}")
+    legacy_resources = {
+        "task",
+        "run",
+        "action",
+        "artifact",
+        "retrieval-card",
+        "checkpoint",
+        "invalidation",
+        "mind",
+        "session",
+        "continue",
+        "batch",
+    }
 
     subparsers.add_parser("quickstart")
     init = subparsers.add_parser("init")
     init.add_argument("--name", required=True)
     init.add_argument("--directory", required=True)
     init.add_argument("--id", dest="workroot_id")
-    init.add_argument("--native-agent-entry", action="store_true")
-    init.add_argument("--no-native-agent-entry", action="store_true")
+    native_agent_entry = init.add_mutually_exclusive_group()
+    native_agent_entry.add_argument("--native-agent-entry", action="store_true")
+    native_agent_entry.add_argument("--no-native-agent-entry", action="store_true")
     list_parser = subparsers.add_parser("list")
     list_parser.add_argument("--format", choices=["text", "json"], default="text")
     status = subparsers.add_parser("status")
@@ -61,6 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
     context.add_argument("--mode", choices=["fast", "standard", "quality"])
     context.add_argument("--deep", action="store_true")
     context.add_argument("--target-tokens", type=int, default=0)
+    context.add_argument("--hard-token-limit", type=int, default=0)
     context.add_argument("--max-latency-ms", type=int, default=0)
     manifest_parser = subparsers.add_parser("manifest")
     manifest_parser.add_argument("--format", choices=["text", "json"], default="text")
@@ -73,7 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--format", choices=["text", "json"], default="text")
     doctor.add_argument("--cwd", default=".")
 
-    task = subparsers.add_parser("task")
+    task = subparsers.add_parser("task", help=argparse.SUPPRESS)
     task_sub = task.add_subparsers(dest="action", required=True)
     task_create = task_sub.add_parser("create")
     task_create.add_argument("title")
@@ -109,7 +136,7 @@ def build_parser() -> argparse.ArgumentParser:
     task_complete.add_argument("--next-action", default="")
     task_complete.add_argument("--checkpoint", action="store_true")
 
-    run = subparsers.add_parser("run")
+    run = subparsers.add_parser("run", help=argparse.SUPPRESS)
     run_sub = run.add_subparsers(dest="action", required=True)
     run_add = run_sub.add_parser("add")
     run_add.add_argument("--task-id", required=True)
@@ -138,7 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_update.add_argument("--conclusion-preview")
     run_update.add_argument("--updated-at")
 
-    action = subparsers.add_parser("action")
+    action = subparsers.add_parser("action", help=argparse.SUPPRESS)
     action_sub = action.add_subparsers(dest="action", required=True)
     action_add = action_sub.add_parser("add")
     action_add.add_argument("--task-id", required=True)
@@ -154,7 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
     action_add.add_argument("--risk-level", default="")
     action_add.add_argument("--created-at", default=now_utc())
 
-    artifact = subparsers.add_parser("artifact")
+    artifact = subparsers.add_parser("artifact", help=argparse.SUPPRESS)
     artifact_sub = artifact.add_subparsers(dest="action", required=True)
     artifact_add = artifact_sub.add_parser("add")
     artifact_add.add_argument("--artifact-id", required=True)
@@ -172,7 +199,7 @@ def build_parser() -> argparse.ArgumentParser:
     artifact_add.add_argument("--content", default="")
     artifact_add.add_argument("--compute-metadata", action="store_true")
 
-    card = subparsers.add_parser("retrieval-card")
+    card = subparsers.add_parser("retrieval-card", help=argparse.SUPPRESS)
     card_sub = card.add_subparsers(dest="action", required=True)
     card_add = card_sub.add_parser("add")
     card_add.add_argument("--task-id", required=True)
@@ -181,7 +208,7 @@ def build_parser() -> argparse.ArgumentParser:
     card_add.add_argument("--source-paths", default="")
     card_add.add_argument("--created-at", default=now_utc())
 
-    checkpoint = subparsers.add_parser("checkpoint")
+    checkpoint = subparsers.add_parser("checkpoint", help=argparse.SUPPRESS)
     checkpoint_sub = checkpoint.add_subparsers(dest="action", required=True)
     checkpoint_add = checkpoint_sub.add_parser("add")
     checkpoint_add.add_argument("--task-id", required=True)
@@ -192,7 +219,7 @@ def build_parser() -> argparse.ArgumentParser:
     checkpoint_add.add_argument("--required-context-paths", default="")
     checkpoint_add.add_argument("--created-at", default=now_utc())
 
-    invalidation = subparsers.add_parser("invalidation")
+    invalidation = subparsers.add_parser("invalidation", help=argparse.SUPPRESS)
     invalidation_sub = invalidation.add_subparsers(dest="action", required=True)
     invalidation_add = invalidation_sub.add_parser("add")
     invalidation_add.add_argument("--task-id", required=True)
@@ -205,7 +232,7 @@ def build_parser() -> argparse.ArgumentParser:
     invalidation_add.add_argument("--path", default="")
     invalidation_add.add_argument("--created-at", default=now_utc())
 
-    mind = subparsers.add_parser("mind")
+    mind = subparsers.add_parser("mind", help=argparse.SUPPRESS)
     mind_sub = mind.add_subparsers(dest="action", required=True)
     mind_add = mind_sub.add_parser("add")
     mind_add.add_argument("--mind-id", required=True)
@@ -226,7 +253,7 @@ def build_parser() -> argparse.ArgumentParser:
     mind_add.add_argument("--replaces-mind-id", default="")
     mind_add.add_argument("--created-at", default=now_utc())
 
-    session = subparsers.add_parser("session")
+    session = subparsers.add_parser("session", help=argparse.SUPPRESS)
     session_sub = session.add_subparsers(dest="action", required=True)
     session_summarize = session_sub.add_parser("summarize")
     session_summarize.add_argument("--task-id", action="append", default=[])
@@ -235,16 +262,19 @@ def build_parser() -> argparse.ArgumentParser:
     session_summarize.add_argument("--summary", required=True)
     session_summarize.add_argument("--next-action", required=True)
 
-    cont = subparsers.add_parser("continue")
+    cont = subparsers.add_parser("continue", help=argparse.SUPPRESS)
     cont_sub = cont.add_subparsers(dest="action", required=True)
     cont_rebuild = cont_sub.add_parser("rebuild")
     cont_rebuild.add_argument("--recent", type=int, default=5)
 
-    batch = subparsers.add_parser("batch")
+    batch = subparsers.add_parser("batch", help=argparse.SUPPRESS)
     batch_sub = batch.add_subparsers(dest="action", required=True)
     batch_apply = batch_sub.add_parser("apply")
     batch_apply.add_argument("--file", required=True)
 
+    subparsers._choices_actions = [  # type: ignore[attr-defined]
+        action for action in subparsers._choices_actions if action.dest not in legacy_resources  # type: ignore[attr-defined]
+    ]
     return parser
 
 
@@ -356,6 +386,7 @@ def main() -> None:
                     mode=args.mode or "",
                     deep=args.deep,
                     target_token_budget=args.target_tokens,
+                    hard_token_budget=args.hard_token_limit,
                     max_latency_ms=args.max_latency_ms,
                 )
             )

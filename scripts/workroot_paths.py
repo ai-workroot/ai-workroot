@@ -89,7 +89,9 @@ def validate_user_directory(user_directory: Path, ai_workroot_home: Path, create
     if not expanded.exists():
         if not create:
             raise ValueError(f"user directory does not exist: {expanded}")
-        expanded.mkdir(parents=True)
+        expanded.mkdir(parents=True, exist_ok=True)
+        if not expanded.is_dir():
+            raise ValueError(f"user directory is not a directory: {expanded}")
         resolved = expanded.resolve()
     probe = resolved / f".ai-workroot-write-probe-{uuid.uuid4().hex}"
     try:

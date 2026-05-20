@@ -854,7 +854,7 @@ scripts/workroot_cli.py
 scripts/new_task.py
 scripts/rebuild_sqlite.py
 scripts/setup_workroot.py
-scripts/test_new_task.py
+scripts/new_task_smoke.py
 scripts/validate_kernel.py
 ```
 
@@ -966,7 +966,7 @@ python3 -m py_compile scripts/*.py
 python3 -m unittest discover tests
 python3 scripts/validate_kernel.py
 python3 scripts/validate_kernel.py --release
-python3 scripts/test_new_task.py
+python3 scripts/new_task_smoke.py
 git diff --check
 ```
 

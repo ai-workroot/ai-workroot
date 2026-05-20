@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class NewTaskScriptTest(unittest.TestCase):
     def test_multilingual_task_script(self) -> None:
         result = subprocess.run(
-            [sys.executable, "scripts/test_new_task.py"],
+            [sys.executable, "scripts/new_task_smoke.py"],
             cwd=ROOT,
             text=True,
             capture_output=True,

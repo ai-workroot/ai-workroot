@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
+import re
 from pathlib import Path
 import sqlite3
 import time
@@ -100,6 +102,7 @@ DEFAULT_CONTEXT_GUIDE_CONFIG: dict[str, object] = {
 }
 BLOCKED_SAFETY_POLICIES = {"never-auto", "needs-confirmation", "sensitive"}
 MAX_INITIAL_CANDIDATES = 200
+SAFE_CANDIDATE_SQL = "(safety_policy IS NULL OR safety_policy = '' OR safety_policy NOT IN ('never-auto', 'needs-confirmation', 'sensitive'))"
 
 
 @dataclass(frozen=True)
@@ -153,15 +156,19 @@ def load_context_guide_config(state_directory: Path) -> tuple[dict[str, object],
     context = payload.get("contextGuide")
     if not isinstance(context, dict):
         return default_context_guide_config(), ["runtime-hints-missing-contextGuide"]
-    merged = default_context_guide_config()
-    for key, value in context.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            nested = dict(merged[key])  # type: ignore[index]
-            nested.update(value)
-            merged[key] = nested
+    merged = deep_merge_dict(default_context_guide_config(), context)
+    return merged, []
+
+
+def deep_merge_dict(base: dict[str, object], override: dict[str, object]) -> dict[str, object]:
+    merged = dict(base)
+    for key, value in override.items():
+        existing = merged.get(key)
+        if isinstance(existing, dict) and isinstance(value, dict):
+            merged[key] = deep_merge_dict(existing, value)
         else:
             merged[key] = value
-    return merged, []
+    return merged
 
 
 def positive_int(value: object, field_name: str) -> int:
@@ -405,7 +412,12 @@ def should_escalate_to_quality(
     return False
 
 
-def query_candidate_fts(conn: sqlite3.Connection, workroot_id: str, query: str) -> set[str]:
+def query_candidate_fts(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    query: str,
+    fts_fallbacks: list[dict[str, object]] | None = None,
+) -> set[str]:
     if not query.strip():
         return set()
     queries = [query, f'"{query}"']
@@ -427,7 +439,15 @@ def query_candidate_fts(conn: sqlite3.Connection, workroot_id: str, query: str) 
                 """,
                 (candidate_query, workroot_id),
             ).fetchall()
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as exc:
+            if fts_fallbacks is not None:
+                fts_fallbacks.append(
+                    {
+                        "channel": "context-candidates-fts",
+                        "query": candidate_query,
+                        "error": str(exc),
+                    }
+                )
             continue
         if rows:
             break
@@ -471,6 +491,7 @@ def fetch_candidates_by_ids(
         FROM context_candidates
         WHERE workroot_id = ?
           AND candidate_id IN ({sql_placeholders(ordered_ids)})
+          AND {SAFE_CANDIDATE_SQL}
         ORDER BY candidate_id ASC
         """,
         [workroot_id, *ordered_ids],
@@ -495,37 +516,21 @@ def build_candidate_pool(
     def add_candidates(source: str, rows: list[ContextCandidate]) -> None:
         source_counts[source] = len(rows)
         for candidate in rows:
-            if len(pool) >= max_initial_candidates and candidate.candidate_id not in pool:
-                continue
             pool.setdefault(candidate.candidate_id, candidate)
-
-    always = fetch_candidates_by_sql(
-        conn,
-        """
-        SELECT *
-        FROM context_candidates
-        WHERE workroot_id = ?
-          AND status = 'active'
-          AND context_policy = 'always'
-        ORDER BY updated_at DESC, candidate_id ASC
-        LIMIT ?
-        """,
-        [workroot_id, max_initial_candidates],
-    )
-    add_candidates("always", always)
 
     explicit_ids = candidate_fts_matches | fts_candidate_ids | graph_candidate_ids
     add_candidates("explicit-matches", fetch_candidates_by_ids(conn, workroot_id, explicit_ids))
 
     active_task = str(current_state.get("activeTaskId") or "")
-    if active_task and len(pool) < max_initial_candidates:
+    if active_task:
         active_task_rows = fetch_candidates_by_sql(
             conn,
-            """
+            f"""
             SELECT *
             FROM context_candidates
             WHERE workroot_id = ?
               AND status = 'active'
+              AND {SAFE_CANDIDATE_SQL}
               AND (source_id = ? OR related_tasks LIKE ?)
             ORDER BY updated_at DESC, candidate_id ASC
             LIMIT ?
@@ -536,33 +541,67 @@ def build_candidate_pool(
     else:
         source_counts["active-task"] = 0
 
-    if len(pool) < max_initial_candidates:
-        remaining = max_initial_candidates - len(pool)
-        recent = fetch_candidates_by_sql(
-            conn,
-            """
-            SELECT *
-            FROM context_candidates
-            WHERE workroot_id = ?
-              AND status = 'active'
-              AND context_policy != 'never-auto'
-            ORDER BY
-              CASE importance
-                WHEN 'critical' THEN 0
-                WHEN 'high' THEN 1
-                WHEN 'normal' THEN 2
-                WHEN 'low' THEN 3
-                ELSE 4
-              END,
-              updated_at DESC,
-              candidate_id ASC
-            LIMIT ?
-            """,
-            [workroot_id, remaining],
-        )
-        add_candidates("recent-high-importance", recent)
-    else:
-        source_counts["recent-high-importance"] = 0
+    always = fetch_candidates_by_sql(
+        conn,
+        f"""
+        SELECT *
+        FROM context_candidates
+        WHERE workroot_id = ?
+          AND status = 'active'
+          AND context_policy = 'always'
+          AND {SAFE_CANDIDATE_SQL}
+        ORDER BY updated_at DESC, candidate_id ASC
+        LIMIT ?
+        """,
+        [workroot_id, max_initial_candidates],
+    )
+    add_candidates("always", always)
+
+    recent = fetch_candidates_by_sql(
+        conn,
+        f"""
+        SELECT *
+        FROM context_candidates
+        WHERE workroot_id = ?
+          AND status = 'active'
+          AND context_policy != 'never-auto'
+          AND {SAFE_CANDIDATE_SQL}
+        ORDER BY
+          CASE importance
+            WHEN 'critical' THEN 0
+            WHEN 'high' THEN 1
+            WHEN 'normal' THEN 2
+            WHEN 'low' THEN 3
+            ELSE 4
+          END,
+          updated_at DESC,
+          candidate_id ASC
+        LIMIT ?
+        """,
+        [workroot_id, max_initial_candidates],
+    )
+    add_candidates("recent-high-importance", recent)
+
+    if len(pool) > max_initial_candidates:
+        priority_ids = set(explicit_ids)
+        if active_task:
+            for candidate in pool.values():
+                if candidate.source_id == active_task or active_task in split_reference_ids(candidate.related_tasks):
+                    priority_ids.add(candidate.candidate_id)
+
+        def pool_sort_key(candidate: ContextCandidate) -> tuple[int, float, str]:
+            if candidate.candidate_id in priority_ids:
+                priority = 0
+            elif candidate.context_policy == "always":
+                priority = 1
+            else:
+                priority = 2
+            return (priority, -candidate_score(candidate), candidate.candidate_id)
+
+        pool = {
+            candidate.candidate_id: candidate
+            for candidate in sorted(pool.values(), key=pool_sort_key)[:max_initial_candidates]
+        }
 
     return list(pool.values()), {
         "strategy": "bounded-sql-pool",
@@ -722,7 +761,7 @@ def load_graph_signals(
     conn: sqlite3.Connection,
     selected: list[dict[str, object]],
     current_state: dict[str, object],
-) -> list[dict[str, object]]:
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     seed_ids: set[str] = set()
     for item in selected:
         if item.get("candidateId"):
@@ -733,14 +772,14 @@ def load_graph_signals(
     if active_task:
         seed_ids.add(str(active_task))
     if not seed_ids:
-        return []
+        return [], []
     edge_rows: list[sqlite3.Row] = []
-    seed_node_rows: list[sqlite3.Row] = []
+    seed_explanations: list[dict[str, object]] = []
     if seed_ids:
         placeholders = ",".join("?" for _ in seed_ids)
         seed_node_rows = conn.execute(
             f"""
-            SELECT NULL, 'selected-node', NULL, NULL, node_id, node_type, title, summary, importance
+            SELECT node_id, node_type, title, summary, importance
             FROM graph_nodes
             WHERE (status IS NULL OR status = 'active')
               AND node_id IN ({placeholders})
@@ -757,6 +796,17 @@ def load_graph_signals(
             """,
             [*seed_ids],
         ).fetchall()
+        seed_explanations = [
+            {
+                "nodeId": str(row[0]),
+                "nodeType": row[1] or "",
+                "title": row[2] or "",
+                "summary": row[3] or "",
+                "importance": row[4] or "",
+                "reason": "selected-candidate-or-active-task-seed",
+            }
+            for row in seed_node_rows
+        ]
         rel_placeholders = ",".join("?" for _ in RELATED_GRAPH_RELATIONS)
         edge_rows = conn.execute(
             f"""
@@ -795,7 +845,7 @@ def load_graph_signals(
         ).fetchall()
     seen: set[str] = set()
     signals: list[dict[str, object]] = []
-    for row in [*seed_node_rows, *edge_rows]:
+    for row in edge_rows:
         node_id = str(row[4])
         if node_id in seen:
             continue
@@ -814,11 +864,51 @@ def load_graph_signals(
         )
         if len(signals) >= 10:
             break
-    return signals
+    return signals, seed_explanations
 
 
 def estimate_context_package_tokens(markdown: str) -> int:
-    return max(1, len(markdown.split()))
+    if not markdown:
+        return 0
+    cjk_chars = sum(1 for char in markdown if "\u4e00" <= char <= "\u9fff")
+    word_tokens = len(re.findall(r"[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)*", markdown))
+    symbol_tokens = len(re.findall(r"[^\w\s\u4e00-\u9fff]", markdown, re.UNICODE))
+    long_runs = re.findall(r"[^\s]{24,}", markdown)
+    long_run_extra = sum(max(0, math.ceil(len(run) / 8) - 1) for run in long_runs)
+    line_tokens = max(0, markdown.count("\n") // 3)
+    estimated = word_tokens + cjk_chars + math.ceil(symbol_tokens / 3) + long_run_extra + line_tokens
+    return max(1, estimated)
+
+
+def render_minimal_markdown(
+    metadata: dict[str, object],
+    current_state: dict[str, object],
+    request: ContextRequest,
+    trace: dict[str, object],
+) -> str:
+    token_budget = trace.get("tokenBudget", {})
+    if not isinstance(token_budget, dict):
+        token_budget = {}
+    return "\n".join(
+        [
+            "# AI Workroot Context Package",
+            "",
+            f"Agent: {request.agent}",
+            f"Workroot: {metadata.get('workrootId')} - {metadata.get('name')}",
+            "",
+            "## Context Metadata",
+            "",
+            f"Mode: {trace.get('contextMode', 'standard')}",
+            f"Confidence: {trace.get('confidence', 'medium')}",
+            f"Latency: {trace.get('latencyMs', 0)}ms",
+            f"Tokens: {token_budget.get('estimatedUsed', 0)} / {token_budget.get('hard', '')}",
+            "Fallback: yes",
+            "",
+            "## Current State",
+            "",
+            f"- Active task: {current_state.get('activeTaskId', '')}",
+        ]
+    ) + "\n"
 
 
 def enforce_rendered_token_limit(
@@ -838,6 +928,8 @@ def enforce_rendered_token_limit(
         "removedGraphSignals": 0,
         "removedFtsMatches": 0,
         "removedCandidates": [],
+        "steps": [],
+        "finalFallback": False,
     }
     markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
     estimated = estimate_context_package_tokens(markdown)
@@ -851,12 +943,14 @@ def enforce_rendered_token_limit(
     while graph_signals and estimated > hard_limit:
         graph_signals = graph_signals[:-1]
         trim["removedGraphSignals"] = int(trim["removedGraphSignals"]) + 1
+        trim["steps"].append("remove-graph-signal")  # type: ignore[union-attr]
         markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
         estimated = estimate_context_package_tokens(markdown)
 
     while fts_matches and estimated > hard_limit:
         fts_matches = fts_matches[:-1]
         trim["removedFtsMatches"] = int(trim["removedFtsMatches"]) + 1
+        trim["steps"].append("remove-fts-match")  # type: ignore[union-attr]
         markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
         estimated = estimate_context_package_tokens(markdown)
 
@@ -871,10 +965,22 @@ def enforce_rendered_token_limit(
         remove_index = min(removable_indexes, key=lambda index: float(selected[index].get("score", 0.0)))
         removed = selected.pop(remove_index)
         removed_candidates.append(str(removed.get("candidateId")))
+        trim["steps"].append("remove-candidate")  # type: ignore[union-attr]
         markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
         estimated = estimate_context_package_tokens(markdown)
 
     trim["removedCandidates"] = removed_candidates
+    if estimated > hard_limit:
+        selected = []
+        fts_matches = []
+        graph_signals = []
+        markdown = render_minimal_markdown(metadata, current_state, request, trace)
+        estimated = estimate_context_package_tokens(markdown)
+        if estimated > hard_limit:
+            markdown = "#\n"
+            estimated = estimate_context_package_tokens(markdown)
+        trim["finalFallback"] = True
+        trim["steps"].append("final-fallback")  # type: ignore[union-attr]
     return markdown, selected, fts_matches, graph_signals, estimated, trim
 
 
@@ -1033,7 +1139,9 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
         "selectedCandidates": [],
         "droppedCandidates": [],
         "ftsMatches": [],
+        "ftsFallbacks": [],
         "graphSignals": [],
+        "graphSeedExplanations": [],
         "candidateQueryMatches": [],
         "timing": timing,
         "candidateQuality": {},
@@ -1051,11 +1159,24 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
         trace["challengers"].append({"name": "current-state", "status": "pass", "count": 1 if current_state else 0})
         query = request.query or str(current_state.get("currentFocus", ""))
         span = time.perf_counter()
-        fts_matches = search_fts(conn, workroot_id, query, limit=5) if query.strip() else []
+        fts_fallbacks: list[dict[str, object]] = []
+        try:
+            fts_matches = search_fts(conn, workroot_id, query, limit=5) if query.strip() else []
+        except sqlite3.OperationalError as exc:
+            fts_matches = []
+            fts_fallbacks.append({"channel": "indexed-chunks-fts", "query": query, "error": str(exc)})
         timing["fts"] = int((time.perf_counter() - span) * 1000)
-        trace["challengers"].append({"name": "fts", "status": "pass", "count": len(fts_matches), "query": query})
+        trace["ftsFallbacks"] = fts_fallbacks
+        trace["challengers"].append(
+            {
+                "name": "fts",
+                "status": "fallback" if fts_fallbacks else "pass",
+                "count": len(fts_matches),
+                "query": query,
+            }
+        )
         span = time.perf_counter()
-        candidate_fts_matches = query_candidate_fts(conn, workroot_id, query)
+        candidate_fts_matches = query_candidate_fts(conn, workroot_id, query, fts_fallbacks)
         fts_candidate_ids = candidate_ids_from_fts_paths(conn, workroot_id, fts_matches)
         graph_candidate_ids = load_graph_candidate_matches(
             conn,
@@ -1094,9 +1215,10 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
         )
         timing["scoring"] = int((time.perf_counter() - span) * 1000)
         span = time.perf_counter()
-        graph_signals = load_graph_signals(conn, selected, current_state)
+        graph_signals, graph_seed_explanations = load_graph_signals(conn, selected, current_state)
         timing["graphExpansion"] = int((time.perf_counter() - span) * 1000)
         trace["challengers"].append({"name": "graph", "status": "pass", "count": len(graph_signals)})
+        trace["graphSeedExplanations"] = graph_seed_explanations
 
     latency_ms = int((time.perf_counter() - started) * 1000)
     trace["completedAt"] = now
@@ -1122,6 +1244,10 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
     if should_escalate_to_quality(budget, confidence, current_state, fts_matches):
         pre_escalation_confidence = confidence
         quality_target, quality_hard, quality_latency = mode_budget(config, "quality")
+        if request.target_token_budget:
+            quality_target = request.target_token_budget
+        if request.hard_token_budget:
+            quality_hard = request.hard_token_budget
         selected, dropped, estimated_used = select_candidates(
             candidates,
             quality_target,
@@ -1188,10 +1314,9 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
     if isinstance(token_budget, dict):
         token_budget["estimatedUsed"] = full_token_estimate
         trace["tokenBudget"] = token_budget
-    markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
     if selected:
         with open_sqlite(db_path) as conn:
-            mark_candidates_used(conn, [str(item["candidateId"]) for item in selected], now=now)
+            mark_candidates_used(conn, str(metadata.get("workrootId")), [str(item["candidateId"]) for item in selected], now=now)
     write_context_package(state_directory, markdown, trace)
 
     if request.debug:

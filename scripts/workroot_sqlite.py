@@ -6,6 +6,8 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+SCHEMA_MIGRATIONS = ("001-initial-schema", "002-context-candidate-use-count")
+
 
 GRAPH_SCHEMA = """
 CREATE TABLE IF NOT EXISTS graph_nodes (
@@ -170,6 +172,13 @@ CREATE VIRTUAL TABLE IF NOT EXISTS indexed_chunks_fts USING fts5(
 );
 """
 
+MIGRATION_SCHEMA = """
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  migration_id TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+"""
+
 
 def required_tables() -> list[str]:
     return [
@@ -187,6 +196,7 @@ def required_tables() -> list[str]:
         "domains",
         "handoffs",
         "time_events",
+        "schema_migrations",
     ]
 
 
@@ -205,6 +215,7 @@ def initialize_workroot_sqlite(path: Path) -> None:
         ensure_context_candidate_columns(conn)
         conn.executescript(MANAGEMENT_SCHEMA)
         conn.executescript(FTS_SCHEMA)
+        ensure_schema_migrations(conn)
         conn.commit()
 
 
@@ -212,6 +223,18 @@ def ensure_context_candidate_columns(conn: sqlite3.Connection) -> None:
     columns = {row[1] for row in conn.execute("PRAGMA table_info(context_candidates)").fetchall()}
     if "use_count" not in columns:
         conn.execute("ALTER TABLE context_candidates ADD COLUMN use_count INTEGER DEFAULT 0")
+
+
+def ensure_schema_migrations(conn: sqlite3.Connection) -> None:
+    conn.executescript(MIGRATION_SCHEMA)
+    for migration_id in SCHEMA_MIGRATIONS:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+            VALUES (?, datetime('now'))
+            """,
+            (migration_id,),
+        )
 
 
 def sqlite_table_names(conn: sqlite3.Connection) -> set[str]:
