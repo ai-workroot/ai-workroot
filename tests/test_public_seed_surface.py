@@ -46,6 +46,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
             "LICENSE",
             "NOTICE",
             "PROJECT_BRIEF.md",
+            "pyproject.toml",
             "README.md",
             "ROADMAP.md",
             "START_HERE_FOR_HUMANS.md",
@@ -54,6 +55,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
             "docs",
             "scripts",
             "space",
+            "src",
             "tests",
         }
         present = {path.name for path in ROOT.iterdir() if path.name != ".git" and not is_git_ignored(ROOT, path)}

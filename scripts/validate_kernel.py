@@ -263,6 +263,7 @@ ALLOWED_PUBLIC_ROOTS = {
     "LICENSE",
     "NOTICE",
     "PROJECT_BRIEF.md",
+    "pyproject.toml",
     "README.md",
     "ROADMAP.md",
     "START_HERE_FOR_HUMANS.md",
@@ -271,6 +272,7 @@ ALLOWED_PUBLIC_ROOTS = {
     "docs",
     "scripts",
     "space",
+    "src",
     "tests",
 }
 MIND_TYPES = {
@@ -780,7 +782,7 @@ def validate_layout(root: Path, contracts: dict[str, dict[str, Any]], release: b
             add_error(errors, f"required path missing: {rel}")
 
     if release:
-        allowed_roots = set(layout.get("public_seed_root_paths", [])) or ALLOWED_PUBLIC_ROOTS
+        allowed_roots = set(layout.get("public_seed_root_paths", [])) | ALLOWED_PUBLIC_ROOTS
         for path in root.iterdir():
             if path.name == ".git":
                 continue
