@@ -26,6 +26,18 @@ class ReleaseGates0529Test(unittest.TestCase):
         for path in expected:
             self.assertTrue(path.exists(), f"missing script: {path}")
 
+    def test_kernel_required_test_commands_reference_existing_scripts(self) -> None:
+        contract = ast.literal_eval((ROOT / ".workroot/kernel/contracts/test-policy.json").read_text(encoding="utf-8"))
+
+        for command in contract["required_test_commands"]:
+            parts = command.split()
+            script_paths = [part for part in parts if part.startswith("scripts/")]
+            for script_path in script_paths:
+                if any(char in script_path for char in "*?["):
+                    self.assertTrue(list(ROOT.glob(script_path)), f"missing required test command script glob: {script_path}")
+                else:
+                    self.assertTrue((ROOT / script_path).exists(), f"missing required test command script: {script_path}")
+
     def test_install_script_help_and_dry_run_do_not_write_wrapper(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             install_dir = Path(tmp) / "bin"

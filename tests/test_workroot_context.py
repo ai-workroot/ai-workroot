@@ -518,6 +518,57 @@ class WorkrootContextTest(unittest.TestCase):
         selected_ids = {item["candidateId"] for item in package.trace["selectedCandidates"]}
         self.assertIn("cand_old_always", selected_ids)
 
+    def test_blocked_safety_candidates_do_not_starve_safe_candidates_from_pool(self) -> None:
+        home, user_dir, state_dir = self.create_fixture()
+        db_path = workroot_sqlite_path(state_dir)
+        with open_sqlite(db_path) as conn:
+            for i in range(205):
+                upsert_context_candidate(
+                    conn,
+                    ContextCandidate(
+                        candidate_id=f"cand_blocked_starve_{i:03d}",
+                        workroot_id="wr_demo",
+                        source_type="knowledge",
+                        source_id=f"knowledge-blocked-starve-{i:03d}",
+                        title=f"Blocked starve filler {i:03d}",
+                        summary="Blocked safety candidates must not occupy the auto-selection pool.",
+                        importance="critical",
+                        confidence=1.0,
+                        context_policy="always",
+                        safety_policy="sensitive",
+                        token_estimate=1,
+                        updated_at=f"2026-05-19T03:{i % 60:02d}:00Z",
+                    ),
+                )
+            upsert_context_candidate(
+                conn,
+                ContextCandidate(
+                    candidate_id="cand_safe_not_starved",
+                    workroot_id="wr_demo",
+                    source_type="knowledge",
+                    source_id="knowledge-safe-not-starved",
+                    title="Safe not starved",
+                    summary="Safe candidate should remain eligible even when blocked candidates are numerous.",
+                    importance="low",
+                    confidence=0.5,
+                    context_policy="task-related",
+                    token_estimate=1,
+                    updated_at="2020-01-01T00:00:00Z",
+                ),
+            )
+
+        package = build_context_package(
+            ContextRequest(home=home, agent="codex", cwd=user_dir, query="", debug=True, now="2026-05-19T00:00:00Z")
+        )
+
+        selected_ids = {item["candidateId"] for item in package.trace["selectedCandidates"]}
+        pool = package.trace["candidatePool"]
+        dropped = {item["candidateId"]: item["reason"] for item in package.trace["droppedCandidates"]}
+        self.assertIn("cand_safe_not_starved", selected_ids)
+        self.assertEqual(pool["totalAvailable"], 209)
+        self.assertFalse(any(candidate_id.startswith("cand_blocked_starve_") for candidate_id in selected_ids))
+        self.assertIn("safety-sensitive", set(dropped.values()))
+
     def test_graph_signals_are_related_to_selected_candidates(self) -> None:
         home, user_dir, state_dir = self.create_fixture()
         db_path = workroot_sqlite_path(state_dir)
@@ -1237,7 +1288,8 @@ class WorkrootContextTest(unittest.TestCase):
         self.assertTrue(package.trace["budgetTrim"]["applied"])
         self.assertTrue(package.trace["budgetTrim"]["finalFallback"])
         self.assertLessEqual(package.trace["tokenBudget"]["estimatedUsed"], package.trace["tokenBudget"]["hard"])
-        self.assertIn("# AI Workroot Context Package", package.markdown)
+        self.assertLessEqual(estimate_context_package_tokens(package.markdown), package.trace["tokenBudget"]["hard"])
+        self.assertNotEqual(package.markdown.strip(), "")
 
     def test_context_package_final_fallback_handles_tiny_hard_limit(self) -> None:
         home, user_dir, _state_dir = self.create_fixture()
@@ -1258,6 +1310,7 @@ class WorkrootContextTest(unittest.TestCase):
 
         self.assertTrue(package.trace["budgetTrim"]["finalFallback"])
         self.assertLessEqual(package.trace["tokenBudget"]["estimatedUsed"], package.trace["tokenBudget"]["hard"])
+        self.assertLessEqual(estimate_context_package_tokens(package.markdown), package.trace["tokenBudget"]["hard"])
         self.assertNotEqual(package.markdown.strip(), "")
 
     def test_candidates_trimmed_after_render_are_not_marked_used(self) -> None:

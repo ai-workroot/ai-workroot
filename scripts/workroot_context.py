@@ -102,6 +102,7 @@ DEFAULT_CONTEXT_GUIDE_CONFIG: dict[str, object] = {
 }
 BLOCKED_SAFETY_POLICIES = {"never-auto", "needs-confirmation", "sensitive"}
 MAX_INITIAL_CANDIDATES = 200
+SAFE_CANDIDATE_SQL = "(safety_policy IS NULL OR safety_policy = '' OR safety_policy NOT IN ('never-auto', 'needs-confirmation', 'sensitive'))"
 
 
 @dataclass(frozen=True)
@@ -490,6 +491,7 @@ def fetch_candidates_by_ids(
         FROM context_candidates
         WHERE workroot_id = ?
           AND candidate_id IN ({sql_placeholders(ordered_ids)})
+          AND {SAFE_CANDIDATE_SQL}
         ORDER BY candidate_id ASC
         """,
         [workroot_id, *ordered_ids],
@@ -523,11 +525,12 @@ def build_candidate_pool(
     if active_task:
         active_task_rows = fetch_candidates_by_sql(
             conn,
-            """
+            f"""
             SELECT *
             FROM context_candidates
             WHERE workroot_id = ?
               AND status = 'active'
+              AND {SAFE_CANDIDATE_SQL}
               AND (source_id = ? OR related_tasks LIKE ?)
             ORDER BY updated_at DESC, candidate_id ASC
             LIMIT ?
@@ -540,12 +543,13 @@ def build_candidate_pool(
 
     always = fetch_candidates_by_sql(
         conn,
-        """
+        f"""
         SELECT *
         FROM context_candidates
         WHERE workroot_id = ?
           AND status = 'active'
           AND context_policy = 'always'
+          AND {SAFE_CANDIDATE_SQL}
         ORDER BY updated_at DESC, candidate_id ASC
         LIMIT ?
         """,
@@ -555,12 +559,13 @@ def build_candidate_pool(
 
     recent = fetch_candidates_by_sql(
         conn,
-        """
+        f"""
         SELECT *
         FROM context_candidates
         WHERE workroot_id = ?
           AND status = 'active'
           AND context_policy != 'never-auto'
+          AND {SAFE_CANDIDATE_SQL}
         ORDER BY
           CASE importance
             WHEN 'critical' THEN 0
@@ -1309,7 +1314,6 @@ def build_context_package(request: ContextRequest) -> ContextPackage:
     if isinstance(token_budget, dict):
         token_budget["estimatedUsed"] = full_token_estimate
         trace["tokenBudget"] = token_budget
-    markdown = render_markdown(metadata, current_state, selected, fts_matches, graph_signals, request, trace)
     if selected:
         with open_sqlite(db_path) as conn:
             mark_candidates_used(conn, str(metadata.get("workrootId")), [str(item["candidateId"]) for item in selected], now=now)
