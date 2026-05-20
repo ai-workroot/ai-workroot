@@ -5,10 +5,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_SEED = ROOT / "docs/history/public-seed"
 
 
 def read(rel: str) -> str:
-    return (ROOT / rel).read_text(encoding="utf-8")
+    path = PUBLIC_SEED / rel if rel.startswith((".workroot/", "AGENTS.md", "CLAUDE.md", "space/")) else ROOT / rel
+    return path.read_text(encoding="utf-8")
 
 
 class ArchitectureContractsTest(unittest.TestCase):

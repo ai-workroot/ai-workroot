@@ -9,6 +9,7 @@ from scripts.validate_kernel import is_git_ignored
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_SEED = ROOT / "docs/history/public-seed"
 TEXT_SUFFIXES = {".md", ".json", ".csv", ".py", ".yml", ".yaml", ".txt", ".sql"}
 NOVICE_INTERNAL_TERMS = [
     ".workroot",
@@ -32,15 +33,12 @@ FORBIDDEN_TEXT_PATTERNS = [
 
 
 class PublicSeedSurfaceTest(unittest.TestCase):
-    def test_public_seed_root_surface(self) -> None:
+    def test_clean_workroot_root_surface(self) -> None:
         allowed = {
             ".github",
             ".gitignore",
-            ".workroot",
-            "AGENTS.md",
             "AUTHOR.md",
             "CHANGELOG.md",
-            "CLAUDE.md",
             "CONTRIBUTING.md",
             "DCO.md",
             "LICENSE",
@@ -55,13 +53,13 @@ class PublicSeedSurfaceTest(unittest.TestCase):
             "docs",
             "install",
             "scripts",
-            "space",
             "src",
             "tests",
             "workroot.project.json",
         }
         present = {path.name for path in ROOT.iterdir() if path.name != ".git" and not is_git_ignored(ROOT, path)}
         self.assertEqual(present - allowed, set())
+        self.assertFalse({"AGENTS.md", "CLAUDE.md", "space", ".workroot"} & present)
 
     def test_release_validation(self) -> None:
         result = subprocess.run(
@@ -74,9 +72,9 @@ class PublicSeedSurfaceTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_public_seed_does_not_use_status_task_directories(self) -> None:
-        self.assertFalse((ROOT / ".workroot/runtime/work/active").exists())
-        self.assertFalse((ROOT / ".workroot/runtime/work/closed").exists())
-        self.assertTrue((ROOT / ".workroot/runtime/work/tasks").is_dir())
+        self.assertFalse((PUBLIC_SEED / ".workroot/runtime/work/active").exists())
+        self.assertFalse((PUBLIC_SEED / ".workroot/runtime/work/closed").exists())
+        self.assertTrue((PUBLIC_SEED / ".workroot/runtime/work/tasks").is_dir())
 
     def test_no_stale_public_text_patterns(self) -> None:
         hits: list[str] = []
@@ -119,7 +117,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
 
     def test_user_visible_work_files_do_not_expose_internal_terms(self) -> None:
         hits: list[str] = []
-        for path in (ROOT / "space/work").rglob("*.md"):
+        for path in (PUBLIC_SEED / "space/work").rglob("*.md"):
             text = path.read_text(encoding="utf-8").lower()
             for term in NOVICE_INTERNAL_TERMS:
                 if term in text:

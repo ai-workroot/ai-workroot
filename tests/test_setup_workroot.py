@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,11 +16,7 @@ class SetupWorkrootTest(unittest.TestCase):
     def test_guided_setup_writes_identity_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             result = subprocess.run(
                 [
                     sys.executable,
@@ -52,11 +49,7 @@ class SetupWorkrootTest(unittest.TestCase):
     def test_guided_setup_refuses_to_overwrite_custom_profile_without_force(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             profile = work / "space/profile/profile.md"
             profile.write_text("# Profile\n\nCustomized identity.\n", encoding="utf-8")
             result = subprocess.run(

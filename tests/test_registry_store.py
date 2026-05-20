@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import csv
 import multiprocessing as mp
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
+
+from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,11 +31,7 @@ class RegistryStoreTest(unittest.TestCase):
     def copy_workroot(self) -> tuple[tempfile.TemporaryDirectory[str], Path]:
         tmp = tempfile.TemporaryDirectory()
         work = Path(tmp.name) / "workroot"
-        shutil.copytree(
-            ROOT,
-            work,
-            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-        )
+        copy_repo_with_public_seed(work)
         return tmp, work
 
     def test_concurrent_task_creates_do_not_corrupt_registry(self) -> None:

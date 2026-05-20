@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 
+PUBLIC_SEED_HISTORY = Path("docs/history/public-seed")
 CONTRACT_DIR = Path(".workroot/kernel/contracts")
 SCHEMA_DIR = Path(".workroot/kernel/schemas")
 VERSION_PATH = Path(".workroot/kernel/VERSION")
@@ -253,11 +254,8 @@ FUTURE_TIMESTAMP_TOLERANCE = dt.timedelta(minutes=5)
 ALLOWED_PUBLIC_ROOTS = {
     ".github",
     ".gitignore",
-    ".workroot",
-    "AGENTS.md",
     "AUTHOR.md",
     "CHANGELOG.md",
-    "CLAUDE.md",
     "CONTRIBUTING.md",
     "DCO.md",
     "LICENSE",
@@ -276,6 +274,12 @@ ALLOWED_PUBLIC_ROOTS = {
     "src",
     "tests",
     "workroot.project.json",
+}
+CLEAN_ROOT_FORBIDDEN = {
+    ".workroot",
+    "space",
+    "AGENTS.md",
+    "CLAUDE.md",
 }
 MIND_TYPES = {
     "memory",
@@ -777,7 +781,13 @@ def validate_contracts(root: Path, errors: list[str]) -> dict[str, dict[str, Any
     return contracts
 
 
-def validate_layout(root: Path, contracts: dict[str, dict[str, Any]], release: bool, errors: list[str]) -> None:
+def validate_layout(
+    root: Path,
+    contracts: dict[str, dict[str, Any]],
+    release: bool,
+    errors: list[str],
+    release_root: Path | None = None,
+) -> None:
     layout = contracts.get("layout", {})
     for rel in layout.get("required_paths", []):
         if not (root / rel).exists():
@@ -785,13 +795,17 @@ def validate_layout(root: Path, contracts: dict[str, dict[str, Any]], release: b
 
     if release:
         allowed_roots = set(layout.get("public_seed_root_paths", [])) | ALLOWED_PUBLIC_ROOTS
-        for path in root.iterdir():
+        surface_root = release_root or root
+        for path in surface_root.iterdir():
             if path.name == ".git":
                 continue
-            if is_git_ignored(root, path):
+            if is_git_ignored(surface_root, path):
+                continue
+            if path.name in CLEAN_ROOT_FORBIDDEN:
+                add_error(errors, f"retired public seed active-root path must not be committed: {path.name}")
                 continue
             if path.name not in allowed_roots:
-                add_error(errors, f"path is outside the public seed surface: {path.name}")
+                add_error(errors, f"path is outside the Clean Workroot release surface: {path.name}")
 
 
 def validate_version(root: Path, contracts: dict[str, dict[str, Any]], errors: list[str]) -> None:
@@ -871,20 +885,21 @@ def main() -> int:
     args = parser.parse_args()
 
     root = Path.cwd()
+    legacy_root = root / PUBLIC_SEED_HISTORY
     errors: list[str] = []
 
-    contracts = validate_contracts(root, errors)
-    validate_version(root, contracts, errors)
-    validate_layout(root, contracts, args.release, errors)
-    validate_registry_headers(root, errors)
-    validate_registry_time_values(root, errors)
-    validate_registry_future_times(root, errors)
-    validate_registry_paths(root, errors)
-    validate_work_process_tasks(root, errors)
-    validate_work_process_references(root, errors)
-    validate_forgetting_registry(root, errors)
-    validate_task_state_trust(root, errors)
-    validate_context_budget(root, errors)
+    contracts = validate_contracts(legacy_root, errors)
+    validate_version(legacy_root, contracts, errors)
+    validate_layout(legacy_root, contracts, args.release, errors, release_root=root)
+    validate_registry_headers(legacy_root, errors)
+    validate_registry_time_values(legacy_root, errors)
+    validate_registry_future_times(legacy_root, errors)
+    validate_registry_paths(legacy_root, errors)
+    validate_work_process_tasks(legacy_root, errors)
+    validate_work_process_references(legacy_root, errors)
+    validate_forgetting_registry(legacy_root, errors)
+    validate_task_state_trust(legacy_root, errors)
+    validate_context_budget(legacy_root, errors)
     if args.release:
         validate_0529_specs(root, errors)
         validate_release_surface(root, errors)

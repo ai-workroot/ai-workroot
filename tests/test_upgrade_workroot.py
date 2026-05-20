@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.fixtures.public_seed import PUBLIC_SEED, copy_repo_with_public_seed
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -16,7 +18,7 @@ class UpgradeWorkrootTest(unittest.TestCase):
     def test_upgrade_preserves_instance_content_and_migrates_legacy_task_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "founder-space"
-            shutil.copytree(ROOT, target, ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"))
+            copy_repo_with_public_seed(target)
 
             (target / ".workroot/kernel/VERSION").write_text("0.9.527\n", encoding="utf-8")
             legacy_task = target / ".workroot/runtime/work/active/task-legacy"
@@ -55,7 +57,7 @@ class UpgradeWorkrootTest(unittest.TestCase):
                     sys.executable,
                     str(ROOT / "scripts/upgrade_workroot.py"),
                     "--source",
-                    str(ROOT),
+                    str(PUBLIC_SEED),
                     "--target",
                     str(target),
                     "--backup-dir",

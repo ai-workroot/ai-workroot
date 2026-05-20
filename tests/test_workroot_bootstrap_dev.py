@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,11 +26,7 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
         )
 
     def copy_repo(self, dst: Path) -> None:
-        shutil.copytree(
-            ROOT,
-            dst,
-            ignore=shutil.ignore_patterns(".git", ".idea", "__pycache__", "*.pyc"),
-        )
+        copy_repo_with_public_seed(dst, include_agent_entries=True)
 
     def test_bootstrap_dev_dry_run_rejects_non_workroot_repo(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

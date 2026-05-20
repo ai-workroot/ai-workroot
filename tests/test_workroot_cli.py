@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -10,6 +9,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from tests.fixtures.public_seed import copy_repo_with_public_seed
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,11 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class WorkrootCliTest(unittest.TestCase):
     def copy_workroot(self, tmp: str) -> Path:
         work = Path(tmp) / "workroot"
-        shutil.copytree(
-            ROOT,
-            work,
-            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-        )
+        copy_repo_with_public_seed(work)
         return work
 
     def run_cli(self, work: Path, *args: str) -> subprocess.CompletedProcess[str]:

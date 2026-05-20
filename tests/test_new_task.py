@@ -3,9 +3,10 @@ from __future__ import annotations
 import subprocess
 import sys
 import unittest
-import shutil
 import tempfile
 from pathlib import Path
+
+from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,11 +62,7 @@ class NewTaskScriptTest(unittest.TestCase):
     def test_new_task_cli_creates_l1_directories(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             result = subprocess.run(
                 [
                     sys.executable,
@@ -92,11 +89,7 @@ class NewTaskScriptTest(unittest.TestCase):
     def test_new_task_cli_creates_l2_directories(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             result = subprocess.run(
                 [
                     sys.executable,

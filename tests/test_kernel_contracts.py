@@ -11,6 +11,11 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_SEED = ROOT / "docs/history/public-seed"
+
+
+def legacy_root(work: Path) -> Path:
+    return work / "docs/history/public-seed"
 
 TASK_REGISTRY_HEADER = (
     "task_id,title,status,process_level,owner_scope,visibility,priority,"
@@ -39,12 +44,12 @@ def task_registry_row(
 
 class KernelContractsTest(unittest.TestCase):
     def test_kernel_version(self) -> None:
-        version = (ROOT / ".workroot/kernel/VERSION").read_text(encoding="utf-8").strip()
-        kernel = json.loads((ROOT / ".workroot/kernel/contracts/kernel.json").read_text(encoding="utf-8"))
+        version = (PUBLIC_SEED / ".workroot/kernel/VERSION").read_text(encoding="utf-8").strip()
+        kernel = json.loads((PUBLIC_SEED / ".workroot/kernel/contracts/kernel.json").read_text(encoding="utf-8"))
         self.assertEqual(kernel["kernel_version"], version)
 
     def test_required_contracts_are_json(self) -> None:
-        for path in (ROOT / ".workroot/kernel/contracts").glob("*.json"):
+        for path in (PUBLIC_SEED / ".workroot/kernel/contracts").glob("*.json"):
             with self.subTest(path=path.name):
                 data = json.loads(path.read_text(encoding="utf-8"))
                 self.assertIn("contract_id", data)
@@ -67,7 +72,7 @@ class KernelContractsTest(unittest.TestCase):
                 work,
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
             )
-            registry = work / ".workroot/runtime/index/task_registry.csv"
+            registry = legacy_root(work) / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
                 + "task-x,Timezone free,active,L0,personal,internal,,2026-05-15T17:00:00,2026-05-15T17:00:00,,,,,\n",
@@ -95,7 +100,7 @@ class KernelContractsTest(unittest.TestCase):
                 dt.datetime.now(dt.timezone.utc)
                 + dt.timedelta(days=1)
             ).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-            registry = work / ".workroot/runtime/index/task_registry.csv"
+            registry = legacy_root(work) / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
                 + f"task-future,Future,active,L0,personal,internal,,{future},{future},,,,,\n",
@@ -119,7 +124,7 @@ class KernelContractsTest(unittest.TestCase):
                 work,
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
             )
-            registry = work / ".workroot/runtime/index/artifact_registry.csv"
+            registry = legacy_root(work) / ".workroot/runtime/index/artifact_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
                 + "artifact-missing,,,,report,space/work/reports/missing.md,public,active,,,2026-05-14T00:00:00Z,2026-05-14T00:00:00Z\n",
@@ -144,7 +149,7 @@ class KernelContractsTest(unittest.TestCase):
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
             )
             task_id = "task-20260514-000000-demo"
-            task_dir = work / ".workroot/runtime/work/tasks" / task_id
+            task_dir = legacy_root(work) / ".workroot/runtime/work/tasks" / task_id
             task_dir.mkdir(parents=True)
             for name, content in {
                 "brief.md": "# Brief\n\nTask created; no work completed yet.\n\nNothing yet.\n",
@@ -153,14 +158,14 @@ class KernelContractsTest(unittest.TestCase):
                 "index.md": "# Index\n",
             }.items():
                 (task_dir / name).write_text(content, encoding="utf-8")
-            report = work / "space/work/reports/demo.md"
+            report = legacy_root(work) / "space/work/reports/demo.md"
             report.parent.mkdir(parents=True, exist_ok=True)
             report.write_text("# Demo\n", encoding="utf-8")
-            (work / ".workroot/runtime/index/task_registry.csv").write_text(
+            (legacy_root(work) / ".workroot/runtime/index/task_registry.csv").write_text(
                 TASK_REGISTRY_HEADER + task_registry_row(task_id, "Demo"),
                 encoding="utf-8",
             )
-            (work / ".workroot/runtime/index/artifact_registry.csv").write_text(
+            (legacy_root(work) / ".workroot/runtime/index/artifact_registry.csv").write_text(
                 "artifact_id,task_id,run_id,action_id,type,path,audience,status,size,checksum,created_at,updated_at\n"
                 f"artifact-demo,{task_id},,,report,space/work/reports/demo.md,internal,active,,,2026-05-14T00:00:00Z,2026-05-14T00:00:00Z\n",
                 encoding="utf-8",
@@ -184,7 +189,7 @@ class KernelContractsTest(unittest.TestCase):
                 work,
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
             )
-            registry = work / ".workroot/runtime/index/task_registry.csv"
+            registry = legacy_root(work) / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
                 + task_registry_row(
@@ -214,7 +219,7 @@ class KernelContractsTest(unittest.TestCase):
                 work,
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
             )
-            registry = work / ".workroot/runtime/index/action_registry.csv"
+            registry = legacy_root(work) / ".workroot/runtime/index/action_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
                 + "action-bad,missing-task,,test_run,active,Bad action,,,,,low,2026-05-15T00:00:00Z,2026-05-15T00:00:00Z\n",
@@ -238,7 +243,7 @@ class KernelContractsTest(unittest.TestCase):
                 work,
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
             )
-            registry = work / ".workroot/runtime/index/mind_registry.csv"
+            registry = legacy_root(work) / ".workroot/runtime/index/mind_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
                 + "mind-tombstone,Tombstone,tombstone,released,released,sensitive,tombstone,,2026-05-15T00:00:00Z,2026-05-15T00:00:00Z,space/mind/released/tombstone.md,,\n",
@@ -263,7 +268,7 @@ class KernelContractsTest(unittest.TestCase):
                 work,
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
             )
-            registry = work / ".workroot/runtime/index/mind_registry.csv"
+            registry = legacy_root(work) / ".workroot/runtime/index/mind_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
                 + "mind-deleted,Deleted,released,released,deleted,sensitive,deleted,never,2026-05-15T00:00:00Z,2026-05-15T00:00:00Z,space/mind/released/deleted.md,,\n",
@@ -287,7 +292,7 @@ class KernelContractsTest(unittest.TestCase):
                 work,
                 ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
             )
-            registry = work / ".workroot/runtime/index/mind_registry.csv"
+            registry = legacy_root(work) / ".workroot/runtime/index/mind_registry.csv"
             registry.write_text(
                 registry.read_text(encoding="utf-8")
                 + "mind-mixed,Tombstone Mismatch,released,released,released,sensitive,tombstone,explicit_request,2026-05-15T00:00:00Z,2026-05-15T00:00:00Z,space/mind/released/tombstone.md,,\n",

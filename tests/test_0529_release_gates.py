@@ -12,6 +12,7 @@ from scripts.validate_kernel import validate_0529_specs, validate_release_surfac
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_SEED = ROOT / "docs/history/public-seed"
 
 
 class ReleaseGates0529Test(unittest.TestCase):
@@ -27,7 +28,7 @@ class ReleaseGates0529Test(unittest.TestCase):
             self.assertTrue(path.exists(), f"missing script: {path}")
 
     def test_kernel_required_test_commands_reference_existing_scripts(self) -> None:
-        contract = ast.literal_eval((ROOT / ".workroot/kernel/contracts/test-policy.json").read_text(encoding="utf-8"))
+        contract = ast.literal_eval((PUBLIC_SEED / ".workroot/kernel/contracts/test-policy.json").read_text(encoding="utf-8"))
 
         for command in contract["required_test_commands"]:
             parts = command.split()
