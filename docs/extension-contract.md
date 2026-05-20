@@ -8,20 +8,17 @@ This document defines how role capabilities, tools, local runtimes, indexes, and
 
 The core protocol owns:
 
-- identity boundary
-- task lifecycle
-- Mind model
-- core registries
-- privacy and forgetting rules
+- subject boundary
+- work lifecycle
+- asset model
+- release, tombstone, redaction, and deletion rules
+- relationship and retrieval discipline
 - context and handoff discipline
-- file-first source of truth
+- managed state and user asset boundaries
 
 Extensions may add capability-specific structure, but they must not redefine these core rules.
 
-The kernel should not restrict what useful work a Workroot can contain.
-Extensions and user-space folders may create domain-specific structure, workflows, scripts, and indexes
-as long as they preserve the stable kernel contracts and do not turn generated state
-into the only source of truth.
+The system should not restrict what useful work a Workroot can contain. Extensions and user-approved folders may create domain-specific structure, workflows, scripts, and indexes as long as they preserve stable contracts and do not turn generated state into the only source of truth.
 
 ## Permission Hints
 
@@ -51,7 +48,7 @@ Valid extension types include:
 - local runtime configuration
 - capability-specific registry
 - optional local database
-- optional vector or graph index
+- optional vector or relationship index
 - export/import adapter
 
 Extensions should be added only when they solve a real recurring problem.
@@ -60,7 +57,7 @@ Extensions should be added only when they solve a real recurring problem.
 
 A capability may add:
 
-- files under `.workroot/extensions/capabilities/<capability-id>/`
+- managed capability records
 - task templates or checklists
 - capability-specific indexes
 - scripts or helper commands
@@ -69,14 +66,14 @@ A capability may add:
 
 A capability must not:
 
-- move durable knowledge out of `space/mind/`
+- move durable knowledge out of managed Workroot records without an explicit export
 - make a database the only source of truth
 - require one model, agent, provider, or operating system
-- hide important task state outside Workroot files
+- hide important task state outside Workroot records
 - weaken privacy, release, deletion, or tombstone rules
-- redefine the core registries to fit one role
+- redefine core records to fit one role
 
-If a capability needs more structure, it should add its own documented registry instead of changing the core registry schema.
+If a capability needs more structure, it should add its own documented registry or manifest instead of changing the core schema.
 
 ## Manifest And Contract Rules
 
@@ -109,17 +106,15 @@ Structured manifests should stay small enough for agents and validators to read 
 
 Real Workroots may need local credentials, tool settings, MCP servers, or machine-specific paths.
 
-Those belong in local ignored files or documented local runtime configuration. They do not belong in public docs, Mind entries, task notes, examples, or committed config.
-
-See `.workroot/kernel/config/` and local ignored runtime files.
+Those belong in local ignored files or documented local runtime configuration. They do not belong in public docs, durable knowledge entries, task notes, examples, or committed config.
 
 ## Database And Index Rules
 
-SQLite, DuckDB, vector indexes, and graph indexes are accelerators.
+SQLite, DuckDB, vector indexes, and relationship indexes are accelerators.
 
 They must be:
 
-- optional
+- optional unless explicitly required by the active managed-state feature
 - rebuildable
 - disposable
 - documented by a manifest when non-trivial
@@ -128,10 +123,10 @@ They must be:
 
 Use the simplest store that fits the workload:
 
-- SQLite for local lookup, relationships, and lightweight state
+- SQLite for local lookup, FTS, relationships, and lightweight state
 - DuckDB for local analytical or tabular workloads
-- vector indexes for semantic retrieval when keyword and link traversal are insufficient
-- graph indexes for dense relationship navigation
+- vector indexes for optional future semantic retrieval when keyword and link traversal are insufficient
+- relationship indexes for dense relationship navigation
 
 ## Context Budget Rule
 
@@ -153,8 +148,7 @@ Extensions must not make the first-use experience harder.
 Ordinary users should still be able to start with:
 
 ```text
-Read AGENTS.md and START_HERE_FOR_HUMANS.md.
-Help me set up my identity in this AI Workroot.
+I want this Workroot to help me with [area]. Please set it up with me, then help me start my first real task.
 ```
 
 The agent may use extension rules behind the scenes, but the user should not need to learn the extension architecture before doing work.
@@ -164,8 +158,8 @@ The agent may use extension rules behind the scenes, but the user should not nee
 Before accepting an extension, check:
 
 - Does it serve a real personal workflow?
-- Does it keep files as the durable source of truth?
-- Does it preserve the identity boundary?
+- Does it keep durable state inspectable?
+- Does it preserve the subject boundary?
 - Does it keep startup context small?
 - Does it document any new registry, database, or cache?
 - Does it declare permission hints?

@@ -8,7 +8,7 @@ AI Workroot
 
 A personal, local-first Workroot for individuals to work with AI, preserve context, build knowledge, accumulate ability, and continue meaningful work over time.
 
-It is also the seed of a Workroot system: user space stays simple, kernel rules stay rigorous, extensions stay replaceable, and runtime state stays rebuildable.
+It is also the seed of a Workroot system: user-selected directories stay simple, managed state stays outside user content by default, extension boundaries stay replaceable, and runtime state stays inspectable.
 
 ## Founding Question
 
@@ -33,8 +33,8 @@ The Workroot is the durable continuity layer. AI agents are replaceable collabor
 - Progressive guidance: start with useful work, then clarify the subject, direction, and collaboration style as durable continuity grows.
 - Simple for users, strict for agents.
 - AI-native Workroot system design, not a traditional OS clone.
-- Files are the source of truth.
-- Databases and indexes are optional accelerators.
+- User-owned files and managed records are the source of truth for their own layers.
+- Databases and indexes are local-first accelerators unless explicitly promoted to managed state.
 - Startup context must stay small even as the Workroot grows for years.
 - Context should load progressively through boot context, summaries, indexes, registries, and explicit links.
 - Machine-readable contracts should stay compact; Markdown explains the doctrine and intent.
@@ -43,23 +43,23 @@ The Workroot is the durable continuity layer. AI agents are replaceable collabor
 - After useful lessons are preserved, painful past context can be released from active recall by user choice.
 - Other skills must operate inside the Workroot protocol.
 
-## Public Seed Purpose
+## Clean Workroot Purpose
 
-The public seed establishes the Workroot system shape:
+0.9.530 establishes the Clean Workroot system shape:
 
 - README and mission
-- upgraded `space/ + .workroot/` architecture
-- architecture and kernel implementation specifications
+- Clean Workroot architecture and implementation specifications
 - user interaction contract
 - Workroot operating protocol
-- Codex and Claude Code entrypoints
-- `space/profile`, `space/work`, `space/mind`, `space/inbox`, and `space/files`
-- `.workroot/kernel`, `.workroot/extensions`, and `.workroot/runtime`
-- task lifecycle and index conventions
+- Workroot Management / WorkrootEnvironment
+- Core / Contracts / Runtime / Storage / Indexing / Agent / CLI source structure
+- Native Agent Entry templates
+- managed state under `AI_WORKROOT_HOME`
+- task, asset, release, relationship, retrieval, context, and health conventions
 - scaling and longevity rules
-- optional future extension points for databases, vector indexes, and graph indexes
+- optional future extension points for storage drivers, retrieval providers, MCP, and agent adapters
 
-## Not In The Public Seed
+## Not In The Current Product
 
 - full application
 - mandatory database
@@ -70,4 +70,4 @@ The public seed establishes the Workroot system shape:
 
 ## Next Milestone
 
-Validate the public seed through real personal usage, then refine the first-use flow from actual feedback.
+Validate the Clean Workroot reset through real dogfood usage, then refine first-use and Workroot Manager flows from actual feedback.

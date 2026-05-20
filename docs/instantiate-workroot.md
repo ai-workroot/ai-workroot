@@ -1,14 +1,14 @@
 # Instantiate A Workroot
 
-Use this guide when turning the AI Workroot starter into a concrete personal Workroot.
+Use this guide when turning AI Workroot into a concrete personal Workroot.
 
-## 1. Copy The Starter
-
-For ordinary users, prefer the simpler flow in `docs/user-sop.md`: download the project, rename only the outer folder, open it with an AI agent, define identity, and start working.
+For ordinary users, prefer the simpler flow in `docs/user-sop.md`: choose a directory, initialize it with AI Workroot, give a small usage direction, and start useful work.
 
 This document is for advanced users, maintainers, or agents that need a more explicit setup process.
 
-Copy the starter directory into a new outer directory for the concrete subject.
+## 1. Choose The User Directory
+
+Choose or create a directory for the user's own assets.
 
 Examples:
 
@@ -18,89 +18,81 @@ my-life-workroot
 product-thinking-partner
 ```
 
-Do not keep the original starter repository history unless the new Workroot is intended to be developed as a fork.
+Clean Workroot treats this directory as user content space. It should not receive managed runtime state, indexes, logs, handoffs, or control files by default.
 
-Do not rename internal protocol folders such as `space`, `.workroot`, or `docs`.
+## 2. Initialize Clean Workroot State
 
-## 2. Define Identity
+Initialize the Workroot through the CLI:
 
-This is required before formal work begins.
+```bash
+workroot init --name "My Workroot" --directory ./my-ai-workroot
+```
+
+Use `--no-native-agent-entry` when the user directory must remain entirely unchanged.
+
+Use `--native-agent-entry` only when the user explicitly authorizes short launcher files for AI agents.
+
+Managed state is stored under `AI_WORKROOT_HOME` by default. This includes the Workroot registry, per-Workroot state, SQLite indexes, context packages, diagnostics, relationship projections, release records, and cache files.
+
+## 3. Define Usage Direction
+
+This is required before formal durable work begins.
 
 For the simplest first use, read `START_HERE_FOR_HUMANS.md` and ask an AI agent to guide the setup.
 
-Fill in:
-
-- `space/profile/profile.md`
-- `space/profile/roles.md`
-- `space/profile/values.md`
-- `space/profile/preferences.md`
-
-Minimum identity:
+Minimum guidance:
 
 - who or what this Workroot represents
 - what role the AI should play
 - what direction, work, or life area it should support
 - what values, boundaries, or preferences it should respect
 
-Keep this concise. Detailed history belongs in `space/mind/`. The identity can evolve after the first task.
+Keep this concise. Detailed history can evolve after the first task.
 
-## 3. Reset Active Context
-
-For a new Workroot, `.workroot/runtime/context/current.md` and `.workroot/runtime/context/handoff.md` should start with no active task.
-
-## 4. Start The First Internal Task Record
+## 4. Start The First Work Record
 
 This section is for advanced users and agents. Ordinary users should only describe the work in natural language and let the AI agent handle this.
 
-Create an internal task record under one of:
+Use the active CLI and Runtime APIs to create or update managed work state. Do not ask ordinary users to create internal files or choose storage locations.
 
-- `.workroot/runtime/work/tasks/`
+The preferred user-facing flow is:
 
-Use the internal work structure defined in `docs/kernel-implementation-specification.md`.
-
-Optional helper:
-
-```bash
-python3 scripts/new_task.py "My first task" --goal "Start the first useful piece of work"
-python3 scripts/new_task.py "My project" --owner-scope personal --visibility internal
-python3 scripts/new_task.py "Evidence review" --process-level L2
+```text
+I want this Workroot to help me with [area]. Please set it up with me, then help me start my first real task.
 ```
 
-## 5. Update Registries
+## 5. Update Managed State
 
-When durable objects are created, update the CSV registries in `.workroot/runtime/index/`.
+When durable objects are created, update the corresponding managed records:
 
-If a local SQLite index is used in the legacy public seed, it must be rebuildable from these file sources.
+- work records
+- run and action records
+- asset records
+- decision records
+- checkpoint records
+- relationship records
+- release, tombstone, redaction, and deletion records
+- retrieval and context records
 
-For delegated or sub-agent scenarios:
-
-- use `owner_scope` in `task_registry.csv` only when a future workflow explicitly needs broader subject boundaries
-- use `link_registry.csv` to connect parent work, delegated sub-work, participants, outputs, decisions, and Mind entries
-- add capability-specific registries only when a real role or domain workflow needs more structure
-
-Optional helpers:
-
-```bash
-python3 scripts/rebuild_sqlite.py
-python3 scripts/validate_kernel.py
-python3 scripts/add_registry_row.py link source_type=task source_id=my-task relation=produced target_type=artifact target_id=my-artifact created_at=2026-05-14
-```
-
-`scripts/rebuild_sqlite.py` is legacy public seed tooling for `.workroot/runtime/data/indexes/workroot.sqlite`; Clean Mode users should use `workroot init`, `workroot context`, and `workroot doctor`, which use managed state under AI Workroot system home.
+Generated SQLite and cache stores are accelerators. They must remain local-first and inspectable, and they must not become hidden archives of redacted or deleted material.
 
 ## 6. Promote What Matters
 
-After a task creates reusable value, promote the right parts into:
+After work creates reusable value, promote the right parts into durable records:
 
-- `space/mind/memory/`
-- `space/mind/knowledge/`
-- `space/mind/principles/`
-- `space/mind/decisions/`
-- `space/mind/patterns/`
-- `space/mind/reflections/`
-- `space/mind/invalidated/`
-- `space/mind/released/`
+- memory
+- knowledge
+- principles
+- decisions
+- patterns
+- reflections
+- invalidations
+- release records
 
-Do not keep long-term understanding only inside task files.
+Do not keep long-term understanding only inside chat history.
 
-Use `space/mind/_templates/` when creating durable Mind entries if templates exist.
+## Legacy Public Seed
+
+The old Public Seed layout is preserved for history and compatibility tests under `docs/history/public-seed/`. It is not the active setup path for new Clean Workroots.
+
+`scripts/rebuild_sqlite.py` remains legacy public seed tooling for the historical fixture. Clean Workroot users should use `workroot init`, `workroot context`, and `workroot doctor`, which use managed state under `AI_WORKROOT_HOME`.

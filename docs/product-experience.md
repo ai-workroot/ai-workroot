@@ -1,6 +1,6 @@
 # Product Experience
 
-AI Workroot should feel simple even when the underlying protocol is rigorous.
+AI Workroot should feel simple even when the underlying system is rigorous.
 
 For ordinary users, AI Workroot is not a framework to learn. It is a personal Workroot where they can work with AI, preserve what matters, and continue later.
 
@@ -14,8 +14,8 @@ first useful preserved result
 
 A new user should be able to:
 
-1. download or clone the project
-2. rename the outer folder
+1. choose or create a directory for their own assets
+2. initialize a Workroot without polluting that directory with managed state
 3. open it with an AI agent
 4. give a small usage direction when needed
 5. do one real piece of work
@@ -54,21 +54,21 @@ The detailed interaction rules are defined in `docs/user-interaction-contract.md
 - Hide internal mechanics from ordinary users.
 - Save useful results without making the user file them manually.
 - Make continuation obvious.
-- Let advanced users inspect and improve the protocol.
+- Let advanced users inspect and improve the system.
 
 ## Ordinary User Journey
 
-### 1. Get The Workroot
+### 1. Get A Workroot
 
-The user downloads or clones AI Workroot and puts it somewhere durable.
+The user chooses or creates a normal directory for their own files. Clean Workroot treats that directory as user asset space.
 
-The user may rename only the outer folder. Internal protocol folders stay unchanged.
+By default, managed state is stored outside the user directory under `AI_WORKROOT_HOME`. This includes Workroot records, context packages, indexes, diagnostics, handoffs, relationship projections, release records, and caches.
 
-For the public seed, the visible user-owned space is `space/`. The system kernel lives under `.workroot/` and should not be part of ordinary first-use learning.
+The user directory should remain clean unless the user explicitly authorizes user-facing generated files such as short Native Agent Entry launchers.
 
 ### 2. Open With AI
 
-The user opens the folder with Codex, Claude Code, or another capable AI agent.
+The user opens the directory with Codex, Claude Code, or another capable AI agent.
 
 The user can start with one sentence:
 
@@ -96,7 +96,7 @@ The AI asks only what is needed:
 - what the AI should help with
 - what values, preferences, or boundaries matter
 
-The user can answer briefly. The Workroot's guidance can evolve later.
+The user can answer briefly. The Workroot's managed guidance can evolve later.
 
 ### 4. Do The First Real Work
 
@@ -118,7 +118,7 @@ The AI asks lightweight confirmation when needed:
 This looks useful for the future. Should I save it?
 ```
 
-The user does not choose a folder or internal category.
+The user does not choose a folder or internal category. The Workroot records the result in the appropriate managed state and writes user-facing assets only when the user asks for or authorizes them.
 
 ### 6. Continue Later
 
@@ -128,7 +128,7 @@ The user can return and say:
 Help me continue.
 ```
 
-The AI should read the current handoff and tell the user:
+The AI should read the current managed handoff and tell the user:
 
 - what was happening
 - what was decided
@@ -136,7 +136,7 @@ The AI should read the current handoff and tell the user:
 - whether to continue, adjust, or start something new
 - what sentence the user can say next
 
-The agent should maintain `space/work/continue.md` as the human-facing continuation view when useful work exists. This view should be readable without understanding internal runtime files.
+The human-facing continuation view should be plain language. It may be rendered into the conversation, generated as an authorized user-facing asset, or stored in managed state for the next context package.
 
 ## Agent Product Responsibilities
 
@@ -157,10 +157,10 @@ These responsibilities are product behavior, not optional polish.
 
 On first use, the agent should:
 
-1. read `AGENTS.md` and `START_HERE_FOR_HUMANS.md`
+1. use the active Native Agent Entry or CLI context package when available
 2. check whether usage direction is clear enough
 3. ask only the missing guidance needed to preserve durable work responsibly
-4. write the minimum guidance into `space/profile/`
+4. save the minimum guidance into managed Workroot state
 5. ask for the first real piece of work
 6. infer the right internal structure
 7. help produce a useful result
@@ -169,7 +169,7 @@ On first use, the agent should:
 
 Do not explain the full architecture during first run unless the user asks.
 
-Do not ask ordinary users to open or manage `.workroot/`.
+Do not ask ordinary users to open or manage internal managed state.
 
 If the user already gave a real problem, ask at most one small usage-direction question before useful work. Do not block the first useful result behind a full setup interview.
 
@@ -232,7 +232,7 @@ The agent should:
 
 The agent should not ask the user to reconstruct the previous session from memory.
 
-The agent should not send ordinary users into `.workroot/`, registry files, schemas, or kernel contracts to understand what happened.
+The agent should not send ordinary users into internal state, registry files, schemas, or contracts to understand what happened.
 
 For delegated work, the agent should keep a plain-language collaboration map in the continuation view:
 
@@ -291,7 +291,7 @@ The agent should decide what kind of preservation is appropriate:
 
 Ask a short confirmation if the preservation could affect privacy, emotional weight, or future retrieval.
 
-After saving a meaningful result, the agent should also update task state and continuation state so the Workroot does not show conflicting progress signals.
+After saving a meaningful result, the agent should also update work state and continuation state so the Workroot does not show conflicting progress signals.
 
 ## Success Criteria
 

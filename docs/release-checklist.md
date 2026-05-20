@@ -34,8 +34,8 @@ vX.Y.Z
 - `START_HERE_FOR_HUMANS.md` gives a clear first message.
 - `docs/user-sop.md` provides a practical operating manual without adding demo data to the core template.
 - `docs/product-experience.md` defines first run, intent routing, continue, and save-what-matters behavior.
-- `docs/workroot-system-design.md` documents the user-space/kernel-space architecture.
-- `docs/kernel-implementation-specification.md` defines the kernel versioning, contracts, schemas, validation behavior, tests, and release gates for implementation.
+- `docs/workroot-system-design.md` documents the Clean Workroot architecture.
+- `docs/kernel-implementation-specification.md` defines Clean Workroot implementation requirements, validation behavior, tests, and release gates.
 - `docs/user-interaction-contract.md` defines the ordinary-user interaction contract.
 - `docs/architecture-map.md` provides a visual explanation of the protocol.
 - `docs/daily-loop.md` explains the everyday operating rhythm.
@@ -48,9 +48,9 @@ vX.Y.Z
 - Users can ask what tasks have been done before and receive a local task summary.
 - Agents respond in the user's latest language unless the user explicitly requests another language.
 - A new user can start from the README without reading architecture documents first.
-- The public seed uses the `space/ + .workroot/` architecture.
+- Public Seed is historical; active release root does not track `space/`, `.workroot/`, root `AGENTS.md`, or root `CLAUDE.md`.
 - Root-level paths outside the public seed surface are absent.
-- Ordinary user docs describe `space/` as the visible user-owned space and do not instruct users to manage `.workroot/`.
+- Ordinary user docs describe clean user-selected directories and do not instruct users to manage internal state.
 
 ## Global Readiness
 

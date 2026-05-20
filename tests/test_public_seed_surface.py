@@ -102,6 +102,74 @@ class PublicSeedSurfaceTest(unittest.TestCase):
         self.assertGreaterEqual(position, 0)
         self.assertLess(position, 1200)
 
+    def test_primary_docs_do_not_present_public_seed_as_current_architecture(self) -> None:
+        forbidden = (
+            "Current Public Seed",
+            "P0 - Stabilize The Public Seed",
+            "The public architecture is:",
+            "The public seed must use the upgraded architecture",
+            "The public layout is:",
+            "current public seed architecture",
+        )
+        for rel in (
+            "README.md",
+            "ROADMAP.md",
+            "docs/architecture.md",
+            "docs/architecture-map.md",
+            "docs/workroot-system-design.md",
+            "docs/kernel-implementation-specification.md",
+        ):
+            with self.subTest(rel=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                for phrase in forbidden:
+                    self.assertNotIn(phrase, text)
+
+    def test_primary_docs_describe_clean_workroot_current_architecture(self) -> None:
+        docs = {
+            "README.md": ("Clean Workroot", "AI_WORKROOT_HOME", "Public Seed is historical"),
+            "ROADMAP.md": ("Clean Workroot", "0.9.530", "Public Seed is historical"),
+            "docs/architecture-map.md": ("Clean Workroot", "WorkrootEnvironment", "Relationship Network"),
+            "docs/workroot-system-design.md": ("Clean Workroot", "AI_WORKROOT_HOME", "Native Agent Entry"),
+            "docs/kernel-implementation-specification.md": ("Clean Workroot", "Core / Contracts / Runtime / Storage / Indexing / Agent / CLI", "Release Control"),
+        }
+        for rel, phrases in docs.items():
+            with self.subTest(rel=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                for phrase in phrases:
+                    self.assertIn(phrase, text)
+
+    def test_active_public_docs_do_not_use_public_seed_paths_as_current_workflow(self) -> None:
+        docs = (
+            "docs/product-experience.md",
+            "docs/daily-loop.md",
+            "docs/instantiate-workroot.md",
+            "docs/user-interaction-contract.md",
+            "docs/product-hardening.md",
+            "docs/scaling-and-longevity.md",
+            "docs/extension-contract.md",
+        )
+        forbidden = (
+            "visible user-owned space is `space/`",
+            "system kernel lives under `.workroot/`",
+            "write the minimum guidance into `space/profile/`",
+            "Save the guidance in `space/profile/`",
+            "maintain `space/work/continue.md`",
+            "Human Continuation View\n\nAI Workroot should maintain a user-facing continuation view at:\n\n```text\nspace/work/continue.md",
+            "preserve outputs in `space/work/`",
+            "preserve reusable understanding in `space/mind/`",
+            "user-facing outputs land in `space/work/`",
+            "reusable understanding lands in `space/mind/`",
+            "files under `.workroot/extensions/capabilities/<capability-id>/`",
+            "move durable knowledge out of `space/mind/`",
+            "See `.workroot/kernel/config/`",
+            "Do not rename internal protocol folders such as `space`, `.workroot`, or `docs`.",
+        )
+        for rel in docs:
+            with self.subTest(rel=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                for phrase in forbidden:
+                    self.assertNotIn(phrase, text)
+
     def test_human_entry_does_not_expose_registry_paths(self) -> None:
         for rel in ("README.md", "START_HERE_FOR_HUMANS.md"):
             with self.subTest(rel=rel):

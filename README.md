@@ -131,24 +131,30 @@ The goal is not to turn a person into a permanent machine-readable profile.
 
 The goal is to help a person continue without losing the freedom to change.
 
-## Current Public Seed
+## Current Architecture
 
-AI Workroot is currently an early public seed for a personal, local-first Workroot.
+AI Workroot is currently in the 0.9.530 Clean Workroot architecture reset.
 
-The current seed is file-first. Markdown, JSON, CSV, and user-owned source files remain the durable substrate.
+Clean Workroot means the user-selected directory is treated as user asset space. AI Workroot does not create managed runtime folders, indexes, logs, control files, or context stores inside that directory by default.
 
-Databases, vector indexes, graph stores, and local caches can be useful accelerators, but they should not become the canonical truth by default.
+Managed state belongs under `AI_WORKROOT_HOME` by default, represented by `WorkrootEnvironment`. Per-Workroot SQLite, context packages, indexes, diagnostics, handoffs, release records, Relationship Network projections, and cache files live there unless the user explicitly chooses another mode.
 
-The current public seed uses this implementation shape:
+The active source implementation is organized as:
 
 ```text
-space/       user-owned space
-.workroot/   kernel, runtime, indexes, and protocol state
+src/ai_workroot/
+  core/
+  contracts/
+  runtime/
+  storage/
+  indexing/
+  agent/
+  cli/
 ```
 
-This layout is the current transparent seed architecture, not a promise that every future Workroot implementation will look exactly the same.
+Root `AGENTS.md`, root `CLAUDE.md`, `space/`, and `.workroot/` are not active tracked architecture. Native Agent Entry files may be generated locally only with explicit authorization, and bootstrap-dev keeps local staging under ignored `.ai-workroot-local/`.
 
-Future clients may support cleaner user-facing directories, managed storage modes, richer local services, or larger architectural changes.
+Public Seed is historical. Its preserved files live under `docs/history/public-seed/` for compatibility review and old capability tests.
 
 The core principle should remain stable: the user's continuity should stay inspectable, portable, and owned by the user.
 
@@ -156,6 +162,7 @@ For the full current architecture, see:
 
 - [Workroot System Design](docs/workroot-system-design.md)
 - [Architecture Map](docs/architecture-map.md)
+- [0.9.530 Release Notes](docs/releases/0.9.530.md)
 
 ## Start Here
 
