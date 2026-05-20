@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from ai_workroot.indexing.providers.candidate_provider import CandidateMatch, query_context_candidates
+from ai_workroot.indexing.providers.release_provider import ReleaseFilterReport, load_release_filter_report
 from ai_workroot.indexing.providers.relationship_provider import RelationshipSignal, relationship_signals_for_sources
 from ai_workroot.indexing.providers.sqlite_fts import FtsMatch, search_fts
 from ai_workroot.runtime.registry import find_workroot_by_cwd
@@ -39,11 +40,14 @@ def build_context_package(
     selected: list[CandidateMatch] = []
     fts_matches: list[FtsMatch] = []
     relationship_signals: list[RelationshipSignal] = []
+    release_report = ReleaseFilterReport(frozenset(), frozenset(), ())
     fts_error: str | None = None
 
     if db_path.is_file():
         with sqlite3.connect(db_path) as conn:
             candidates = query_context_candidates(conn, record["workrootId"], query=request.query, limit=50)
+            release_report = load_release_filter_report(conn, record["workrootId"], candidates)
+            candidates = _apply_release_filters(candidates, release_report)
             fts_matches, fts_error = search_fts(conn, record["workrootId"], request.query, limit=5)
             selected = _select_candidates(candidates, fts_matches)
             source_ids = {candidate.source_id for candidate in selected}
@@ -59,6 +63,7 @@ def build_context_package(
         selected=selected,
         fts_matches=fts_matches,
         relationship_signals=relationship_signals,
+        release_report=release_report,
         fts_error=fts_error,
         started=started,
         trim_steps=[],
@@ -71,6 +76,7 @@ def build_context_package(
             selected=selected,
             fts_matches=fts_matches,
             relationship_signals=relationship_signals,
+            release_report=release_report,
             fts_error=fts_error,
             started=started,
             trim_steps=trim_steps,
@@ -121,6 +127,31 @@ def _select_candidates(candidates: list[CandidateMatch], fts_matches: list[FtsMa
         selected = boosted
     selected.sort(key=lambda candidate: (-candidate.score, candidate.candidate_id))
     return selected[:8]
+
+
+def _apply_release_filters(candidates: list[CandidateMatch], release_report: ReleaseFilterReport) -> list[CandidateMatch]:
+    filtered: list[CandidateMatch] = []
+    for candidate in candidates:
+        if candidate.source_id in release_report.protected_source_ids:
+            continue
+        if candidate.source_id in release_report.tombstone_source_ids:
+            filtered.append(
+                CandidateMatch(
+                    candidate_id=candidate.candidate_id,
+                    source_type=candidate.source_type,
+                    source_id=candidate.source_id,
+                    title=candidate.title,
+                    summary=candidate.summary,
+                    importance=candidate.importance,
+                    context_policy=candidate.context_policy,
+                    safety_policy=candidate.safety_policy,
+                    score=candidate.score,
+                    reasons=tuple(dict.fromkeys((*candidate.reasons, "tombstone", "annotated-release-state"))),
+                )
+            )
+        else:
+            filtered.append(candidate)
+    return filtered
 
 
 def _boost_relationship_candidates(
@@ -187,6 +218,7 @@ def _render_package(
     selected: list[CandidateMatch],
     fts_matches: list[FtsMatch],
     relationship_signals: list[RelationshipSignal],
+    release_report: ReleaseFilterReport,
     fts_error: str | None,
     started: float,
     trim_steps: list[str],
@@ -241,6 +273,10 @@ def _render_package(
             lines.append(f"ftsFallback: {fts_error}")
         if trim_steps:
             lines.append(f"trimSteps: {', '.join(trim_steps)}")
+        if release_report.dropped or release_report.tombstone_source_ids:
+            dropped = ", ".join(f"{candidate_id}:{reason}" for candidate_id, reason in release_report.dropped) or "none"
+            annotations = ", ".join(sorted(release_report.tombstone_source_ids)) or "none"
+            lines.append(f"releaseFilters: dropped={dropped} annotated={annotations}")
     return "\n".join(lines) + "\n"
 
 
