@@ -1,6 +1,6 @@
 # Spec 001 — Project Structure and Naming
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose

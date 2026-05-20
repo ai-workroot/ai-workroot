@@ -1,6 +1,6 @@
 # Spec 016 — Source Layout Migration
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose

@@ -1,6 +1,6 @@
 # Spec 002 — Clean Workroot Installation
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose

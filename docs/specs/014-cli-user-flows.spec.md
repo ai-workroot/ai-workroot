@@ -1,6 +1,6 @@
 # Spec 014 — CLI User Flows
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Primary commands

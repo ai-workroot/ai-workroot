@@ -1364,7 +1364,7 @@ This matrix prevents capability loss during the 0.9.530 reset.
 
 # Spec 001 — Project Structure and Naming
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -1489,7 +1489,7 @@ The repo must not track generated root:
 
 # Spec 002 — Clean Workroot Installation
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -1560,7 +1560,7 @@ An agent-ready Workroot requires authorized Native Agent Entry files.
 
 # Spec 003 — WorkrootEnvironment and Managed State
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -1663,7 +1663,7 @@ Inside the lock, re-read registry before writing to avoid races.
 
 # Spec 004 — bootstrap-dev Dogfood
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -1771,7 +1771,7 @@ process draft -> .ai-workroot-local/
 
 # Spec 005 — Core Model
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -1861,7 +1861,7 @@ Prefer:
 
 # Spec 006 — Asset Model
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -2032,7 +2032,7 @@ ContextPackage, ContextTrace, Candidate, FTS row, logs, and debug output are not
 
 # Spec 007 — Release Control
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -2192,7 +2192,7 @@ Release Control emits `ReleasePropagationEvent` to update:
 
 # Spec 008 — Relationship Network
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -2325,7 +2325,7 @@ If migration risk is too large, compatibility views from old `graph_*` names may
 
 # Spec 009 — Retrieval & Index Control
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -2494,7 +2494,7 @@ Indexes must recognize:
 
 # Spec 010 — Context Control
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -2597,7 +2597,7 @@ Must support:
 
 # Spec 011 — Agent Interface and Native Agent Entry
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -2678,7 +2678,7 @@ An agent-ready Workroot requires Native Entry.
 
 # Spec 012 — System Health, Doctor, Maintenance, Migration
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -2772,7 +2772,7 @@ Before tag:
 
 # Spec 013 — Storage and SQLite Schema
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -2909,7 +2909,7 @@ Doctor must be able to check derived stores for violations.
 
 # Spec 014 — CLI User Flows
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Primary commands
@@ -2991,7 +2991,7 @@ Dogfood only. No commit/tag/push.
 
 # Spec 015 — Installation Scripts
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -3047,7 +3047,7 @@ PowerShell script under `install/windows/install.ps1`.
 
 # Spec 016 — Source Layout Migration
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
@@ -3115,7 +3115,7 @@ CLAUDE.md
 
 # Spec 017 — Release Validation
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Required validation before tag
@@ -3186,7 +3186,7 @@ Codex must produce final report with:
 
 # Spec 018 — Codex Execution Plan
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Branch

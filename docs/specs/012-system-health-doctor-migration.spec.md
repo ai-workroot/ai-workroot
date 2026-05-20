@@ -1,6 +1,6 @@
 # Spec 012 — System Health, Doctor, Maintenance, Migration
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose

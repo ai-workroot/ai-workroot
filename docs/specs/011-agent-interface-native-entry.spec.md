@@ -1,6 +1,6 @@
 # Spec 011 — Agent Interface and Native Agent Entry
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose

@@ -1,6 +1,6 @@
 # Spec 018 — Codex Execution Plan
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Branch

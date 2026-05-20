@@ -1,6 +1,6 @@
 # Spec 004 — bootstrap-dev Dogfood
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose

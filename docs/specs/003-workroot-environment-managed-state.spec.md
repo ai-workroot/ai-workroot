@@ -1,6 +1,6 @@
 # Spec 003 — WorkrootEnvironment and Managed State
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose

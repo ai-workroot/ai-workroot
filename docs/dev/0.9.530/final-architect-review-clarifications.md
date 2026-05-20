@@ -1,8 +1,8 @@
 # Final Architect Review of Codex Implementation Readiness Report
 
-**Project:** AI Workroot 0.9.530 Clean Workroot Domain Reset  
-**Target branch:** `feat/0.9.530-clean-workroot-domain-reset`  
-**Purpose:** Final clarification before implementation begins  
+**Project:** AI Workroot 0.9.530 Clean Workroot Domain Reset
+**Target branch:** `feat/0.9.530-clean-workroot-domain-reset`
+**Purpose:** Final clarification before implementation begins
 **Instruction:** Codex may begin implementation only after applying the clarifications in this document.
 
 ---

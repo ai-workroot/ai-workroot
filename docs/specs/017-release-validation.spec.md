@@ -1,6 +1,6 @@
 # Spec 017 — Release Validation
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Required validation before tag

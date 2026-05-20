@@ -1,6 +1,6 @@
 # Spec 010 — Context Control
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose

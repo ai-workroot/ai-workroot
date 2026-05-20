@@ -1,6 +1,6 @@
 # Spec 008 — Relationship Network
 
-Status: accepted  
+Status: accepted
 Target: 0.9.530
 
 ## Purpose
