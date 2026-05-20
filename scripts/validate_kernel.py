@@ -270,6 +270,7 @@ ALLOWED_PUBLIC_ROOTS = {
     "TRADEMARKS.md",
     "assets",
     "docs",
+    "install",
     "scripts",
     "space",
     "src",

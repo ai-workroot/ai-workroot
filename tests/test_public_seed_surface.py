@@ -53,6 +53,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
             "TRADEMARKS.md",
             "assets",
             "docs",
+            "install",
             "scripts",
             "space",
             "src",
