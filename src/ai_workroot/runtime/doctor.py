@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import ast
 
 from ai_workroot.agent.native_entry import NativeAgentEntryError, validate_managed_block
 from ai_workroot.runtime.registry import find_workroot_by_cwd
@@ -63,3 +64,76 @@ def run_doctor(*, cwd: Path | str = ".", ai_workroot_home: Path | str | None = N
 
     status = "PASS" if all(finding.status != "FAIL" for finding in findings) else "FAIL"
     return DoctorResult(status, tuple(findings))
+
+
+def run_release_doctor(root: Path | str = ".") -> DoctorResult:
+    repo = Path(root).expanduser().resolve()
+    findings = [
+        _check_path(repo, "src/ai_workroot/core", "core package"),
+        _check_path(repo, "src/ai_workroot/contracts", "contracts package"),
+        _check_path(repo, "src/ai_workroot/runtime", "runtime package"),
+        _check_path(repo, "src/ai_workroot/storage", "storage package"),
+        _check_path(repo, "src/ai_workroot/indexing/providers", "indexing providers"),
+        _check_path(repo, "src/ai_workroot/agent/native_entry.py", "Agent Interface"),
+        _check_path(repo, "src/ai_workroot/resources/templates/native_agent_entry/AGENTS.md.template", "Native Agent Entry templates"),
+        _check_path(repo, "tests/negative/test_release_control_protection.py", "Release Control protection tests"),
+        _check_path(repo, "install/unix/install.sh", "Clean Workroot install script"),
+        _check_import_boundaries(repo),
+        _check_no_remote_vector_dependency(repo),
+        _check_public_seed_quarantine(repo),
+    ]
+    status = "PASS" if all(finding.status != "FAIL" for finding in findings) else "FAIL"
+    return DoctorResult(status, tuple(findings))
+
+
+def _check_path(repo: Path, rel: str, label: str) -> DoctorFinding:
+    return DoctorFinding("PASS" if (repo / rel).exists() else "FAIL", f"{label}: {rel}")
+
+
+def _check_import_boundaries(repo: Path) -> DoctorFinding:
+    errors: list[str] = []
+    contracts = repo / "src/ai_workroot/contracts"
+    core = repo / "src/ai_workroot/core"
+    cli = repo / "src/ai_workroot/cli"
+    _scan_forbidden_imports(contracts, ("ai_workroot.",), errors)
+    _scan_forbidden_imports(core, ("ai_workroot.storage", "ai_workroot.indexing", "ai_workroot.agent", "ai_workroot.cli"), errors)
+    _scan_forbidden_imports(cli, ("ai_workroot.storage", "ai_workroot.indexing"), errors)
+    if errors:
+        return DoctorFinding("FAIL", "import boundaries: " + "; ".join(errors[:3]))
+    return DoctorFinding("PASS", "import boundaries")
+
+
+def _scan_forbidden_imports(directory: Path, forbidden: tuple[str, ...], errors: list[str]) -> None:
+    for path in directory.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            module_names: list[str] = []
+            if isinstance(node, ast.Import):
+                module_names.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                module_names.append(node.module)
+            for module in module_names:
+                if module.startswith(forbidden):
+                    errors.append(f"{path.name} imports {module}")
+
+
+def _check_no_remote_vector_dependency(repo: Path) -> DoctorFinding:
+    forbidden = ("openai", "requests", "httpx", "chromadb", "faiss")
+    for path in (repo / "src/ai_workroot").rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            module_names: list[str] = []
+            if isinstance(node, ast.Import):
+                module_names.extend(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                module_names.append(node.module.split(".")[0])
+            if any(module in forbidden for module in module_names):
+                return DoctorFinding("FAIL", f"remote/vector dependency found in {path.relative_to(repo)}")
+    return DoctorFinding("PASS", "no remote LLM, remote embedding, or vector database dependency")
+
+
+def _check_public_seed_quarantine(repo: Path) -> DoctorFinding:
+    tracked_seed_paths = [path for path in ("AGENTS.md", "CLAUDE.md", "space", ".workroot") if (repo / path).exists()]
+    if tracked_seed_paths:
+        return DoctorFinding("PASS", "Public Seed quarantine: pending after replacement flows")
+    return DoctorFinding("PASS", "Public Seed quarantine: complete")

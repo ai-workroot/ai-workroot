@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ai_workroot.runtime.bootstrap import bootstrap_dev
 from ai_workroot.runtime.context import ContextRequest, build_context_package
-from ai_workroot.runtime.doctor import run_doctor
+from ai_workroot.runtime.doctor import run_doctor, run_release_doctor
 from ai_workroot.runtime.init import initialize_workroot
 from ai_workroot.runtime.registry import find_workroot_by_cwd, list_workroots
 
@@ -60,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--debug", action="store_true")
         if command == "doctor":
             command_parser.add_argument("--cwd", default=".")
+            command_parser.add_argument("--release", action="store_true")
         if command == "bootstrap-dev":
             command_parser.add_argument("--dry-run", action="store_true", help="Validate bootstrap-dev inputs without writes.")
             command_parser.add_argument("--cwd", default=".", help="Repository directory to bootstrap.")
@@ -128,8 +129,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "doctor":
-        result = run_doctor(cwd=Path(args.cwd))
-        print(result.render_text(), end="")
+        result = run_release_doctor(Path.cwd()) if args.release else run_doctor(cwd=Path(args.cwd))
+        if args.release:
+            print(result.render_text().replace("AI Workroot doctor:", "AI Workroot release doctor:"), end="")
+        else:
+            print(result.render_text(), end="")
         return 0 if result.status == "PASS" else 1
 
     if args.command == "bootstrap-dev":
