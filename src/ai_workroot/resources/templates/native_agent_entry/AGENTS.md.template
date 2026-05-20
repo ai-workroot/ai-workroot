@@ -1,0 +1,9 @@
+<!-- AI_WORKROOT_BEGIN -->
+# AI Workroot Agent Entry
+
+Run:
+
+```bash
+workroot context --agent codex --cwd .
+```
+<!-- AI_WORKROOT_END -->

@@ -274,6 +274,7 @@ ALLOWED_PUBLIC_ROOTS = {
     "space",
     "src",
     "tests",
+    "workroot.project.json",
 }
 MIND_TYPES = {
     "memory",

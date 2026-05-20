@@ -57,6 +57,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
             "space",
             "src",
             "tests",
+            "workroot.project.json",
         }
         present = {path.name for path in ROOT.iterdir() if path.name != ".git" and not is_git_ignored(ROOT, path)}
         self.assertEqual(present - allowed, set())

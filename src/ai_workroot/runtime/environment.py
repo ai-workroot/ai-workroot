@@ -74,47 +74,55 @@ def register_workroot(home: Path, workroot_id: str, name: str, user_directory: P
     lock_path = home / "registry/.registry.lock"
 
     with file_lock(lock_path):
-        workroots_path = home / "registry/workroots.jsonl"
-        bindings_path = home / "registry/directory-bindings.jsonl"
-        workroots = read_jsonl(workroots_path)
-        bindings = read_jsonl(bindings_path)
+        registration = register_workroot_unlocked(home, workroot_id, name, user_directory)
 
-        if any(record.get("workroot_id") == workroot_id for record in workroots):
-            raise ValueError(f"duplicate workroot_id: {workroot_id}")
-        for record in bindings:
-            if record.get("user_directory") == str(user_directory):
-                raise ValueError(f"user directory already registered: {user_directory}")
+    return registration
 
-        state_directory = home / "workroots" / workroot_id
-        for rel in PER_WORKROOT_DIRS:
-            (state_directory / rel).mkdir(parents=True, exist_ok=True)
 
-        write_json(
-            state_directory / "workroot.json",
-            {
-                "workroot_id": workroot_id,
-                "name": name,
-                "user_directory": str(user_directory),
-                "state_directory": str(state_directory),
-                "version": "0.9.530",
-            },
-        )
-        append_jsonl(
-            workroots_path,
-            {
-                "workroot_id": workroot_id,
-                "name": name,
-                "state_directory": str(state_directory),
-                "version": "0.9.530",
-            },
-        )
-        append_jsonl(
-            bindings_path,
-            {
-                "workroot_id": workroot_id,
-                "user_directory": str(user_directory),
-            },
-        )
+def register_workroot_unlocked(home: Path, workroot_id: str, name: str, user_directory: Path) -> WorkrootRegistration:
+    home = home.expanduser().resolve()
+    user_directory = user_directory.expanduser().resolve()
+    workroots_path = home / "registry/workroots.jsonl"
+    bindings_path = home / "registry/directory-bindings.jsonl"
+    workroots = read_jsonl(workroots_path)
+    bindings = read_jsonl(bindings_path)
+
+    if any(record.get("workroot_id") == workroot_id for record in workroots):
+        raise ValueError(f"duplicate workroot_id: {workroot_id}")
+    for record in bindings:
+        if record.get("user_directory") == str(user_directory):
+            raise ValueError(f"user directory already registered: {user_directory}")
+
+    state_directory = home / "workroots" / workroot_id
+    for rel in PER_WORKROOT_DIRS:
+        (state_directory / rel).mkdir(parents=True, exist_ok=True)
+
+    write_json(
+        state_directory / "workroot.json",
+        {
+            "workroot_id": workroot_id,
+            "name": name,
+            "user_directory": str(user_directory),
+            "state_directory": str(state_directory),
+            "version": "0.9.530",
+        },
+    )
+    append_jsonl(
+        workroots_path,
+        {
+            "workroot_id": workroot_id,
+            "name": name,
+            "state_directory": str(state_directory),
+            "version": "0.9.530",
+        },
+    )
+    append_jsonl(
+        bindings_path,
+        {
+            "workroot_id": workroot_id,
+            "user_directory": str(user_directory),
+        },
+    )
 
     return WorkrootRegistration(
         workroot_id=workroot_id,
