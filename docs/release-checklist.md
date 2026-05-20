@@ -83,7 +83,7 @@ python3 -m py_compile scripts/*.py
 python3 -m unittest discover tests
 python3 scripts/validate_kernel.py
 python3 scripts/validate_kernel.py --release
-python3 scripts/test_new_task.py
+python3 scripts/new_task_smoke.py
 python3 scripts/setup_workroot.py --help
 git diff --check
 ```
@@ -108,6 +108,7 @@ The final status should contain only intentional release changes.
 - Context Package includes mode, confidence, latency, token usage, fallback status, and low-confidence reasons when applicable.
 - Codex, Claude, and default agent token budgets are represented and bounded.
 - `AGENTS.md` and `CLAUDE.md` remain short launcher files and do not embed full Context Packages.
+- Follow-up: split `scripts/workroot_context.py` budget, token, render, and trace logic into smaller modules on a separate refactor branch.
 - Debug trace records resolution, mode, confidence, challengers, selected and dropped candidates, FTS matches, token budget, and timing.
 - P0 retrieval does not require a vector database or remote embedding provider.
 - `bootstrap-dev` creates no commits, tags, releases, or pushes automatically.

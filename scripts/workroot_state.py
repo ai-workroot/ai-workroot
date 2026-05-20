@@ -4,9 +4,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import contextmanager
 import json
+import time
 from pathlib import Path
 import re
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows fallback.
+    fcntl = None  # type: ignore[assignment]
 
 try:
     from workroot_paths import assert_clean_mode_boundary, ensure_workroot_id, validate_user_directory, workroot_state_dir
@@ -135,6 +142,43 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+@contextmanager
+def registry_lock(home: Path, timeout: float = 10.0):
+    lock_path = home / "concurrency/locks/registry.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout
+    if fcntl is None:
+        token_path = lock_path.with_suffix(".token")
+        while True:
+            try:
+                fd = token_path.open("x", encoding="utf-8")
+                break
+            except FileExistsError as exc:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(f"timed out waiting for AI Workroot registry lock: {lock_path}") from exc
+                time.sleep(0.05)
+        try:
+            with fd:
+                fd.write(str(time.time()))
+            yield lock_path
+        finally:
+            token_path.unlink(missing_ok=True)
+        return
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        while True:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError as exc:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(f"timed out waiting for AI Workroot registry lock: {lock_path}") from exc
+                time.sleep(0.05)
+        try:
+            yield lock_path
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
 def append_jsonl_unique(path: Path, key: str, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     records = read_jsonl(path)
@@ -216,6 +260,18 @@ def initialize_workroot_state(
     canonical_user_directory = validate_user_directory(user_directory, home, create=True)
     state_directory = workroot_state_dir(home, workroot_id).resolve()
     assert_clean_mode_boundary(canonical_user_directory, state_directory)
+    with registry_lock(home):
+        return initialize_workroot_state_unlocked(home, workroot_id, name, canonical_user_directory, state_directory, now)
+
+
+def initialize_workroot_state_unlocked(
+    home: Path,
+    workroot_id: str,
+    name: str,
+    canonical_user_directory: Path,
+    state_directory: Path,
+    now: str,
+) -> InitializedWorkroot:
     initialize_ai_workroot_home(home, now=now)
     existing = read_jsonl(home / "registry/workroots.jsonl")
     if any(record.get("workrootId") == workroot_id for record in existing):

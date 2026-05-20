@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -354,6 +355,53 @@ class WorkrootInitCliTest(unittest.TestCase):
             self.assertIn("<!-- AI_WORKROOT_BEGIN -->", agents.read_text(encoding="utf-8"))
             self.assertIn("workroot context --agent codex --cwd .", agents.read_text(encoding="utf-8"))
             self.assertIn("workroot context --agent claude --cwd .", claude.read_text(encoding="utf-8"))
+
+    def test_init_native_agent_entry_flags_are_mutually_exclusive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            result = self.run_cli(
+                {"AI_WORKROOT_HOME": str(base / "home")},
+                "init",
+                "--name",
+                "Bad Flags",
+                "--directory",
+                str(base / "project"),
+                "--native-agent-entry",
+                "--no-native-agent-entry",
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("not allowed with argument", result.stderr)
+
+    def test_concurrent_init_rejects_duplicate_user_directory_safely(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            env = {"AI_WORKROOT_HOME": str(home)}
+
+            def run_one(index: int) -> subprocess.CompletedProcess[str]:
+                return self.run_cli(
+                    env,
+                    "init",
+                    "--name",
+                    f"Concurrent {index}",
+                    "--directory",
+                    str(user_dir),
+                    "--no-native-agent-entry",
+                )
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                results = list(executor.map(run_one, [1, 2]))
+
+            records = json.loads(self.run_cli(env, "list", "--format", "json").stdout)
+            successes = [result for result in results if result.returncode == 0]
+            failures = [result for result in results if result.returncode != 0]
+
+            self.assertEqual(len(successes), 1, [result.stderr for result in results])
+            self.assertEqual(len(failures), 1, [result.stderr for result in results])
+            self.assertEqual(len(records), 1)
+            self.assertIn("already registered as Workroot", failures[0].stderr)
 
 
 if __name__ == "__main__":

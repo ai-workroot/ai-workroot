@@ -8,15 +8,15 @@ from pathlib import Path
 try:
     from workroot_agent_entry import apply_managed_block, claude_block, codex_block
     from workroot_client import now_utc, slugify
-    from workroot_paths import resolve_ai_workroot_home, workroot_sqlite_path
+    from workroot_paths import assert_clean_mode_boundary, resolve_ai_workroot_home, validate_user_directory, workroot_sqlite_path, workroot_state_dir
     from workroot_sqlite import initialize_workroot_sqlite
-    from workroot_state import InitializedWorkroot, initialize_workroot_state, read_jsonl
+    from workroot_state import InitializedWorkroot, initialize_workroot_state_unlocked, read_jsonl, registry_lock
 except ModuleNotFoundError:  # pragma: no cover - package import path for tests.
     from scripts.workroot_agent_entry import apply_managed_block, claude_block, codex_block
     from scripts.workroot_client import now_utc, slugify
-    from scripts.workroot_paths import resolve_ai_workroot_home, workroot_sqlite_path
+    from scripts.workroot_paths import assert_clean_mode_boundary, resolve_ai_workroot_home, validate_user_directory, workroot_sqlite_path, workroot_state_dir
     from scripts.workroot_sqlite import initialize_workroot_sqlite
-    from scripts.workroot_state import InitializedWorkroot, initialize_workroot_state, read_jsonl
+    from scripts.workroot_state import InitializedWorkroot, initialize_workroot_state_unlocked, read_jsonl, registry_lock
 
 
 BOOTSTRAP_LOCAL_DIR = ".ai-workroot-local"
@@ -78,10 +78,21 @@ def bootstrap_dev(repo: Path, dry_run: bool = False, now: str | None = None) -> 
     timestamp = now or now_utc()
     workroot_id = f"wr_{slugify(repo.name).replace('-', '_')}"
     home = resolve_ai_workroot_home()
-    existing = existing_bootstrap_workroot(home, workroot_id, repo)
-    if existing is not None:
-        ensure_bootstrap_side_effects(repo, existing.state_directory)
-        return f"bootstrap-dev reused {workroot_id}"
-    initialized = initialize_workroot_state(home, workroot_id, "AI Workroot Project", repo, now=timestamp)
-    ensure_bootstrap_side_effects(repo, initialized.state_directory)
+    with registry_lock(home):
+        existing = existing_bootstrap_workroot(home, workroot_id, repo)
+        if existing is not None:
+            ensure_bootstrap_side_effects(repo, existing.state_directory)
+            return f"bootstrap-dev reused {workroot_id}"
+        canonical_repo = validate_user_directory(repo, home, create=True)
+        state_directory = workroot_state_dir(home, workroot_id).resolve()
+        assert_clean_mode_boundary(canonical_repo, state_directory)
+        initialized = initialize_workroot_state_unlocked(
+            home,
+            workroot_id,
+            "AI Workroot Project",
+            canonical_repo,
+            state_directory,
+            now=timestamp,
+        )
+        ensure_bootstrap_side_effects(repo, initialized.state_directory)
     return f"bootstrap-dev initialized {workroot_id}"

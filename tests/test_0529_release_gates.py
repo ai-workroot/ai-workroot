@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -191,6 +192,18 @@ class ReleaseGates0529Test(unittest.TestCase):
                     self.assertNotIn(node.module.split(".")[0], forbidden_import_roots, rel)
                 if isinstance(node, ast.Attribute):
                     self.assertNotIn(node.attr, forbidden_calls, rel)
+
+    def test_test_like_python_files_are_under_tests(self) -> None:
+        pattern = re.compile(r"(^|/)test_.*\.py$|(^|/).*_test\.py$")
+        test_like_paths: list[str] = []
+        for path in ROOT.rglob("*.py"):
+            rel = path.relative_to(ROOT).as_posix()
+            if rel.startswith(".git/") or rel.startswith(".venv/") or "__pycache__/" in rel:
+                continue
+            if pattern.search(rel) and not rel.startswith("tests/"):
+                test_like_paths.append(rel)
+
+        self.assertEqual(test_like_paths, [])
 
 
 if __name__ == "__main__":

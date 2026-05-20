@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -116,6 +117,27 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertNotEqual(second.returncode, 0)
             self.assertIn("already exists for a different directory", second.stderr)
+
+    def test_concurrent_bootstrap_dev_is_idempotent_for_same_repo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            home = Path(tmp) / "home"
+            self.copy_repo(repo)
+            env = {"AI_WORKROOT_HOME": str(home)}
+
+            def run_one(_: int) -> subprocess.CompletedProcess[str]:
+                return self.run_cli(repo, env, "bootstrap-dev")
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                results = list(executor.map(run_one, [1, 2]))
+
+            for result in results:
+                self.assertEqual(result.returncode, 0, result.stderr)
+            records_path = home / "registry/workroots.jsonl"
+            records = [line for line in records_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertEqual(len(records), 1)
+            self.assertTrue(any("bootstrap-dev initialized wr_repo" in result.stdout for result in results))
+            self.assertTrue(any("bootstrap-dev reused wr_repo" in result.stdout for result in results))
 
 
 if __name__ == "__main__":

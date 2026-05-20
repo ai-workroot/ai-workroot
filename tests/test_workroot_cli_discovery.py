@@ -43,6 +43,15 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         self.assertIn("workroot doctor", out)
         self.assertIn("legacy public-seed agent-operation commands:", out)
 
+    def test_default_help_hides_legacy_seed_commands(self) -> None:
+        out = run_cli("--help")
+
+        self.assertIn("init", out)
+        self.assertIn("context", out)
+        self.assertIn("doctor", out)
+        for legacy in ("task", "run", "action", "artifact", "retrieval-card", "checkpoint", "invalidation", "mind", "session", "continue", "batch"):
+            self.assertNotIn(legacy, out)
+
     def test_operation_manifest_marks_legacy_seed_commands(self) -> None:
         manifest = json.loads(run_cli("manifest", "--format", "json"))
 
