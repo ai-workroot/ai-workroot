@@ -21,6 +21,7 @@ READ_ORDER_PATH = Path(".workroot/kernel/boot/read-order.json")
 CONTEXT_BUDGET_PATH = Path(".workroot/kernel/boot/context-budget.json")
 LOADED_CONTEXT_PATH = Path(".workroot/runtime/context/loaded-context.json")
 EXTENSION_REGISTRY = Path(".workroot/extensions/capability_registry.csv")
+HISTORICAL_0529_SPEC_DIR = Path("docs/history/0.9.529/specs")
 
 REQUIRED_CONTRACTS = [
     "kernel",
@@ -855,9 +856,9 @@ def validate_release_surface(root: Path, errors: list[str]) -> None:
 
 def validate_0529_specs(root: Path, errors: list[str]) -> None:
     for name in REQUIRED_0529_SPECS:
-        path = root / "docs/specs" / name
+        path = root / HISTORICAL_0529_SPEC_DIR / name
         if not path.exists():
-            add_error(errors, f"missing 0.9.529 spec: docs/specs/{name}")
+            add_error(errors, f"missing 0.9.529 historical spec: {HISTORICAL_0529_SPEC_DIR.as_posix()}/{name}")
 
 
 def main() -> int:

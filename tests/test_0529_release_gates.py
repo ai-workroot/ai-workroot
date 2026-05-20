@@ -110,7 +110,9 @@ class ReleaseGates0529Test(unittest.TestCase):
         validate_0529_specs(ROOT, errors)
 
         self.assertEqual(errors, [])
-        spec = (ROOT / "docs/specs/015-context-guide-modes-budgets-and-confidence.spec.md").read_text(encoding="utf-8")
+        spec = (ROOT / "docs/history/0.9.529/specs/015-context-guide-modes-budgets-and-confidence.spec.md").read_text(
+            encoding="utf-8"
+        )
         checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
         context_source = (ROOT / "scripts/workroot_context.py").read_text(encoding="utf-8")
 

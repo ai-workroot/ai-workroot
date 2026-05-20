@@ -50,7 +50,7 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("Invalidation", text)
 
     def test_agent_operation_spec_documents_batch_rollback_journal(self) -> None:
-        text = read("docs/specs/2026-05-15-agent-operation-layer.md")
+        text = read("docs/history/0.9.529/specs/2026-05-15-agent-operation-layer.md")
         self.assertIn(".workroot/runtime/transactions/", text)
         self.assertIn("rolled_back", text)
         self.assertIn(".workroot/runtime/index", text)
