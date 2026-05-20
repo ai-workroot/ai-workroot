@@ -1,0 +1,97 @@
+"""Relationship Network traversal provider."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import sqlite3
+
+
+@dataclass(frozen=True)
+class RelationshipSignal:
+    edge_id: str
+    from_node_id: str
+    to_node_id: str
+    relationship_type: str
+    confidence: float
+    reason: str = "relationship-edge"
+
+
+def upsert_relationship_node(conn: sqlite3.Connection, node_id: str, workroot_id: str, node_type: str, title: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO relationship_nodes (node_id, workroot_id, node_type, title)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(node_id) DO UPDATE SET
+          workroot_id=excluded.workroot_id,
+          node_type=excluded.node_type,
+          title=excluded.title
+        """,
+        (node_id, workroot_id, node_type, title),
+    )
+    conn.commit()
+
+
+def upsert_relationship_edge(
+    conn: sqlite3.Connection,
+    *,
+    edge_id: str,
+    workroot_id: str,
+    from_node_id: str,
+    to_node_id: str,
+    relationship_type: str,
+    confidence: float,
+    status: str = "active",
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO relationship_edges (
+          edge_id, workroot_id, from_node_id, to_node_id, relationship_type, confidence, status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(edge_id) DO UPDATE SET
+          workroot_id=excluded.workroot_id,
+          from_node_id=excluded.from_node_id,
+          to_node_id=excluded.to_node_id,
+          relationship_type=excluded.relationship_type,
+          confidence=excluded.confidence,
+          status=excluded.status
+        """,
+        (edge_id, workroot_id, from_node_id, to_node_id, relationship_type, confidence, status),
+    )
+    conn.commit()
+
+
+def relationship_signals_for_sources(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    source_ids: set[str],
+    *,
+    limit: int = 10,
+) -> list[RelationshipSignal]:
+    if not source_ids:
+        return []
+    placeholders = ",".join("?" for _ in source_ids)
+    params = [workroot_id, *sorted(source_ids), *sorted(source_ids), limit]
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        f"""
+        SELECT edge_id, from_node_id, to_node_id, relationship_type, confidence
+        FROM relationship_edges
+        WHERE workroot_id = ?
+          AND COALESCE(status, 'active') = 'active'
+          AND (from_node_id IN ({placeholders}) OR to_node_id IN ({placeholders}))
+        ORDER BY COALESCE(confidence, 0) DESC, edge_id ASC
+        LIMIT ?
+        """,
+        params,
+    ).fetchall()
+    return [
+        RelationshipSignal(
+            edge_id=str(row["edge_id"]),
+            from_node_id=str(row["from_node_id"]),
+            to_node_id=str(row["to_node_id"]),
+            relationship_type=str(row["relationship_type"]),
+            confidence=float(row["confidence"] or 0.0),
+        )
+        for row in rows
+    ]

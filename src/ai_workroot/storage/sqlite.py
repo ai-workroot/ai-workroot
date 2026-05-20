@@ -251,10 +251,19 @@ CREATE TABLE IF NOT EXISTS context_candidates (
   source_id TEXT NOT NULL,
   title TEXT,
   summary TEXT,
-  safety_policy TEXT
+  domains TEXT,
+  importance TEXT,
+  confidence REAL,
+  status TEXT,
+  context_policy TEXT,
+  safety_policy TEXT,
+  token_estimate INTEGER,
+  updated_at TEXT,
+  last_used_at TEXT,
+  use_count INTEGER DEFAULT 0
 );
 
-CREATE VIRTUAL TABLE IF NOT EXISTS context_candidates_fts USING fts5(candidate_id, title, summary);
+CREATE VIRTUAL TABLE IF NOT EXISTS context_candidates_fts USING fts5(candidate_id, title, summary, domains);
 
 CREATE TABLE IF NOT EXISTS global_index_entries (
   entry_id TEXT PRIMARY KEY,
