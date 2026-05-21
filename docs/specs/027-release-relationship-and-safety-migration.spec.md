@@ -202,4 +202,3 @@ T4: Replace graph wording
 ## Open Questions
 
 None.
-

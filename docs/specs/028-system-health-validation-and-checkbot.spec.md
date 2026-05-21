@@ -191,4 +191,3 @@ T4: Add Git surface fixtures
 ## Open Questions
 
 None.
-

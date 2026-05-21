@@ -308,4 +308,3 @@ Implementation may start only after:
 2. detailed design and numbered specs exist;
 3. the migration order is clear;
 4. no blocking ambiguity remains about which old capabilities are preserved, renamed, merged, retired, or deferred.
-
