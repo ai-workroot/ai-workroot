@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.workroot_sqlite import initialize_workroot_sqlite, required_tables, verify_workroot_sqlite
+from ai_workroot.storage.legacy_sqlite import initialize_workroot_sqlite, required_tables, verify_workroot_sqlite
 
 
 class WorkrootSqliteTest(unittest.TestCase):
