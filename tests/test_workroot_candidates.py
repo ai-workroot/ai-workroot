@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.workroot_candidates import (
+from ai_workroot.indexing.legacy_candidates import (
     ContextCandidate,
     mark_candidate_status,
     mark_candidates_used,
