@@ -10,7 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import sqlite3
 
+from ai_workroot.core.release import ReleaseTargetRef
 from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.indexing.providers.release_provider import evaluate_release_targets
 
 
 @dataclass(frozen=True)
@@ -128,6 +130,17 @@ def query_context_recall_hints(
 
 def materialize_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecallHint) -> str:
     candidate_id = f"hint:{hint.hint_id}"
+    evaluation = evaluate_release_targets(
+        conn,
+        hint.workroot_id,
+        (ReleaseTargetRef(target_type=hint.target_type, target_id=hint.target_id, workroot_id=hint.workroot_id),),
+    )
+    title = hint.title
+    summary = hint.summary
+    if evaluation.strictly_protected:
+        placeholder = "[redacted]" if evaluation.level == "redacted" else "[deleted]"
+        title = placeholder
+        summary = placeholder
     upsert_context_candidate(
         conn,
         {
@@ -135,8 +148,8 @@ def materialize_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecal
             "workroot_id": hint.workroot_id,
             "source_type": "context_recall_hint",
             "source_id": hint.hint_id,
-            "title": hint.title,
-            "summary": hint.summary,
+            "title": title,
+            "summary": summary,
             "domains": hint.scope_id,
             "importance": hint.priority or "normal",
             "confidence": 0.9,

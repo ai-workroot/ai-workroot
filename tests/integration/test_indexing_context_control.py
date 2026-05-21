@@ -4,6 +4,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+import json
 
 from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
 from ai_workroot.indexing.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
@@ -11,6 +12,7 @@ from ai_workroot.indexing.providers.relationship_provider import upsert_relation
 from ai_workroot.indexing.providers.sqlite_fts import index_file_chunk
 from ai_workroot.runtime.context import ContextRequest, build_context_package
 from ai_workroot.runtime.init import initialize_workroot
+from ai_workroot.runtime.work import create_checkpoint, create_handoff, create_task
 
 
 def _parse_token_usage(output: str) -> int:
@@ -22,6 +24,194 @@ def _parse_token_usage(output: str) -> int:
 
 
 class IndexingContextControlTest(unittest.TestCase):
+    def test_active_task_checkpoint_and_handoff_are_rendered_as_continuity_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                create_task(
+                    conn,
+                    workroot_id=workroot_id,
+                    task_id="task-active-context",
+                    title="Active Context parity task",
+                    task_kind="architecture",
+                    process_level="L2",
+                )
+                create_checkpoint(
+                    conn,
+                    workroot_id=workroot_id,
+                    checkpoint_id="checkpoint-active-context",
+                    task_id="task-active-context",
+                    current_status="Checkpoint says release filters are green.",
+                )
+                create_handoff(
+                    conn,
+                    workroot_id=workroot_id,
+                    handoff_id="handoff-active-context",
+                    title="Next: verify Context Control parity.",
+                )
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="parity", debug=True),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("## Workroot", package)
+            self.assertIn("Demo", package)
+            self.assertIn("## Current Task", package)
+            self.assertIn("Active Context parity task", package)
+            self.assertIn("architecture", package)
+            self.assertIn("L2", package)
+            self.assertIn("## Continuity", package)
+            self.assertIn("Checkpoint says release filters are green.", package)
+            self.assertIn("Next: verify Context Control parity.", package)
+            self.assertIn("continuitySources:", package)
+            with sqlite3.connect(db_path) as conn:
+                trace_json = conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+            trace = json.loads(trace_json)
+            self.assertEqual(trace["continuity"]["activeTaskId"], "task-active-context")
+            self.assertEqual(trace["continuity"]["checkpointId"], "checkpoint-active-context")
+            self.assertEqual(trace["continuity"]["handoffId"], "handoff-active-context")
+
+    def test_context_modes_use_distinct_local_retrieval_budgets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                for index in range(12):
+                    upsert_context_candidate(
+                        conn,
+                        {
+                            "candidate_id": f"cand-mode-{index:02d}",
+                            "workroot_id": workroot_id,
+                            "source_type": "asset",
+                            "source_id": f"asset-mode-{index:02d}",
+                            "title": f"Mode candidate {index:02d}",
+                            "summary": "Mode parity retrieval budget candidate.",
+                            "importance": "high" if index < 6 else "normal",
+                            "context_policy": "always",
+                        },
+                    )
+                for index in range(6):
+                    upsert_context_recall_hint(
+                        conn,
+                        ContextRecallHint(
+                            hint_id=f"hint-mode-{index:02d}",
+                            workroot_id=workroot_id,
+                            target_type="asset",
+                            target_id=f"asset-hint-{index:02d}",
+                            title=f"Mode hint {index:02d}",
+                            summary="Mode parity recall hint.",
+                            priority="high",
+                            recall_rule="always",
+                        ),
+                    )
+
+            fast = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="", mode="fast", debug=True),
+                ai_workroot_home=home,
+            )
+            standard = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="", mode="standard", debug=True),
+                ai_workroot_home=home,
+            )
+            quality = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="", mode="quality", debug=True),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("modePlan: mode=fast", fast)
+            self.assertIn("modePlan: mode=standard", standard)
+            self.assertIn("modePlan: mode=quality", quality)
+            self.assertIn("quality-budget-expansion", quality)
+            self.assertLessEqual(fast.count("Mode candidate"), standard.count("Mode candidate"))
+            self.assertLessEqual(standard.count("Mode candidate"), quality.count("Mode candidate"))
+            with sqlite3.connect(db_path) as conn:
+                trace_payloads = [
+                    json.loads(row[0])
+                    for row in conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid ASC").fetchall()
+                ]
+            self.assertEqual(trace_payloads[0]["modePlan"]["candidateLimit"], 4)
+            self.assertEqual(trace_payloads[1]["modePlan"]["candidateLimit"], 8)
+            self.assertEqual(trace_payloads[2]["modePlan"]["candidateLimit"], 12)
+            self.assertEqual(trace_payloads[2]["modePlan"]["behavior"], "quality-budget-expansion")
+
+    def test_deep_mode_records_explicit_local_retrieval_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="", mode="deep", debug=True),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("modePlan: mode=deep", package)
+            self.assertIn("deepExplicitlyRequested=true", package)
+            with sqlite3.connect(db_path) as conn:
+                trace = json.loads(conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0])
+            self.assertTrue(trace["modePlan"]["deepExplicitlyRequested"])
+
+    def test_fallback_is_disabled_after_protected_release_drop(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            (user_dir / "redacted-payroll-secret.md").write_text("fallback should not expose this filename\n", encoding="utf-8")
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-protected-only",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-protected-only",
+                        "title": "Redacted payroll secret",
+                        "summary": "Protected candidate should be dropped.",
+                        "importance": "critical",
+                        "context_policy": "always",
+                    },
+                )
+                conn.execute(
+                    """
+                    INSERT INTO release_records (release_id, workroot_id, target_type, target_id, release_level, recall_rule)
+                    VALUES ('rel-protected-only', ?, 'asset', 'asset-protected-only', 'redacted', 'ordinary-context-excluded')
+                    """,
+                    (workroot_id,),
+                )
+                conn.commit()
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="payroll", debug=True),
+                ai_workroot_home=home,
+            )
+
+            self.assertNotIn("redacted-payroll-secret.md", package)
+            self.assertIn("- No context candidates selected.", package)
+            self.assertIn("fallbackUserAssetCandidates: attempted=false reason=disabled_due_to_release_protected_drop", package)
+            with sqlite3.connect(db_path) as conn:
+                trace_json = conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+            trace = json.loads(trace_json)
+            self.assertEqual(
+                trace["fallbackUserAssetCandidates"],
+                {"attempted": False, "reason": "disabled_due_to_release_protected_drop"},
+            )
+
     def test_query_fts_and_relationships_influence_selected_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

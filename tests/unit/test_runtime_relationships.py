@@ -56,6 +56,20 @@ class RuntimeRelationshipsTest(unittest.TestCase):
             conn.execute("SELECT evidence_type, source_ref FROM relationship_evidence WHERE evidence_id = 'evidence-1'").fetchone(),
             ("context_trace", "ctxtrace-1"),
         )
+        invalidations = {
+            row
+            for row in conn.execute(
+                """
+                SELECT index_id, reason
+                FROM index_invalidations
+                WHERE invalidation_id LIKE 'idxinv:wr_demo:relationship:%'
+                """
+            ).fetchall()
+        }
+        self.assertIn(("relationship-network", "relationship-node-changed:task-1"), invalidations)
+        self.assertIn(("relationship-network", "relationship-node-changed:asset-1"), invalidations)
+        self.assertIn(("relationship-network", "relationship-edge-changed:edge-1"), invalidations)
+        self.assertIn(("relationship-network", "relationship-evidence-changed:evidence-1"), invalidations)
 
     def test_create_relationship_edge_rejects_missing_nodes(self) -> None:
         conn = self.open_db()

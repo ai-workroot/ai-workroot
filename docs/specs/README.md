@@ -42,6 +42,9 @@ AI Workroot 0.9.530 is a Clean Workroot architecture reset, not a normal bugfix 
 34. `034-end-to-end-persona-smoke-testing.spec.md`
 35. `035-workroot-environment-config-contract.spec.md`
 36. `036-e2e-sandbox-and-destructive-operation-safety.spec.md`
+37. `037-release-derived-index-safety-hardening.spec.md`
+38. `038-active-context-control-parity-hardening.spec.md`
+39. `039-publication-authoring-index-doctor-hardening.spec.md`
 
 ## Required Companion Docs
 

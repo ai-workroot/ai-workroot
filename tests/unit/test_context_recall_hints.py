@@ -176,6 +176,42 @@ class ContextRecallHintsTest(unittest.TestCase):
         self.assertEqual(materialized, ["hint:hint-next-step"])
         self.assertEqual(candidates[0].title, "Current next step")
 
+    def test_materialize_context_recall_hint_redacts_strict_release_target(self) -> None:
+        conn = self.open_db()
+        hint = ContextRecallHint(
+            hint_id="hint-redacted",
+            workroot_id="wr_demo",
+            target_type="asset",
+            target_id="asset-redacted",
+            title="Sensitive hint title",
+            summary="SECRETHINTMATERIALIZATION must not be copied.",
+            priority="critical",
+            recall_rule="always",
+        )
+        upsert_context_recall_hint(conn, hint)
+        conn.execute(
+            """
+            INSERT INTO release_records (release_id, workroot_id, target_type, target_id, release_level, recall_rule)
+            VALUES ('rel-redacted-hint', 'wr_demo', 'asset', 'asset-redacted', 'redacted', 'ordinary-context-excluded')
+            """
+        )
+        conn.commit()
+
+        materialize_context_recall_hint(conn, hint)
+        row = conn.execute(
+            """
+            SELECT title, summary
+            FROM context_candidates
+            WHERE candidate_id = 'hint:hint-redacted'
+            """
+        ).fetchone()
+        fts_rows = conn.execute(
+            "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH 'SECRETHINTMATERIALIZATION'"
+        ).fetchall()
+
+        self.assertEqual(row, ("[redacted]", "[redacted]"))
+        self.assertEqual(fts_rows, [])
+
 
 if __name__ == "__main__":
     unittest.main()

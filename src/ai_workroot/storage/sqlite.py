@@ -463,6 +463,27 @@ def initialize_workroot_sqlite(path: Path) -> None:
         connection.executescript(SCHEMA)
 
 
+def record_index_invalidation(
+    connection: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    index_id: str,
+    subject_type: str,
+    subject_id: str,
+    reason: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO index_invalidations (invalidation_id, index_id, reason)
+        VALUES (?, ?, ?)
+        ON CONFLICT(invalidation_id) DO UPDATE SET
+          index_id=excluded.index_id,
+          reason=excluded.reason
+        """,
+        (f"idxinv:{workroot_id}:{subject_type}:{subject_id}", index_id, reason),
+    )
+
+
 def _ensure_indexed_file_source_columns(connection: sqlite3.Connection) -> None:
     columns = {row[1] for row in connection.execute("PRAGMA table_info(indexed_files)").fetchall()}
     for name in ("source_type", "source_id"):
@@ -505,3 +526,432 @@ def verify_workroot_sqlite(path: Path) -> list[str]:
     with sqlite3.connect(path) as connection:
         tables = sqlite_table_names(connection)
     return [f"missing SQLite table: {table}" for table in REQUIRED_TABLES if table not in tables]
+
+
+STRICT_RELEASE_PLACEHOLDERS = {"", "[redacted]", "[deleted]", "[safety-sensitive]"}
+
+
+def verify_release_derived_index_safety(path: Path) -> list[str]:
+    """Report derived index rows that still expose strict release targets."""
+
+    if not path.exists():
+        return []
+    findings: list[str] = []
+    with sqlite3.connect(path) as connection:
+        for workroot_id, target_type, target_id, level in _strict_release_targets(connection):
+            findings.extend(
+                _leaky_context_candidates(connection, workroot_id, target_type, target_id, level)
+            )
+            findings.extend(_leaky_indexed_chunks(connection, workroot_id, target_type, target_id, level))
+            findings.extend(_leaky_context_recall_hints(connection, workroot_id, target_type, target_id, level))
+    return findings
+
+
+def verify_workroot_logic_integrity(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    with sqlite3.connect(path) as connection:
+        findings: list[str] = []
+        findings.extend(_orphan_relationship_edge_findings(connection))
+        findings.extend(_orphan_relationship_evidence_findings(connection))
+        findings.extend(_missing_release_target_findings(connection))
+        findings.extend(_missing_context_candidate_source_findings(connection))
+        findings.extend(_missing_context_recall_hint_target_findings(connection))
+        findings.extend(_context_package_without_trace_findings(connection))
+        return findings
+
+
+def _orphan_relationship_edge_findings(connection: sqlite3.Connection) -> list[str]:
+    findings: list[str] = []
+    for edge_id, node_id in _fetchall_safely(
+        connection,
+        """
+        SELECT e.edge_id, e.from_node_id
+        FROM relationship_edges e
+        LEFT JOIN relationship_nodes n
+          ON n.workroot_id = e.workroot_id AND n.node_id = e.from_node_id
+        WHERE n.node_id IS NULL
+        """,
+    ):
+        findings.append(f"relationship edge {edge_id} references missing from_node {node_id}")
+    for edge_id, node_id in _fetchall_safely(
+        connection,
+        """
+        SELECT e.edge_id, e.to_node_id
+        FROM relationship_edges e
+        LEFT JOIN relationship_nodes n
+          ON n.workroot_id = e.workroot_id AND n.node_id = e.to_node_id
+        WHERE n.node_id IS NULL
+        """,
+    ):
+        findings.append(f"relationship edge {edge_id} references missing to_node {node_id}")
+    return findings
+
+
+def _orphan_relationship_evidence_findings(connection: sqlite3.Connection) -> list[str]:
+    return [
+        f"relationship evidence {evidence_id} references missing edge {edge_id}"
+        for evidence_id, edge_id in _fetchall_safely(
+            connection,
+            """
+            SELECT ev.evidence_id, ev.edge_id
+            FROM relationship_evidence ev
+            LEFT JOIN relationship_edges e ON e.edge_id = ev.edge_id
+            WHERE e.edge_id IS NULL
+            """,
+        )
+    ]
+
+
+def _missing_release_target_findings(connection: sqlite3.Connection) -> list[str]:
+    findings: list[str] = []
+    for workroot_id, target_type, target_id in _fetchall_safely(
+        connection,
+        """
+        SELECT workroot_id, target_type, target_id
+        FROM release_records
+        """,
+    ):
+        if _release_target_exists(connection, str(workroot_id), str(target_type), str(target_id)):
+            continue
+        findings.append(f"release target {target_type}:{target_id} is missing")
+    return findings
+
+
+def _missing_context_candidate_source_findings(connection: sqlite3.Connection) -> list[str]:
+    findings: list[str] = []
+    for workroot_id, candidate_id, source_type, source_id in _fetchall_safely(
+        connection,
+        """
+        SELECT workroot_id, candidate_id, source_type, source_id
+        FROM context_candidates
+        """,
+    ):
+        source_type = str(source_type)
+        source_id = str(source_id)
+        if source_type in {"file", "indexed_file", "indexed_chunk", "fts_match"}:
+            continue
+        if _release_target_exists(connection, str(workroot_id), source_type, source_id):
+            continue
+        findings.append(f"context candidate {candidate_id} source {source_type}:{source_id} is missing")
+    return findings
+
+
+def _missing_context_recall_hint_target_findings(connection: sqlite3.Connection) -> list[str]:
+    findings: list[str] = []
+    for workroot_id, hint_id, target_type, target_id in _fetchall_safely(
+        connection,
+        """
+        SELECT workroot_id, hint_id, target_type, target_id
+        FROM context_recall_hints
+        """,
+    ):
+        target_type = str(target_type)
+        target_id = str(target_id)
+        if _release_target_exists(connection, str(workroot_id), target_type, target_id):
+            continue
+        findings.append(f"context recall hint {hint_id} target {target_type}:{target_id} is missing")
+    return findings
+
+
+def _release_target_exists(connection: sqlite3.Connection, workroot_id: str, target_type: str, target_id: str) -> bool:
+    table_by_type = {
+        "asset": ("assets", "asset_id"),
+        "task": ("tasks", "task_id"),
+        "work_action": ("work_actions", "action_id"),
+        "agent_run": ("agent_runs", "run_id"),
+        "checkpoint": ("work_checkpoints", "checkpoint_id"),
+        "handoff": ("handoffs", "handoff_id"),
+        "retrieval_card": ("retrieval_cards", "card_id"),
+        "context_recall_hint": ("context_recall_hints", "hint_id"),
+        "relationship_edge": ("relationship_edges", "edge_id"),
+    }
+    table = table_by_type.get(target_type)
+    if table is None:
+        return True
+    table_name, id_column = table
+    row = _fetch_one_safely(
+        connection,
+        f"""
+        SELECT 1
+        FROM {table_name}
+        WHERE workroot_id = ? AND {id_column} = ?
+        LIMIT 1
+        """,
+        (workroot_id, target_id),
+    )
+    return row is not None
+
+
+def _context_package_without_trace_findings(connection: sqlite3.Connection) -> list[str]:
+    return [
+        f"context package {package_id} has no trace"
+        for (package_id,) in _fetchall_safely(
+            connection,
+            """
+            SELECT p.package_id
+            FROM context_packages p
+            LEFT JOIN context_traces t
+              ON t.workroot_id = p.workroot_id AND t.package_id = p.package_id
+            WHERE t.trace_id IS NULL
+            """,
+        )
+    ]
+
+
+def _strict_release_targets(connection: sqlite3.Connection) -> list[tuple[str, str, str, str]]:
+    targets: dict[tuple[str, str, str], str] = {}
+    for row in _fetchall_safely(
+        connection,
+        """
+        SELECT workroot_id, target_type, target_id, release_level
+        FROM release_records
+        WHERE lower(replace(COALESCE(release_level, ''), '_', '-')) IN ('deleted', 'redacted', 'safety-sensitive', 'sensitive')
+        """,
+    ):
+        workroot_id, target_type, target_id, level = (str(row[0]), str(row[1]), str(row[2]), str(row[3]))
+        targets[(workroot_id, target_type, target_id)] = _normalize_strict_release_level(level)
+    for table, level in (("redactions", "redacted"), ("deletion_records", "deleted")):
+        for row in _fetchall_safely(
+            connection,
+            f"""
+            SELECT workroot_id, target_type, target_id
+            FROM {table}
+            """,
+        ):
+            workroot_id, target_type, target_id = (str(row[0]), str(row[1]), str(row[2]))
+            targets[(workroot_id, target_type, target_id)] = _most_protective_level(
+                targets.get((workroot_id, target_type, target_id), "none"),
+                level,
+            )
+    return [
+        (workroot_id, target_type, target_id, level)
+        for (workroot_id, target_type, target_id), level in sorted(targets.items())
+    ]
+
+
+def _leaky_context_candidates(
+    connection: sqlite3.Connection,
+    workroot_id: str,
+    target_type: str,
+    target_id: str,
+    level: str,
+) -> list[str]:
+    rows = _fetchall_safely(
+        connection,
+        """
+        SELECT candidate_id, title, summary
+        FROM context_candidates
+        WHERE workroot_id = ? AND source_type = ? AND source_id = ?
+        """,
+        (workroot_id, target_type, target_id),
+    )
+    findings = [
+        f"release-derived index safety: context_candidates:{row[0]} exposes {level} target {target_type}:{target_id}"
+        for row in rows
+        if _has_non_placeholder_text(row[1], row[2])
+    ]
+    findings.extend(
+        f"release-derived index safety: context_candidates_fts:{row[0]} exposes {level} target {target_type}:{target_id}"
+        for row in _context_candidate_fts_rows(connection, workroot_id, target_type, target_id)
+        if _has_non_placeholder_text(row[1], row[2])
+    )
+    for row in _fetchall_safely(
+        connection,
+        """
+        SELECT c.candidate_id, c.title, c.summary
+        FROM context_candidates c
+        JOIN context_recall_hints h ON h.hint_id = c.source_id
+        WHERE c.workroot_id = ?
+          AND c.source_type = 'context_recall_hint'
+          AND h.workroot_id = ?
+          AND h.target_type = ?
+          AND h.target_id = ?
+        """,
+        (workroot_id, workroot_id, target_type, target_id),
+    ):
+        if _has_non_placeholder_text(row[1], row[2]):
+            findings.append(
+                f"release-derived index safety: context_candidates:{row[0]} exposes {level} target {target_type}:{target_id}"
+            )
+    return findings
+
+
+def _leaky_indexed_chunks(
+    connection: sqlite3.Connection,
+    workroot_id: str,
+    target_type: str,
+    target_id: str,
+    level: str,
+) -> list[str]:
+    rows = _fetchall_safely(
+        connection,
+        """
+        SELECT c.chunk_id, c.body
+        FROM indexed_chunks c
+        JOIN indexed_files f ON f.file_id = c.file_id
+        WHERE c.workroot_id = ?
+          AND f.workroot_id = ?
+          AND f.source_type = ?
+          AND f.source_id = ?
+        """,
+        (workroot_id, workroot_id, target_type, target_id),
+    )
+    return [
+        f"release-derived index safety: indexed_chunks:{row[0]} exposes {level} target {target_type}:{target_id}"
+        for row in rows
+        if _has_non_placeholder_text(row[1])
+    ] + [
+        f"release-derived index safety: indexed_chunks_fts:{row[0]} exposes {level} target {target_type}:{target_id}"
+        for row in _indexed_chunk_fts_rows(connection, workroot_id, target_type, target_id)
+        if _has_non_placeholder_text(row[1])
+    ]
+
+
+def _leaky_context_recall_hints(
+    connection: sqlite3.Connection,
+    workroot_id: str,
+    target_type: str,
+    target_id: str,
+    level: str,
+) -> list[str]:
+    rows = _fetchall_safely(
+        connection,
+        """
+        SELECT hint_id, title, summary
+        FROM context_recall_hints
+        WHERE workroot_id = ? AND target_type = ? AND target_id = ?
+        """,
+        (workroot_id, target_type, target_id),
+    )
+    return [
+        f"release-derived index safety: context_recall_hints:{row[0]} exposes {level} target {target_type}:{target_id}"
+        for row in rows
+        if _has_non_placeholder_text(row[1], row[2])
+    ] + [
+        f"release-derived index safety: context_recall_hints_fts:{row[0]} exposes {level} target {target_type}:{target_id}"
+        for row in _context_recall_hint_fts_rows(connection, workroot_id, target_type, target_id)
+        if _has_non_placeholder_text(row[1], row[2])
+    ]
+
+
+def _context_candidate_fts_rows(
+    connection: sqlite3.Connection,
+    workroot_id: str,
+    target_type: str,
+    target_id: str,
+) -> list[tuple[object, ...]]:
+    rows = _fetchall_safely(
+        connection,
+        """
+        SELECT f.candidate_id, f.title, f.summary
+        FROM context_candidates_fts f
+        JOIN context_candidates c ON c.candidate_id = f.candidate_id
+        WHERE c.workroot_id = ? AND c.source_type = ? AND c.source_id = ?
+        """,
+        (workroot_id, target_type, target_id),
+    )
+    rows.extend(
+        _fetchall_safely(
+            connection,
+            """
+            SELECT f.candidate_id, f.title, f.summary
+            FROM context_candidates_fts f
+            JOIN context_candidates c ON c.candidate_id = f.candidate_id
+            JOIN context_recall_hints h ON h.hint_id = c.source_id
+            WHERE c.workroot_id = ?
+              AND c.source_type = 'context_recall_hint'
+              AND h.workroot_id = ?
+              AND h.target_type = ?
+              AND h.target_id = ?
+            """,
+            (workroot_id, workroot_id, target_type, target_id),
+        )
+    )
+    return rows
+
+
+def _indexed_chunk_fts_rows(
+    connection: sqlite3.Connection,
+    workroot_id: str,
+    target_type: str,
+    target_id: str,
+) -> list[tuple[object, ...]]:
+    return _fetchall_safely(
+        connection,
+        """
+        SELECT fts.chunk_id, fts.body
+        FROM indexed_chunks_fts fts
+        JOIN indexed_chunks c ON c.chunk_id = fts.chunk_id
+        JOIN indexed_files f ON f.file_id = c.file_id
+        WHERE c.workroot_id = ?
+          AND f.workroot_id = ?
+          AND f.source_type = ?
+          AND f.source_id = ?
+        """,
+        (workroot_id, workroot_id, target_type, target_id),
+    )
+
+
+def _context_recall_hint_fts_rows(
+    connection: sqlite3.Connection,
+    workroot_id: str,
+    target_type: str,
+    target_id: str,
+) -> list[tuple[object, ...]]:
+    return _fetchall_safely(
+        connection,
+        """
+        SELECT f.hint_id, f.title, f.summary
+        FROM context_recall_hints_fts f
+        JOIN context_recall_hints h ON h.hint_id = f.hint_id
+        WHERE h.workroot_id = ? AND h.target_type = ? AND h.target_id = ?
+        """,
+        (workroot_id, target_type, target_id),
+    )
+
+
+def _fetchall_safely(
+    connection: sqlite3.Connection,
+    sql: str,
+    params: tuple[object, ...] = (),
+) -> list[tuple[object, ...]]:
+    try:
+        return connection.execute(sql, params).fetchall()
+    except sqlite3.OperationalError:
+        return []
+
+
+def _fetch_one_safely(
+    connection: sqlite3.Connection,
+    sql: str,
+    params: tuple[object, ...] = (),
+) -> tuple[object, ...] | None:
+    try:
+        return connection.execute(sql, params).fetchone()
+    except sqlite3.OperationalError:
+        return None
+
+
+def _has_non_placeholder_text(*values: object) -> bool:
+    return any(str(value or "").strip() not in STRICT_RELEASE_PLACEHOLDERS for value in values)
+
+
+def _normalize_strict_release_level(level: str) -> str:
+    normalized = (level or "").lower().strip().replace("_", "-")
+    if normalized == "sensitive":
+        return "safety-sensitive"
+    return normalized
+
+
+def _most_protective_level(existing: str, incoming: str) -> str:
+    order = {
+        "deleted": 4,
+        "redacted": 3,
+        "safety-sensitive": 2,
+        "none": 0,
+        "": 0,
+    }
+    existing_level = _normalize_strict_release_level(existing)
+    incoming_level = _normalize_strict_release_level(incoming)
+    return incoming_level if order.get(incoming_level, 0) > order.get(existing_level, 0) else existing_level

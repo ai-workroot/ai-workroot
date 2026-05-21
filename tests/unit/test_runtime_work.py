@@ -46,6 +46,14 @@ class RuntimeWorkTest(unittest.TestCase):
         self.assertEqual(task.task_id, "task-architecture")
         self.assertEqual(task.process_level, "L2")
         self.assertEqual(row, ("task-architecture", "wr_demo", "Architecture reset", "active", "project", "L2"))
+        invalidation = conn.execute(
+            """
+            SELECT index_id, reason
+            FROM index_invalidations
+            WHERE invalidation_id = 'idxinv:wr_demo:task:task-architecture'
+            """
+        ).fetchone()
+        self.assertEqual(invalidation, ("tasks", "task-changed:task-architecture"))
 
     def test_record_run_action_checkpoint_handoff_and_invalidation(self) -> None:
         conn = self.open_db()
@@ -108,6 +116,20 @@ class RuntimeWorkTest(unittest.TestCase):
             conn.execute("SELECT reason FROM invalidation_records WHERE invalidation_id = 'invalidation-1'").fetchone(),
             ("ContextRecallHint active path now exists.",),
         )
+        invalidations = {
+            row
+            for row in conn.execute(
+                """
+                SELECT index_id, reason
+                FROM index_invalidations
+                WHERE invalidation_id LIKE 'idxinv:wr_demo:%'
+                """
+            ).fetchall()
+        }
+        self.assertIn(("agent-runs", "agent-run-changed:run-1"), invalidations)
+        self.assertIn(("work-actions", "work-action-changed:action-1"), invalidations)
+        self.assertIn(("work-checkpoints", "checkpoint-changed:checkpoint-1"), invalidations)
+        self.assertIn(("handoffs", "handoff-changed:handoff-1"), invalidations)
 
     def test_work_runtime_rejects_missing_task_for_task_scoped_records(self) -> None:
         conn = self.open_db()

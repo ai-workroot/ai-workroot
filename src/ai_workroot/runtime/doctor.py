@@ -12,7 +12,11 @@ from ai_workroot.runtime.environment import record_environment_doctor_summary
 from ai_workroot.runtime.release_validation import validate_release_surface
 from ai_workroot.runtime.registry import find_workroot_by_cwd
 from ai_workroot.runtime.paths import resolve_ai_workroot_home
-from ai_workroot.storage.sqlite import verify_workroot_sqlite
+from ai_workroot.storage.sqlite import (
+    verify_release_derived_index_safety,
+    verify_workroot_logic_integrity,
+    verify_workroot_sqlite,
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,16 @@ def run_doctor(*, cwd: Path | str = ".", ai_workroot_home: Path | str | None = N
         findings.append(DoctorFinding("PASS", "SQLite schema is initialized"))
     else:
         findings.extend(DoctorFinding("FAIL", issue) for issue in sqlite_issues)
+    release_index_issues = verify_release_derived_index_safety(sqlite_path)
+    if release_index_issues:
+        findings.extend(DoctorFinding("FAIL", issue) for issue in release_index_issues)
+    elif not sqlite_issues:
+        findings.append(DoctorFinding("PASS", "release-derived index safety"))
+    logic_issues = verify_workroot_logic_integrity(sqlite_path)
+    if logic_issues:
+        findings.extend(DoctorFinding("FAIL", issue) for issue in logic_issues)
+    elif not sqlite_issues:
+        findings.append(DoctorFinding("PASS", "Workroot logic integrity"))
 
     for filename in ("AGENTS.md", "CLAUDE.md"):
         path = user_directory / filename

@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 
 from ai_workroot.core.work import AgentRun, InvalidationRecord, Task, WorkAction, WorkCheckpoint
+from ai_workroot.storage.sqlite import record_index_invalidation
 
 
 def create_task(
@@ -30,6 +31,14 @@ def create_task(
           process_level=excluded.process_level
         """,
         (task_id, workroot_id, title, status, task_kind, process_level),
+    )
+    record_index_invalidation(
+        conn,
+        workroot_id=workroot_id,
+        index_id="tasks",
+        subject_type="task",
+        subject_id=task_id,
+        reason=f"task-changed:{task_id}",
     )
     conn.commit()
     return task
@@ -57,6 +66,14 @@ def record_agent_run(
         """,
         (run_id, task_id, workroot_id, status, validity),
     )
+    record_index_invalidation(
+        conn,
+        workroot_id=workroot_id,
+        index_id="agent-runs",
+        subject_type="agent-run",
+        subject_id=run_id,
+        reason=f"agent-run-changed:{run_id}",
+    )
     conn.commit()
     return AgentRun(run_id=run_id, task_id=task_id, status=status, validity=validity)
 
@@ -83,6 +100,14 @@ def record_work_action(
         """,
         (action_id, task_id, workroot_id, action_type, risk_level),
     )
+    record_index_invalidation(
+        conn,
+        workroot_id=workroot_id,
+        index_id="work-actions",
+        subject_type="work-action",
+        subject_id=action_id,
+        reason=f"work-action-changed:{action_id}",
+    )
     conn.commit()
     return WorkAction(action_id=action_id, task_id=task_id, action_type=action_type, risk_level=risk_level)
 
@@ -107,6 +132,14 @@ def create_checkpoint(
         """,
         (checkpoint_id, task_id, workroot_id, current_status),
     )
+    record_index_invalidation(
+        conn,
+        workroot_id=workroot_id,
+        index_id="work-checkpoints",
+        subject_type="checkpoint",
+        subject_id=checkpoint_id,
+        reason=f"checkpoint-changed:{checkpoint_id}",
+    )
     conn.commit()
     return WorkCheckpoint(checkpoint_id=checkpoint_id, task_id=task_id, current_status=current_status)
 
@@ -121,6 +154,14 @@ def create_handoff(conn: sqlite3.Connection, *, workroot_id: str, handoff_id: st
           title=excluded.title
         """,
         (handoff_id, workroot_id, title),
+    )
+    record_index_invalidation(
+        conn,
+        workroot_id=workroot_id,
+        index_id="handoffs",
+        subject_type="handoff",
+        subject_id=handoff_id,
+        reason=f"handoff-changed:{handoff_id}",
     )
     conn.commit()
     return {"handoff_id": handoff_id, "workroot_id": workroot_id, "title": title}

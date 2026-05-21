@@ -40,6 +40,51 @@ class ContextRequest:
     debug: bool = False
 
 
+@dataclass(frozen=True)
+class ContinuityContext:
+    active_task_id: str = ""
+    active_task_title: str = ""
+    active_task_status: str = ""
+    active_task_kind: str = ""
+    active_task_process_level: str = ""
+    checkpoint_id: str = ""
+    checkpoint_status: str = ""
+    handoff_id: str = ""
+    handoff_title: str = ""
+
+    def has_content(self) -> bool:
+        return bool(self.active_task_id or self.checkpoint_id or self.handoff_id)
+
+    def trace_payload(self) -> dict[str, str]:
+        return {
+            "activeTaskId": self.active_task_id,
+            "checkpointId": self.checkpoint_id,
+            "handoffId": self.handoff_id,
+        }
+
+
+@dataclass(frozen=True)
+class ModePlan:
+    mode: str
+    candidate_limit: int
+    hint_limit: int
+    fts_limit: int
+    relationship_limit: int
+    behavior: str
+    deep_explicitly_requested: bool = False
+
+    def trace_payload(self) -> dict[str, object]:
+        return {
+            "mode": self.mode,
+            "candidateLimit": self.candidate_limit,
+            "hintLimit": self.hint_limit,
+            "ftsLimit": self.fts_limit,
+            "relationshipLimit": self.relationship_limit,
+            "behavior": self.behavior,
+            "deepExplicitlyRequested": self.deep_explicitly_requested,
+        }
+
+
 def build_context_package(
     request: ContextRequest,
     *,
@@ -54,20 +99,39 @@ def build_context_package(
     release_report = ReleaseFilterReport(frozenset(), frozenset(), ())
     fts_release_report = FtsReleaseFilterReport((), (), ())
     relationship_release_report = RelationshipReleaseFilterReport((), (), ())
+    fallback_user_asset_candidates = {"attempted": False, "reason": "not_needed"}
+    continuity = ContinuityContext()
+    mode_plan = _resolve_mode_plan(request.mode)
     fts_error: str | None = None
 
     if db_path.is_file():
         with sqlite3.connect(db_path) as conn:
-            materialize_context_recall_hints(conn, record["workrootId"], query=request.query, limit=50)
-            candidates = query_context_candidates(conn, record["workrootId"], query=request.query, limit=50)
+            continuity = _load_continuity_context(conn, record["workrootId"])
+            materialize_context_recall_hints(
+                conn,
+                record["workrootId"],
+                query=request.query,
+                limit=mode_plan.hint_limit,
+            )
+            candidates = query_context_candidates(
+                conn,
+                record["workrootId"],
+                query=request.query,
+                limit=max(mode_plan.candidate_limit * 3, mode_plan.hint_limit),
+            )
             release_report = load_release_filter_report(conn, record["workrootId"], candidates)
             candidates = _apply_release_filters(candidates, release_report)
-            fts_matches, fts_error = search_fts(conn, record["workrootId"], request.query, limit=5)
+            fts_matches, fts_error = search_fts(conn, record["workrootId"], request.query, limit=mode_plan.fts_limit)
             fts_release_report = filter_fts_matches_for_release(conn, record["workrootId"], fts_matches)
             fts_matches = list(fts_release_report.matches)
-            selected = _select_candidates(candidates, fts_matches)
+            selected = _select_candidates(candidates, fts_matches, limit=mode_plan.candidate_limit)
             source_ids = {candidate.source_id for candidate in selected}
-            relationship_signals = relationship_signals_for_sources(conn, record["workrootId"], source_ids, limit=10)
+            relationship_signals = relationship_signals_for_sources(
+                conn,
+                record["workrootId"],
+                source_ids,
+                limit=mode_plan.relationship_limit,
+            )
             relationship_release_report = filter_relationship_signals_for_release(
                 conn, record["workrootId"], relationship_signals
             )
@@ -75,7 +139,14 @@ def build_context_package(
             selected = _boost_relationship_candidates(selected, relationship_signals)
 
     if not selected:
-        selected = _fallback_user_asset_candidates(Path(record["userDirectory"]))
+        if _protected_drop_occurred(release_report, fts_release_report, relationship_release_report):
+            fallback_user_asset_candidates = {
+                "attempted": False,
+                "reason": "disabled_due_to_release_protected_drop",
+            }
+        else:
+            fallback_user_asset_candidates = {"attempted": True, "reason": "no_selected_candidates"}
+            selected = _fallback_user_asset_candidates(Path(record["userDirectory"]))
 
     rendered = _render_package(
         record=record,
@@ -86,6 +157,9 @@ def build_context_package(
         release_report=release_report,
         fts_release_report=fts_release_report,
         relationship_release_report=relationship_release_report,
+        fallback_user_asset_candidates=fallback_user_asset_candidates,
+        continuity=continuity,
+        mode_plan=mode_plan,
         fts_error=fts_error,
         started=started,
         trim_steps=[],
@@ -100,6 +174,9 @@ def build_context_package(
                 release_report=release_report,
                 fts_release_report=fts_release_report,
                 relationship_release_report=relationship_release_report,
+                fallback_user_asset_candidates=fallback_user_asset_candidates,
+                continuity=continuity,
+                mode_plan=mode_plan,
                 fts_error=fts_error,
                 started=started,
                 trim_steps=trim_steps,
@@ -124,6 +201,9 @@ def build_context_package(
                         release_report=release_report,
                         fts_release_report=fts_release_report,
                         relationship_release_report=relationship_release_report,
+                        fallback_user_asset_candidates=fallback_user_asset_candidates,
+                        continuity=continuity,
+                        mode_plan=mode_plan,
                         trim_steps=trim_steps,
                     )
             return rendered
@@ -136,6 +216,9 @@ def build_context_package(
             release_report=release_report,
             fts_release_report=fts_release_report,
             relationship_release_report=relationship_release_report,
+            fallback_user_asset_candidates=fallback_user_asset_candidates,
+            continuity=continuity,
+            mode_plan=mode_plan,
             fts_error=fts_error,
             started=started,
             trim_steps=trim_steps,
@@ -158,6 +241,9 @@ def build_context_package(
                 release_report=release_report,
                 fts_release_report=fts_release_report,
                 relationship_release_report=relationship_release_report,
+                fallback_user_asset_candidates=fallback_user_asset_candidates,
+                continuity=continuity,
+                mode_plan=mode_plan,
                 trim_steps=trim_steps,
             )
     return rendered
@@ -176,7 +262,38 @@ def estimate_tokens(text: str) -> int:
     return max(estimates)
 
 
-def _select_candidates(candidates: list[CandidateMatch], fts_matches: list[FtsMatch]) -> list[CandidateMatch]:
+def _resolve_mode_plan(mode: str) -> ModePlan:
+    normalized = (mode or "standard").lower().strip()
+    if normalized == "fast":
+        return ModePlan("fast", candidate_limit=4, hint_limit=4, fts_limit=2, relationship_limit=0, behavior="fast-local")
+    if normalized == "quality":
+        return ModePlan(
+            "quality",
+            candidate_limit=12,
+            hint_limit=16,
+            fts_limit=10,
+            relationship_limit=16,
+            behavior="quality-budget-expansion",
+        )
+    if normalized == "deep":
+        return ModePlan(
+            "deep",
+            candidate_limit=16,
+            hint_limit=24,
+            fts_limit=12,
+            relationship_limit=24,
+            behavior="deep-explicit-local",
+            deep_explicitly_requested=True,
+        )
+    return ModePlan("standard", candidate_limit=8, hint_limit=8, fts_limit=5, relationship_limit=10, behavior="standard-local")
+
+
+def _select_candidates(
+    candidates: list[CandidateMatch],
+    fts_matches: list[FtsMatch],
+    *,
+    limit: int,
+) -> list[CandidateMatch]:
     path_terms = {match.relative_path for match in fts_matches}
     selected = list(candidates)
     if path_terms:
@@ -201,7 +318,7 @@ def _select_candidates(candidates: list[CandidateMatch], fts_matches: list[FtsMa
                 boosted.append(candidate)
         selected = boosted
     selected.sort(key=lambda candidate: (-candidate.score, candidate.candidate_id))
-    return selected[:8]
+    return selected[:limit]
 
 
 def _apply_release_filters(candidates: list[CandidateMatch], release_report: ReleaseFilterReport) -> list[CandidateMatch]:
@@ -261,6 +378,14 @@ def _boost_relationship_candidates(
     return boosted
 
 
+def _protected_drop_occurred(
+    release_report: ReleaseFilterReport,
+    fts_release_report: FtsReleaseFilterReport,
+    relationship_release_report: RelationshipReleaseFilterReport,
+) -> bool:
+    return bool(release_report.dropped or fts_release_report.dropped or relationship_release_report.dropped)
+
+
 def _fallback_user_asset_candidates(user_directory: Path) -> list[CandidateMatch]:
     if not user_directory.exists():
         return []
@@ -286,6 +411,66 @@ def _fallback_user_asset_candidates(user_directory: Path) -> list[CandidateMatch
     return candidates[:10]
 
 
+def _load_continuity_context(conn: sqlite3.Connection, workroot_id: str) -> ContinuityContext:
+    task = _fetch_one_safely(
+        conn,
+        """
+        SELECT task_id, title, status, task_kind, process_level
+        FROM tasks
+        WHERE workroot_id = ? AND COALESCE(status, 'active') = 'active'
+        ORDER BY rowid DESC
+        LIMIT 1
+        """,
+        (workroot_id,),
+    )
+    checkpoint = None
+    if task:
+        checkpoint = _fetch_one_safely(
+            conn,
+            """
+            SELECT checkpoint_id, current_status
+            FROM work_checkpoints
+            WHERE workroot_id = ? AND task_id = ?
+            ORDER BY rowid DESC
+            LIMIT 1
+            """,
+            (workroot_id, str(task[0])),
+        )
+    handoff = _fetch_one_safely(
+        conn,
+        """
+        SELECT handoff_id, title
+        FROM handoffs
+        WHERE workroot_id = ?
+        ORDER BY rowid DESC
+        LIMIT 1
+        """,
+        (workroot_id,),
+    )
+    return ContinuityContext(
+        active_task_id=str(task[0] or "") if task else "",
+        active_task_title=str(task[1] or "") if task else "",
+        active_task_status=str(task[2] or "") if task else "",
+        active_task_kind=str(task[3] or "") if task else "",
+        active_task_process_level=str(task[4] or "") if task else "",
+        checkpoint_id=str(checkpoint[0] or "") if checkpoint else "",
+        checkpoint_status=str(checkpoint[1] or "") if checkpoint else "",
+        handoff_id=str(handoff[0] or "") if handoff else "",
+        handoff_title=str(handoff[1] or "") if handoff else "",
+    )
+
+
+def _fetch_one_safely(
+    conn: sqlite3.Connection,
+    sql: str,
+    params: tuple[object, ...],
+) -> tuple[object, ...] | None:
+    try:
+        return conn.execute(sql, params).fetchone()
+    except sqlite3.OperationalError:
+        return None
+
+
 def _render_package(
     *,
     record: dict[str, str],
@@ -296,6 +481,9 @@ def _render_package(
     release_report: ReleaseFilterReport,
     fts_release_report: FtsReleaseFilterReport,
     relationship_release_report: RelationshipReleaseFilterReport,
+    fallback_user_asset_candidates: dict[str, object],
+    continuity: ContinuityContext,
+    mode_plan: ModePlan,
     fts_error: str | None,
     started: float,
     trim_steps: list[str],
@@ -309,6 +497,9 @@ def _render_package(
         release_report=release_report,
         fts_release_report=fts_release_report,
         relationship_release_report=relationship_release_report,
+        fallback_user_asset_candidates=fallback_user_asset_candidates,
+        continuity=continuity,
+        mode_plan=mode_plan,
         trim_steps=trim_steps,
     )
     token_usage = estimate_tokens(body_for_tokens)
@@ -325,6 +516,21 @@ def _render_package(
     ]
     if request.query:
         lines.append(f"Query: {request.query}")
+    lines.extend(["", "## Workroot", f"- {record['name']} ({record['workrootId']})"])
+    if continuity.active_task_id:
+        lines.extend(
+            [
+                "",
+                "## Current Task",
+                f"- {continuity.active_task_title} [{continuity.active_task_status}; {continuity.active_task_kind}; {continuity.active_task_process_level}]",
+            ]
+        )
+    if continuity.checkpoint_id or continuity.handoff_id:
+        lines.extend(["", "## Continuity"])
+        if continuity.checkpoint_id:
+            lines.append(f"- Checkpoint: {continuity.checkpoint_status}")
+        if continuity.handoff_id:
+            lines.append(f"- Handoff: {continuity.handoff_title}")
     lines.extend(["", "## Selected Context"])
     if selected:
         for candidate in selected:
@@ -354,8 +560,21 @@ def _render_package(
                 "scoring: importance + candidate-fts-match + file-fts-match + relationship-edge",
                 f"timing: totalMs={latency_ms}",
                 f"tokenUsage: estimated={token_usage} target={request.target_tokens} hard={request.hard_token_limit}",
+                (
+                    f"modePlan: mode={mode_plan.mode} behavior={mode_plan.behavior} "
+                    f"candidateLimit={mode_plan.candidate_limit} hintLimit={mode_plan.hint_limit} "
+                    f"ftsLimit={mode_plan.fts_limit} relationshipLimit={mode_plan.relationship_limit} "
+                    f"deepExplicitlyRequested={str(mode_plan.deep_explicitly_requested).lower()}"
+                ),
             ]
         )
+        if continuity.has_content():
+            lines.append(
+                "continuitySources: "
+                f"activeTask={continuity.active_task_id or 'none'} "
+                f"checkpoint={continuity.checkpoint_id or 'none'} "
+                f"handoff={continuity.handoff_id or 'none'}"
+            )
         if fts_error:
             lines.append(f"ftsFallback: {fts_error}")
         if trim_steps:
@@ -372,6 +591,11 @@ def _render_package(
             dropped = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.dropped) or "none"
             tombstones = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.tombstones) or "none"
             lines.append(f"relationshipReleaseFilters: dropped={dropped} annotated={tombstones}")
+        lines.append(
+            "fallbackUserAssetCandidates: "
+            f"attempted={str(bool(fallback_user_asset_candidates.get('attempted'))).lower()} "
+            f"reason={fallback_user_asset_candidates.get('reason')}"
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -383,6 +607,9 @@ def _render_compact_debug_package(
     release_report: ReleaseFilterReport,
     fts_release_report: FtsReleaseFilterReport,
     relationship_release_report: RelationshipReleaseFilterReport,
+    fallback_user_asset_candidates: dict[str, object],
+    continuity: ContinuityContext,
+    mode_plan: ModePlan,
     fts_error: str | None,
     started: float,
     trim_steps: list[str],
@@ -401,6 +628,8 @@ def _render_compact_debug_package(
     ]
     if request.query:
         lines.append(f"Query: {request.query}")
+    if continuity.active_task_id:
+        lines.extend(["", "## Current Task", f"- {continuity.active_task_title}"])
     lines.extend(
         [
             "",
@@ -413,6 +642,12 @@ def _render_compact_debug_package(
             "scoring: importance + candidate-fts-match + file-fts-match + relationship-edge",
             f"timing: totalMs={latency_ms}",
             f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
+            (
+                f"modePlan: mode={mode_plan.mode} behavior={mode_plan.behavior} "
+                f"candidateLimit={mode_plan.candidate_limit} hintLimit={mode_plan.hint_limit} "
+                f"ftsLimit={mode_plan.fts_limit} relationshipLimit={mode_plan.relationship_limit} "
+                f"deepExplicitlyRequested={str(mode_plan.deep_explicitly_requested).lower()}"
+            ),
             f"trimSteps: {', '.join(trim_steps)}",
         ]
     )
@@ -430,6 +665,11 @@ def _render_compact_debug_package(
         dropped = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.dropped) or "none"
         tombstones = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.tombstones) or "none"
         lines.append(f"relationshipReleaseFilters: dropped={dropped} annotated={tombstones}")
+    lines.append(
+        "fallbackUserAssetCandidates: "
+        f"attempted={str(bool(fallback_user_asset_candidates.get('attempted'))).lower()} "
+        f"reason={fallback_user_asset_candidates.get('reason')}"
+    )
     return _finalize_rendered_token_usage("\n".join(lines) + "\n")
 
 
@@ -505,6 +745,9 @@ def _package_body_for_tokens(
     release_report: ReleaseFilterReport,
     fts_release_report: FtsReleaseFilterReport,
     relationship_release_report: RelationshipReleaseFilterReport,
+    fallback_user_asset_candidates: dict[str, object],
+    continuity: ContinuityContext,
+    mode_plan: ModePlan,
     trim_steps: list[str],
 ) -> str:
     parts = [
@@ -513,6 +756,18 @@ def _package_body_for_tokens(
         request.agent,
         request.mode,
         request.query,
+        continuity.active_task_title,
+        continuity.active_task_status,
+        continuity.active_task_kind,
+        continuity.active_task_process_level,
+        continuity.checkpoint_status,
+        continuity.handoff_title,
+        mode_plan.mode,
+        mode_plan.behavior,
+        str(mode_plan.candidate_limit),
+        str(mode_plan.hint_limit),
+        str(mode_plan.fts_limit),
+        str(mode_plan.relationship_limit),
         "\n".join(f"{candidate.title}\n{candidate.summary}\n{','.join(candidate.reasons)}" for candidate in selected),
         "\n".join(f"{match.relative_path}\n{match.body}" for match in fts_matches),
         "\n".join(
@@ -537,6 +792,9 @@ def _persist_context_runtime_state(
     release_report: ReleaseFilterReport,
     fts_release_report: FtsReleaseFilterReport,
     relationship_release_report: RelationshipReleaseFilterReport,
+    fallback_user_asset_candidates: dict[str, object],
+    continuity: ContinuityContext,
+    mode_plan: ModePlan,
     trim_steps: list[str],
 ) -> None:
     package_id = f"ctxpkg_{uuid.uuid4().hex}"
@@ -558,6 +816,9 @@ def _persist_context_runtime_state(
         "releaseDropped": list(release_report.dropped),
         "ftsReleaseDropped": list(fts_release_report.dropped),
         "relationshipReleaseDropped": list(relationship_release_report.dropped),
+        "fallbackUserAssetCandidates": fallback_user_asset_candidates,
+        "continuity": continuity.trace_payload(),
+        "modePlan": mode_plan.trace_payload(),
         "trimSteps": trim_steps,
         "tokenUsage": estimate_tokens(rendered),
     }

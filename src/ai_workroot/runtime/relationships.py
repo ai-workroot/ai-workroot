@@ -7,6 +7,7 @@ import sqlite3
 from ai_workroot.core.common import SourceRef
 from ai_workroot.core.relationships import RelationshipEdge, RelationshipEvidence, RelationshipNode
 from ai_workroot.indexing.providers.relationship_provider import RelationshipSignal, relationship_signals_for_sources
+from ai_workroot.storage.sqlite import record_index_invalidation
 
 
 def create_relationship_node(
@@ -27,6 +28,14 @@ def create_relationship_node(
           title=excluded.title
         """,
         (node_id, workroot_id, node_type, title),
+    )
+    record_index_invalidation(
+        conn,
+        workroot_id=workroot_id,
+        index_id="relationship-network",
+        subject_type="relationship",
+        subject_id=f"node:{node_id}",
+        reason=f"relationship-node-changed:{node_id}",
     )
     conn.commit()
     return RelationshipNode(node_id=node_id, workroot_id=workroot_id, node_type=node_type, title=title)
@@ -72,6 +81,14 @@ def create_relationship_edge(
         """,
         (edge_id, workroot_id, from_node_id, to_node_id, relationship_type, confidence, status),
     )
+    record_index_invalidation(
+        conn,
+        workroot_id=workroot_id,
+        index_id="relationship-network",
+        subject_type="relationship",
+        subject_id=f"edge:{edge_id}",
+        reason=f"relationship-edge-changed:{edge_id}",
+    )
     conn.commit()
     return edge
 
@@ -98,6 +115,20 @@ def attach_relationship_evidence(
         """,
         (evidence_id, edge_id, evidence_type, source_ref),
     )
+    workroot_row = conn.execute(
+        "SELECT workroot_id FROM relationship_edges WHERE edge_id = ? LIMIT 1",
+        (edge_id,),
+    ).fetchone()
+    workroot_id = str(workroot_row[0]) if workroot_row else ""
+    if workroot_id:
+        record_index_invalidation(
+            conn,
+            workroot_id=workroot_id,
+            index_id="relationship-network",
+            subject_type="relationship",
+            subject_id=f"evidence:{evidence_id}",
+            reason=f"relationship-evidence-changed:{evidence_id}",
+        )
     conn.commit()
     return RelationshipEvidence(
         evidence_id=evidence_id,

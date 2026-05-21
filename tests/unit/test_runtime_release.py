@@ -6,6 +6,9 @@ import unittest
 from pathlib import Path
 
 from ai_workroot.core.release import ReleaseTargetRef
+from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.indexing.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
+from ai_workroot.indexing.providers.sqlite_fts import index_file_chunk
 from ai_workroot.runtime.release import (
     create_deletion_record,
     create_redaction,
@@ -101,6 +104,130 @@ class RuntimeReleaseTest(unittest.TestCase):
         self.assertEqual(result.level, "redacted")
         self.assertTrue(result.strictly_protected)
         self.assertIn(target, result.matched_targets)
+
+    def test_create_redaction_sanitizes_candidate_and_hint_derived_indexes(self) -> None:
+        conn = self.open_db()
+        target = ReleaseTargetRef(target_type="asset", target_id="asset-sensitive", workroot_id="wr_demo")
+        upsert_context_candidate(
+            conn,
+            {
+                "candidate_id": "cand-sensitive",
+                "workroot_id": "wr_demo",
+                "source_type": "asset",
+                "source_id": "asset-sensitive",
+                "title": "Sensitive candidate title",
+                "summary": "SECRETCANDIDATESUMMARY must be removed.",
+                "importance": "critical",
+            },
+        )
+        upsert_context_recall_hint(
+            conn,
+            ContextRecallHint(
+                hint_id="hint-sensitive",
+                workroot_id="wr_demo",
+                target_type="asset",
+                target_id="asset-sensitive",
+                title="Sensitive hint title",
+                summary="SECRETHINTSUMMARY must be removed.",
+                priority="critical",
+            ),
+        )
+        upsert_context_candidate(
+            conn,
+            {
+                "candidate_id": "hint:hint-sensitive",
+                "workroot_id": "wr_demo",
+                "source_type": "context_recall_hint",
+                "source_id": "hint-sensitive",
+                "title": "Previously materialized sensitive hint",
+                "summary": "SECRETOLDMATERIALIZEDHINT must be removed.",
+                "importance": "critical",
+            },
+        )
+
+        create_redaction(
+            conn,
+            redaction_id="redact-sensitive",
+            workroot_id="wr_demo",
+            target=target,
+            redacted_fields=("title", "summary"),
+            redaction_reason="sensitive",
+        )
+
+        candidate = conn.execute("SELECT title, summary FROM context_candidates WHERE candidate_id = 'cand-sensitive'").fetchone()
+        candidate_fts = conn.execute(
+            "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH 'SECRETCANDIDATESUMMARY'"
+        ).fetchall()
+        hint = conn.execute("SELECT title, summary FROM context_recall_hints WHERE hint_id = 'hint-sensitive'").fetchone()
+        hint_fts = conn.execute(
+            "SELECT hint_id FROM context_recall_hints_fts WHERE context_recall_hints_fts MATCH 'SECRETHINTSUMMARY'"
+        ).fetchall()
+        materialized_hint = conn.execute(
+            "SELECT title, summary FROM context_candidates WHERE candidate_id = 'hint:hint-sensitive'"
+        ).fetchone()
+        materialized_hint_fts = conn.execute(
+            "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH 'SECRETOLDMATERIALIZEDHINT'"
+        ).fetchall()
+        propagation = conn.execute(
+            "SELECT event_type FROM release_propagation_events WHERE release_id = 'redact-sensitive'"
+        ).fetchone()
+        invalidations = {
+            row[0]
+            for row in conn.execute(
+                "SELECT reason FROM index_invalidations WHERE invalidation_id LIKE 'idxinv:redact-sensitive:%'"
+            ).fetchall()
+        }
+
+        self.assertEqual(candidate, ("[redacted]", "[redacted]"))
+        self.assertEqual(candidate_fts, [])
+        self.assertEqual(hint, ("[redacted]", "[redacted]"))
+        self.assertEqual(hint_fts, [])
+        self.assertEqual(materialized_hint, ("[redacted]", "[redacted]"))
+        self.assertEqual(materialized_hint_fts, [])
+        self.assertEqual(propagation, ("derived-index-sanitized",))
+        self.assertIn("release-redacted:context-candidates", invalidations)
+        self.assertIn("release-redacted:context-recall-hints", invalidations)
+
+    def test_create_deletion_record_removes_indexed_chunk_derived_text(self) -> None:
+        conn = self.open_db()
+        target = ReleaseTargetRef(target_type="asset", target_id="asset-deleted", workroot_id="wr_demo")
+        index_file_chunk(
+            conn,
+            workroot_id="wr_demo",
+            file_id="file-deleted",
+            chunk_id="chunk-deleted",
+            relative_path="deleted.md",
+            body="SECRETCHUNKBODY must be removed.",
+            source_type="asset",
+            source_id="asset-deleted",
+        )
+
+        create_deletion_record(
+            conn,
+            deletion_id="delete-sensitive",
+            workroot_id="wr_demo",
+            target=target,
+            minimum_audit_note="delete sensitive chunk",
+        )
+
+        chunk = conn.execute("SELECT body FROM indexed_chunks WHERE chunk_id = 'chunk-deleted'").fetchone()
+        chunk_fts = conn.execute(
+            "SELECT chunk_id FROM indexed_chunks_fts WHERE indexed_chunks_fts MATCH 'SECRETCHUNKBODY'"
+        ).fetchall()
+        propagation = conn.execute(
+            "SELECT event_type FROM release_propagation_events WHERE release_id = 'delete-sensitive'"
+        ).fetchone()
+        invalidations = {
+            row[0]
+            for row in conn.execute(
+                "SELECT reason FROM index_invalidations WHERE invalidation_id LIKE 'idxinv:delete-sensitive:%'"
+            ).fetchall()
+        }
+
+        self.assertEqual(chunk, ("[deleted]",))
+        self.assertEqual(chunk_fts, [])
+        self.assertEqual(propagation, ("derived-index-sanitized",))
+        self.assertIn("release-deleted:indexed-chunks", invalidations)
 
 
 if __name__ == "__main__":

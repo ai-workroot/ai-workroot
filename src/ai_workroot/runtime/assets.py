@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
+import shutil
 
 from ai_workroot.core.assets import Asset, AssetPublication, AssetSurface
+from ai_workroot.storage.sqlite import record_index_invalidation
 
 
 def create_internal_asset(
@@ -57,8 +60,62 @@ def create_internal_asset(
             asset.updated_at,
         ),
     )
+    record_index_invalidation(
+        conn,
+        workroot_id=workroot_id,
+        index_id="assets",
+        subject_type="asset",
+        subject_id=asset_id,
+        reason=f"asset-changed:{asset_id}",
+    )
     conn.commit()
     return asset
+
+
+def record_asset_publication(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    asset_id: str,
+    surface_id: str,
+    surface_path: str,
+    surface_type: str,
+    target_path: str,
+    published_by: str,
+    allowed_asset_types: tuple[str, ...],
+    git_policy: str = "tracked",
+    publication_status: str = "metadata-only",
+) -> AssetPublication:
+    asset = _load_asset(conn, workroot_id, asset_id)
+    surface = AssetSurface(
+        surface_id=surface_id,
+        workroot_id=workroot_id,
+        path=surface_path,
+        surface_type=surface_type,
+        allowed_asset_types=allowed_asset_types,
+        git_policy=git_policy,
+        created_by=published_by,
+    )
+    if not surface.allows(asset.asset_type):
+        raise ValueError(f"surface {surface.surface_id!r} does not allow asset type {asset.asset_type!r}")
+    asset.publication_status = publication_status
+    asset.surface_id = surface.surface_id
+    asset.current_path = target_path
+    if asset.original_path is None:
+        asset.original_path = target_path
+    publication = AssetPublication(
+        publication_id=f"pub_{asset.asset_id}",
+        asset_id=asset.asset_id,
+        workroot_id=asset.workroot_id,
+        surface_id=surface.surface_id,
+        target_path=target_path,
+        publication_status=publication_status,
+        published_by=published_by,
+        git_policy=surface.git_policy,
+    )
+    _store_publication(conn, workroot_id=workroot_id, asset=asset, surface=surface, publication=publication)
+    conn.commit()
+    return publication
 
 
 def publish_asset(
@@ -74,17 +131,75 @@ def publish_asset(
     allowed_asset_types: tuple[str, ...],
     git_policy: str = "tracked",
 ) -> AssetPublication:
+    return record_asset_publication(
+        conn,
+        workroot_id=workroot_id,
+        asset_id=asset_id,
+        surface_id=surface_id,
+        surface_path=surface_path,
+        surface_type=surface_type,
+        target_path=target_path,
+        published_by=published_by,
+        allowed_asset_types=allowed_asset_types,
+        git_policy=git_policy,
+    )
+
+
+def publish_asset_to_surface(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    asset_id: str,
+    surface_id: str,
+    surface_path: Path | str,
+    surface_type: str,
+    target_path: str,
+    published_by: str,
+    allowed_asset_types: tuple[str, ...],
+    content: str | bytes | None = None,
+    source_file: Path | str | None = None,
+    git_policy: str = "tracked",
+) -> AssetPublication:
+    if content is None and source_file is None:
+        raise ValueError("publish_asset_to_surface requires content or source_file")
+    if content is not None and source_file is not None:
+        raise ValueError("publish_asset_to_surface accepts content or source_file, not both")
+    surface_root = Path(surface_path).expanduser().resolve()
+    destination = _resolve_surface_target(surface_root, target_path)
     asset = _load_asset(conn, workroot_id, asset_id)
     surface = AssetSurface(
         surface_id=surface_id,
         workroot_id=workroot_id,
-        path=surface_path,
+        path=str(surface_root),
         surface_type=surface_type,
         allowed_asset_types=allowed_asset_types,
         git_policy=git_policy,
         created_by=published_by,
     )
     publication = asset.publish(surface, target_path, published_by)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if source_file is not None:
+        source = Path(source_file).expanduser().resolve()
+        if not source.is_file():
+            raise ValueError(f"source file does not exist: {source}")
+        shutil.copyfile(source, destination)
+    elif isinstance(content, bytes):
+        destination.write_bytes(content)
+    else:
+        destination.write_text(str(content), encoding="utf-8")
+    _store_publication(conn, workroot_id=workroot_id, asset=asset, surface=surface, publication=publication)
+    conn.commit()
+    return publication
+
+
+def _store_publication(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    asset: Asset,
+    surface: AssetSurface,
+    publication: AssetPublication,
+) -> None:
     conn.execute(
         """
         INSERT INTO asset_surfaces (surface_id, workroot_id, path, surface_type, git_policy)
@@ -103,7 +218,7 @@ def publish_asset(
         SET publication_status = ?, surface_id = ?, current_path = ?, lifecycle_status = ?, updated_at = COALESCE(updated_at, '')
         WHERE workroot_id = ? AND asset_id = ?
         """,
-        (asset.publication_status, asset.surface_id, asset.current_path, asset.lifecycle_status, workroot_id, asset_id),
+        (asset.publication_status, asset.surface_id, asset.current_path, asset.lifecycle_status, workroot_id, asset.asset_id),
     )
     conn.execute(
         """
@@ -127,8 +242,23 @@ def publish_asset(
             publication.publication_status,
         ),
     )
-    conn.commit()
-    return publication
+    record_index_invalidation(
+        conn,
+        workroot_id=workroot_id,
+        index_id="asset-publications",
+        subject_type="asset-publication",
+        subject_id=asset.asset_id,
+        reason=f"asset-publication-changed:{asset.asset_id}",
+    )
+
+
+def _resolve_surface_target(surface_root: Path, target_path: str) -> Path:
+    if not target_path or Path(target_path).is_absolute():
+        raise ValueError("target_path must be a relative path under the asset surface")
+    destination = (surface_root / target_path).resolve()
+    if destination != surface_root and surface_root not in destination.parents:
+        raise ValueError("target_path escapes the asset surface")
+    return destination
 
 
 def mark_asset_missing(conn: sqlite3.Connection, *, workroot_id: str, asset_id: str, missing_since: str) -> Asset:

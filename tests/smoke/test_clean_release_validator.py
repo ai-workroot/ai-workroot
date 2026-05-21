@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 
@@ -120,6 +121,47 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("release surface", result.stdout)
             self.assertIn("cache/generated.txt", result.stdout)
+
+    def test_export_review_zip_excludes_ignored_local_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            output = Path(tmp) / "review.zip"
+            subprocess.run(["git", "init", str(repo)], check=True, capture_output=True)
+            (repo / "src/ai_workroot/runtime").mkdir(parents=True)
+            (repo / "src/ai_workroot/runtime/context.py").write_text("# tracked\n", encoding="utf-8")
+            (repo / ".gitignore").write_text(".idea/\n.ai-workroot-local/\n/AGENTS.md\n/CLAUDE.md\n", encoding="utf-8")
+            (repo / "scripts/dev").mkdir(parents=True)
+            (repo / "scripts/dev/export-review-zip.sh").write_text(
+                (ROOT / "scripts/dev/export-review-zip.sh").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            (repo / "scripts/dev/export-review-zip.sh").chmod(0o755)
+            (repo / ".ai-workroot-local").mkdir()
+            (repo / ".ai-workroot-local/local.txt").write_text("local\n", encoding="utf-8")
+            (repo / ".idea").mkdir()
+            (repo / ".idea/workspace.xml").write_text("<local />\n", encoding="utf-8")
+            (repo / "AGENTS.md").write_text("local agent entry\n", encoding="utf-8")
+            (repo / "CLAUDE.md").write_text("local claude entry\n", encoding="utf-8")
+            subprocess.run(["git", "add", ".gitignore", "src", "scripts"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "seed"], cwd=repo, check=True, capture_output=True)
+
+            result = subprocess.run(
+                [str(repo / "scripts/dev/export-review-zip.sh"), str(output)],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(output.is_file())
+            with zipfile.ZipFile(output) as archive:
+                names = set(archive.namelist())
+            self.assertIn("src/ai_workroot/runtime/context.py", names)
+            self.assertNotIn(".ai-workroot-local/local.txt", names)
+            self.assertNotIn(".idea/workspace.xml", names)
+            self.assertNotIn("AGENTS.md", names)
+            self.assertNotIn("CLAUDE.md", names)
 
 
 if __name__ == "__main__":
