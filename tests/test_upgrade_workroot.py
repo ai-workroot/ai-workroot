@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.runtime.legacy_seed import upgrade
+
 from tests.fixtures.public_seed import PUBLIC_SEED, copy_repo_with_public_seed
 
 
@@ -15,6 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class UpgradeWorkrootTest(unittest.TestCase):
+    def test_package_upgrade_exports_upgrade_function(self) -> None:
+        self.assertTrue(callable(upgrade.upgrade))
+
     def test_upgrade_preserves_instance_content_and_migrates_legacy_task_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "founder-space"

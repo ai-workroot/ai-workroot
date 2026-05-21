@@ -4,10 +4,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.runtime.legacy_seed import profile
+
 from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
 class UpdateUsageDirectionTest(unittest.TestCase):
+    def test_package_profile_exports_merge_helpers(self) -> None:
+        self.assertTrue(callable(profile.main))
+        self.assertIn("Usage Direction", profile.build_profile("Direction", "Focus", "", "2026-05-21T00:00:00Z"))
+
     def test_updates_only_profile_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"

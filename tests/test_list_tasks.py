@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.runtime.legacy_seed import task_listing
+
 from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
@@ -36,6 +38,9 @@ def task_registry_row(
 
 
 class ListTasksScriptTest(unittest.TestCase):
+    def test_package_task_listing_exports_main(self) -> None:
+        self.assertTrue(callable(task_listing.main))
+
     def test_empty_seed_outputs_no_tasks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"

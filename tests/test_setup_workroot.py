@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.runtime.legacy_seed import setup
+
 from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
@@ -13,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SetupWorkrootTest(unittest.TestCase):
+    def test_package_setup_exports_main(self) -> None:
+        self.assertTrue(callable(setup.main))
+
     def test_guided_setup_writes_identity_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"

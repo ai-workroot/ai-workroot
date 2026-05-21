@@ -6,6 +6,8 @@ import unittest
 import tempfile
 from pathlib import Path
 
+from ai_workroot.runtime.legacy_seed import task_creation
+
 from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
@@ -13,6 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NewTaskScriptTest(unittest.TestCase):
+    def test_package_task_creation_exports_legacy_helpers(self) -> None:
+        self.assertTrue(callable(task_creation.main))
+        self.assertEqual(task_creation.slugify("AI Workroot"), "ai-workroot")
+
     def test_multilingual_task_script(self) -> None:
         result = subprocess.run(
             [sys.executable, "scripts/new_task_smoke.py"],

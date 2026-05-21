@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.runtime.legacy_seed import registry_tools
+
 from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
@@ -13,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AddRegistryRowTest(unittest.TestCase):
+    def test_package_registry_tools_exports_main(self) -> None:
+        self.assertTrue(callable(registry_tools.main))
+
     def test_adds_run_registry_row(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
