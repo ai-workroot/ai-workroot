@@ -27,7 +27,7 @@ Status values:
 | action type values | `core/work.py` | ActionType | preserve | Action type validation exists. |
 | risk labels | `core/common.py` + `core/work.py` | RiskLevel | preserve | Risk metadata remains available for diagnostics. |
 | `checkpoint_registry.csv` | `core/work.py` | WorkCheckpoint | preserve | Checkpoints can be recorded and recalled. |
-| `retrieval_card_registry.csv` | `core/work.py` + `indexing/` | RetrievalCard | preserve | Retrieval cards mapped to retrieval/index records. |
+| `retrieval_card_registry.csv` | `indexing/providers` + `core/retrieval` | Context Card / ContextRecallHint, legacy alias RetrievalCard | rename | ContextRecallHint is the canonical recall anchor; `retrieval_cards` remains for compatibility. |
 | `invalidation_registry.csv` | `core/work.py` / `core/assets.py` | InvalidationRecord | preserve | Invalidation affects relationships/assets/context policy. |
 | `artifact_registry.csv` | `core/assets.py` | Asset | merge | Artifact becomes Asset. |
 | `decision_registry.csv` | `core/assets.py` | Asset(type=decision) | merge | No top-level Decision domain. |

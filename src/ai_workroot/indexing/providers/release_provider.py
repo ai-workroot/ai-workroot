@@ -74,6 +74,8 @@ class CandidateReleaseTargetResolver:
             return ()
         if source_type == "context_candidate":
             return self._resolve_context_candidate(source_id)
+        if source_type == "context_recall_hint":
+            return self._resolve_context_recall_hint(source_id)
         if source_type in CANONICAL_SOURCE_TYPES:
             return (self._target_ref(source_type, source_id),)
         if source_type in {"indexed_chunk", "fts_match"}:
@@ -110,6 +112,26 @@ class CandidateReleaseTargetResolver:
             return ()
         proxy = _SourceProxy(str(row[0] or ""), str(row[1] or ""))
         return self.resolve_candidate(proxy)
+
+    def _resolve_context_recall_hint(self, hint_id: str) -> tuple[ReleaseTargetRef, ...]:
+        refs = [self._target_ref("context_recall_hint", hint_id)]
+        try:
+            row = self.conn.execute(
+                """
+                SELECT target_type, target_id
+                FROM context_recall_hints
+                WHERE workroot_id = ? AND hint_id = ?
+                """,
+                (self.workroot_id, hint_id),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            row = None
+        if row:
+            target_type = str(row[0] or "")
+            target_id = str(row[1] or "")
+            if target_type and target_id:
+                refs.extend(self.resolve_candidate(_SourceProxy(target_type, target_id)))
+        return tuple(_dedupe_refs(ref for ref in refs if ref.target_id))
 
     def _resolve_indexed_chunk(self, chunk_id: str) -> tuple[ReleaseTargetRef, ...]:
         try:

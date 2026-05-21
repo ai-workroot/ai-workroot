@@ -10,6 +10,7 @@ from pathlib import Path
 import uuid
 
 from ai_workroot.indexing.providers.candidate_provider import CandidateMatch, query_context_candidates
+from ai_workroot.indexing.providers.context_recall_hint_provider import materialize_context_recall_hints
 from ai_workroot.indexing.providers.release_provider import (
     FtsReleaseFilterReport,
     RelationshipReleaseFilterReport,
@@ -56,6 +57,7 @@ def build_context_package(
 
     if db_path.is_file():
         with sqlite3.connect(db_path) as conn:
+            materialize_context_recall_hints(conn, record["workrootId"], query=request.query, limit=50)
             candidates = query_context_candidates(conn, record["workrootId"], query=request.query, limit=50)
             release_report = load_release_filter_report(conn, record["workrootId"], candidates)
             candidates = _apply_release_filters(candidates, release_report)
@@ -291,7 +293,7 @@ def _render_package(
     if selected:
         for candidate in selected:
             reason_text = ", ".join(candidate.reasons)
-            lines.append(f"- {candidate.title} [{reason_text}]")
+            lines.append(f"- {candidate.title} [{candidate.source_type}; {reason_text}]")
             if candidate.summary:
                 lines.append(f"  {candidate.summary}")
     else:

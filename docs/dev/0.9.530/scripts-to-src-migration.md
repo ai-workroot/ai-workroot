@@ -39,8 +39,8 @@ The full completion design for the remaining migration is now split into:
 | Script | Current role | Target module or disposition | Status | Risk | Current tests |
 |---|---|---|---|---|---|
 | `scripts/add_registry_row.py` | Historical registry maintenance helper | Legacy Public Seed support or `src/ai_workroot/storage/` maintenance command | Legacy retained | Could mutate old registry layout if used as Clean path | Legacy kernel/release tests |
-| `scripts/list_tasks.py` | Historical task listing helper | Legacy command under future `workroot legacy task list` or retired after Work module migration | Legacy retained | Old task registry semantics may confuse Clean Workroot users | Legacy task tests |
-| `scripts/new_task.py` | Historical task creation helper | Future Work service under `src/ai_workroot/runtime/work.py` | Legacy retained | Creates Public Seed task files, not Clean Workroot state | Legacy public-seed tests |
+| `scripts/list_tasks.py` | Historical task listing helper | Legacy command under future `workroot legacy task list` or retired after Work module migration | Legacy retained; active Work runtime started | Old task registry semantics may confuse Clean Workroot users | Legacy task tests; `tests/unit/test_runtime_work.py` |
+| `scripts/new_task.py` | Historical task creation helper | Minimal Work service now exists under `src/ai_workroot/runtime/work.py`; legacy helper remains compatibility-scoped | Legacy retained; active path started | Creates Public Seed task files, not Clean Workroot state | Legacy public-seed tests; `tests/unit/test_runtime_work.py` |
 | `scripts/new_task_smoke.py` | Historical smoke helper | Move under `tests/fixtures` or retire after test split | Deferred | Test-like helper can be mistaken for active product code | Release surface audit |
 | `scripts/rebuild_sqlite.py` | Legacy public-seed SQLite rebuild tool | Historical compatibility only | Legacy labeled | Must not be documented as Clean Workroot setup | 0.9.529 release gates |
 | `scripts/setup_workroot.py` | Historical setup helper | Superseded by `ai_workroot.runtime.init` for Clean Workroot | Legacy retained | May create old layout if used directly | Legacy tests |
@@ -51,10 +51,10 @@ The full completion design for the remaining migration is now split into:
 | `scripts/workroot_bootstrap.py` | 0.9.529 bootstrap implementation | Superseded by `src/ai_workroot/runtime/bootstrap.py`; keep only for legacy CLI compatibility | Legacy retained | Old Public Seed repo identity checks must not be Clean path | Bootstrap-dev tests use package and wrapper path |
 | `scripts/workroot_candidates.py` | 0.9.529 context candidate provider | Superseded by `src/ai_workroot/indexing/providers/candidate_provider.py` | Partial migration | Old and new candidate semantics can diverge | Context tests |
 | `scripts/workroot_cli.py` | Legacy CLI with hidden Public Seed commands and some clean commands | Clean commands should delegate to `ai_workroot.cli.main`; legacy commands move under future `workroot legacy` | Partial migration | Users may invoke old clean flow directly | CLI and bootstrap compatibility tests |
-| `scripts/workroot_client.py` | Mature Public Seed task/run/action/artifact client | Future Work/Asset/Release services under `src/ai_workroot/runtime/` and `src/ai_workroot/storage/` | Deferred | Highest legacy capability loss risk | Legacy client tests |
-| `scripts/workroot_context.py` | Mature 0.9.529 Context Guide | Partially superseded by `src/ai_workroot/runtime/context.py`; migrate retrieval, trace, persistence incrementally | Partial migration | Context behavior regression risk | Context and indexing tests |
+| `scripts/workroot_client.py` | Mature Public Seed task/run/action/artifact client | Minimal Work/Asset/Release/Relationship services now exist under `src/ai_workroot/runtime/`; legacy client remains compatibility-scoped | Active path started; compatibility retained | Highest legacy capability loss risk until legacy CLI surfaces are fully mapped | Legacy client tests; runtime service tests |
+| `scripts/workroot_context.py` | Mature 0.9.529 Context Guide | Partially superseded by `src/ai_workroot/runtime/context.py`; ContextRecallHint materialization now active | Partial migration | Context behavior regression risk | Context, indexing, ContextRecallHint, release-filter tests |
 | `scripts/workroot_doctor.py` | 0.9.529 doctor | Superseded by `src/ai_workroot/runtime/doctor.py`; keep as legacy compatibility until script CLI migration | Partial migration | Old doctor checks may imply old architecture | Doctor tests |
-| `scripts/workroot_indexing.py` | 0.9.529 FTS/indexing | Partially superseded by `src/ai_workroot/indexing/providers/sqlite_fts.py` | Partial migration | Duplicate FTS schemas must stay explicitly scoped | Indexing tests |
+| `scripts/workroot_indexing.py` | 0.9.529 FTS/indexing | Partially superseded by `src/ai_workroot/indexing/providers/sqlite_fts.py`, `context_recall_hint_provider.py`, and `global_indexes.py` | Partial migration | Duplicate FTS/index schemas must stay explicitly scoped | Indexing, ContextRecallHint, global index tests |
 | `scripts/workroot_migrations.py` | 0.9.529 migrations | Future `src/ai_workroot/storage/migrations.py` | Deferred | Old migration assumptions may not fit Clean schema | Migration tests |
 | `scripts/workroot_operation_manifest.py` | Legacy operation manifest/recipes | Preserve as legacy capability registry input or move to contracts later | Deferred | Operation recipes still reference old script commands | Architecture contract tests |
 | `scripts/workroot_paths.py` | 0.9.529 path/state resolution | Superseded by `src/ai_workroot/runtime/bootstrap.py`, `runtime/environment.py`, and `runtime/registry.py` | Partial migration | Path rules must stay Clean Mode compatible | Init/bootstrap tests |
@@ -78,8 +78,8 @@ The installed `workroot` wrapper points to the same package entry point.
 
 ## Deferred Work
 
-- Move mature Work/Asset/operation logic from `scripts/workroot_client.py` into `src/ai_workroot/`.
+- Continue moving mature Work/Asset/operation logic from `scripts/workroot_client.py` into `src/ai_workroot/`; minimal active runtime services now exist, but legacy CLI parity is not complete.
 - Convert `scripts/workroot_cli.py` clean commands into thin package delegation or isolate legacy commands under `legacy`.
 - Split the old Context Guide into Context Control, Retrieval & Index Control, and trace persistence modules.
-- Add a test-job split for unit, integration, smoke, negative, legacy compatibility, and release validation.
+- Keep unit, integration, smoke, negative, legacy compatibility, and release validation discoverable through the default test command.
 - Add a clean review/export packaging command that excludes ignored local state.

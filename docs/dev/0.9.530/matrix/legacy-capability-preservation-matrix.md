@@ -8,26 +8,26 @@ This matrix prevents capability loss during the 0.9.530 reset.
 | Public Seed root `.workroot/` | Historical runtime contracts/fixtures | docs/history or tests/fixtures | retired/quarantined | Not active root |
 | Root `AGENTS.md` | Native Agent Entry template/local generated entry | agent + templates | renamed | Root file not tracked; template committed |
 | Root `CLAUDE.md` | Native Agent Entry template/local generated entry | agent + templates | renamed | Root file not tracked; template committed |
-| `task_registry.csv` | Task / Task index | core/work + indexing | preserved | Task model and index tests |
+| `task_registry.csv` | Task / Task index | core/work + runtime/work + indexing | preserved; active path started | Task model, runtime, and index tests |
 | old task kind conventions | TaskKind | core/work | preserved | TaskKind values and routing tests |
 | old task process levels | TaskProcessLevel | core/work | preserved | L0/L1/L2 semantics tested |
 | ad hoc task decomposition | TaskDecompositionPolicy | core/work | preserved/renamed | Decomposition decisions tested |
 | owner/user/team hints | OwnerScope | core/work + core/common | preserved/renamed | Personal-first scope tested; team collaboration not introduced |
 | public/private/internal hints | Visibility | core/common + core/assets | preserved/renamed | Visibility affects release/index/context policy |
-| `run_registry.csv` | AgentRun | core/work | preserved | run persistence/index tests |
-| `action_registry.csv` | WorkAction | core/work | preserved | action model test |
+| `run_registry.csv` | AgentRun | core/work + runtime/work | preserved; active path started | run persistence/runtime tests |
+| `action_registry.csv` | WorkAction | core/work + runtime/work | preserved; active path started | action model/runtime tests |
 | action type values | ActionType | core/work | preserved | ActionType validation tests |
 | risk labels | RiskLevel | core/common + core/work | preserved/renamed | Risk metadata preserved for diagnostics |
-| `artifact_registry.csv` | Asset | core/assets | merged | asset model supports result/generated/source |
-| `decision_registry.csv` | Asset(asset_type=decision) | core/assets | merged | no top-level decision domain required |
-| `retrieval_card_registry.csv` | RetrievalCard | core/work + indexing | preserved | retrieval card model/index test |
-| `checkpoint_registry.csv` | WorkCheckpoint | core/work | preserved | checkpoint persistence test |
-| `invalidation_registry.csv` | InvalidationRecord | core/work/assets/release | preserved | invalidation/release test |
-| `mind_registry.csv` | Asset + Release Control | core/assets + core/release | renamed/merged | no Memory/Mind official term |
+| `artifact_registry.csv` | Asset | core/assets + runtime/assets | merged; active path started | asset model/runtime supports result/generated/source |
+| `decision_registry.csv` | Asset(asset_type=decision) | core/assets + runtime/assets | merged; active path started | no top-level decision domain required |
+| `retrieval_card_registry.csv` | Context Card / ContextRecallHint, legacy alias RetrievalCard | indexing/providers + core/retrieval | preserved/renamed | context_recall_hints schema and materialization tests; legacy retrieval_cards table retained |
+| `checkpoint_registry.csv` | WorkCheckpoint | core/work + runtime/work | preserved; active path started | checkpoint persistence/runtime test |
+| `invalidation_registry.csv` | InvalidationRecord | core/work/assets/release + runtime/work | preserved; active path started | invalidation/release runtime test |
+| `mind_registry.csv` | Asset + Release Control | core/assets + runtime/assets + core/release | renamed/merged; active path started | no Memory/Mind official term |
 | old `knowledge` records | Asset(asset_type=knowledge) | core/assets | merged | no canonical knowledge_items table |
-| old `released/tombstone/deleted` | ReleaseRecord / Tombstone / DeletionRecord | core/release | preserved | redaction/deletion protections |
-| `link_registry.csv` | RelationshipEdge | core/relationships | renamed | relationship tests |
-| graph tables/signals | Relationship Network / traversal projection | relationships + indexing | renamed | docs use Relationship Network |
+| old `released/tombstone/deleted` | ReleaseRecord / Tombstone / DeletionRecord | core/release + runtime/release | preserved; active path started | redaction/deletion protections and authoring tests |
+| `link_registry.csv` | RelationshipEdge | core/relationships + runtime/relationships | renamed; active path started | relationship authoring/query tests |
+| graph tables/signals | Relationship Network / traversal projection | relationships + indexing | renamed; active path started | docs use Relationship Network |
 | batch transaction journal | OperationTransaction | core/work/runtime | preserved | rollback/transaction record test |
 | old batch rollback behavior | OperationTransaction rollback | runtime + storage | preserved | Partial failure rollback tests |
 | scripted task recipes | WorkflowRecipe | core/work + runtime | deferred | Recipe boundary documented |
@@ -42,7 +42,7 @@ This matrix prevents capability loss during the 0.9.530 reset.
 | globalization policy | Common/time/localization policy | core/common | preserved/deferred | docs mention policy |
 | extension policy | Extensions | core/extensions | preserved/deferred | capability boundary exists |
 | test policy | System Health / release validation | core/health + docs/specs | preserved | validation docs/tests |
-| global-index | Global indexes | indexing | preserved | global index test |
+| global-index | Global indexes | indexing/global_indexes | preserved; Workroot index active | global Workroot index test |
 | global-cache | Global cache state | storage/indexing | preserved | not knowledge store |
 | `AI_WORKROOT_HOME/config.json` | EnvironmentConfig | core/environment + storage | preserved | Config merge/migration tests |
 | `registry/workroots.jsonl` | WorkrootRegistry / WorkrootRegistration | storage + runtime | preserved | Registry write/read tests |

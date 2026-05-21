@@ -77,6 +77,8 @@ class EnvironmentStorageTest(unittest.TestCase):
                 "relationship_edges",
                 "relationship_evidence",
                 "index_manifests",
+                "context_recall_hints",
+                "context_recall_hints_fts",
                 "context_candidates",
                 "context_packages",
                 "context_traces",
@@ -112,6 +114,7 @@ class EnvironmentStorageTest(unittest.TestCase):
                 "idx_tombstones_workroot_target",
                 "idx_redactions_workroot_target",
                 "idx_deletion_records_workroot_target",
+                "idx_context_recall_hints_workroot_target",
                 "idx_context_candidates_workroot_source",
                 "idx_indexed_files_workroot_source",
                 "idx_relationship_edges_workroot_nodes",
@@ -121,6 +124,30 @@ class EnvironmentStorageTest(unittest.TestCase):
             self.assertIn("source_type", indexed_file_columns)
             self.assertIn("source_id", indexed_file_columns)
             self.assertIn("002-release-target-resolution-indexes", migrations)
+            self.assertIn("003-context-recall-hints", migrations)
+
+    def test_initialize_workroot_sqlite_creates_active_work_runtime_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "workroot.sqlite"
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                task_columns = {row[1] for row in connection.execute("PRAGMA table_info(tasks)").fetchall()}
+                run_columns = {row[1] for row in connection.execute("PRAGMA table_info(agent_runs)").fetchall()}
+                action_columns = {row[1] for row in connection.execute("PRAGMA table_info(work_actions)").fetchall()}
+                asset_columns = {row[1] for row in connection.execute("PRAGMA table_info(assets)").fetchall()}
+                migrations = {
+                    row[0] for row in connection.execute("SELECT migration_id FROM schema_migrations").fetchall()
+                }
+
+            self.assertIn("task_kind", task_columns)
+            self.assertIn("process_level", task_columns)
+            self.assertIn("validity", run_columns)
+            self.assertIn("risk_level", action_columns)
+            self.assertIn("surface_id", asset_columns)
+            self.assertIn("004-active-work-runtime-fields", migrations)
+            self.assertIn("005-active-asset-runtime-fields", migrations)
 
     def test_initialize_workroot_sqlite_migrates_old_indexed_files_without_source_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

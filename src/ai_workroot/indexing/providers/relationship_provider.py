@@ -72,7 +72,6 @@ def relationship_signals_for_sources(
         return []
     placeholders = ",".join("?" for _ in source_ids)
     params = [workroot_id, *sorted(source_ids), *sorted(source_ids), limit]
-    conn.row_factory = sqlite3.Row
     rows = conn.execute(
         f"""
         SELECT edge_id, from_node_id, to_node_id, relationship_type, confidence
@@ -87,11 +86,11 @@ def relationship_signals_for_sources(
     ).fetchall()
     return [
         RelationshipSignal(
-            edge_id=str(row["edge_id"]),
-            from_node_id=str(row["from_node_id"]),
-            to_node_id=str(row["to_node_id"]),
-            relationship_type=str(row["relationship_type"]),
-            confidence=float(row["confidence"] or 0.0),
+            edge_id=str(row[0]),
+            from_node_id=str(row[1]),
+            to_node_id=str(row[2]),
+            relationship_type=str(row[3]),
+            confidence=float(row[4] or 0.0),
         )
         for row in rows
     ]

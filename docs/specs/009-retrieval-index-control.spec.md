@@ -90,6 +90,12 @@ Generic read model row. Specific projections may implement structured entries:
 
 Request/response/plan objects for retrieval.
 
+### ContextRecallHint
+
+`ContextRecallHint` is the active code/schema name for the product-facing Context Card capability. It is a recall anchor that points at a canonical target such as an Asset, Task, WorkAction, AgentRun, Checkpoint, Handoff, RelationshipEdge, or legacy RetrievalCard. It is not a content store, not an Asset by default, and not a ContextCandidate.
+
+The materialized `context_candidates` table remains a read model used for scoring and rendering. Hint-derived candidates use `source_type=context_recall_hint` and `source_id=<hint_id>`.
+
 ## Provider / Contract / Adapter
 
 Contracts define protocols:

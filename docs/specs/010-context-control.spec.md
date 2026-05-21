@@ -16,6 +16,7 @@ Generate agent-ready context through explicit control of recall, safety, relevan
 - Release Control records
 - Relationship Network projections
 - Retrieval results
+- ContextRecallHints / Context Cards
 - Context mode
 - Agent type
 - Query
@@ -36,6 +37,7 @@ Generate agent-ready context through explicit control of recall, safety, relevan
 - request retrieval;
 - read release state;
 - read relationship signals;
+- materialize active ContextRecallHints into candidate read models;
 - filter safety and lifecycle;
 - score candidates;
 - trim by budget;

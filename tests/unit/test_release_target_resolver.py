@@ -60,6 +60,24 @@ class ReleaseTargetResolverTest(unittest.TestCase):
             self.assertIn(ref("asset", "asset-underlying"), refs)
             self.assertNotIn(ref("context_candidate", "cand-underlying"), refs)
 
+    def test_context_recall_hint_resolver_includes_hint_and_target_refs(self) -> None:
+        conn = self.open_db()
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO context_recall_hints (
+                  hint_id, workroot_id, target_type, target_id, title, lifecycle_status
+                )
+                VALUES ('hint-action', 'wr_demo', 'work_action', 'action-1', 'Action hint', 'active')
+                """
+            )
+            resolver = CandidateReleaseTargetResolver(conn, "wr_demo")
+
+            refs = resolver.resolve_candidate(candidate("context_recall_hint", "hint-action"))
+
+            self.assertIn(ref("context_recall_hint", "hint-action"), refs)
+            self.assertIn(ref("work_action", "action-1"), refs)
+
     def test_fts_match_resolver_uses_chunk_and_owning_asset_targets(self) -> None:
         conn = self.open_db()
         with conn:

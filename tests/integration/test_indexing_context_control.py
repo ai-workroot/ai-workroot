@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.indexing.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
 from ai_workroot.indexing.providers.relationship_provider import upsert_relationship_edge, upsert_relationship_node
 from ai_workroot.indexing.providers.sqlite_fts import index_file_chunk
 from ai_workroot.runtime.context import ContextRequest, build_context_package
@@ -205,6 +206,137 @@ class IndexingContextControlTest(unittest.TestCase):
             )
 
             self.assertLessEqual(estimate_tokens(package), 60)
+
+    def test_context_recall_hint_affects_active_context_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_recall_hint(
+                    conn,
+                    ContextRecallHint(
+                        hint_id="hint-context-card",
+                        workroot_id=workroot_id,
+                        target_type="task",
+                        target_id="task-context-card",
+                        title="Context Card parity anchor",
+                        summary="Recall this Context Card when parity is discussed.",
+                        priority="critical",
+                        recall_rule="always",
+                    ),
+                )
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="parity", debug=True),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("Context Card parity anchor", package)
+            self.assertIn("context_recall_hint", package)
+            self.assertIn("candidate-fts-match", package)
+            with sqlite3.connect(db_path) as conn:
+                selection = conn.execute(
+                    """
+                    SELECT candidate_id, reason
+                    FROM candidate_selections
+                    WHERE candidate_id = 'hint:hint-context-card'
+                    """
+                ).fetchone()
+                use_count = conn.execute(
+                    """
+                    SELECT use_count
+                    FROM context_candidates
+                    WHERE candidate_id = 'hint:hint-context-card'
+                    """
+                ).fetchone()[0]
+
+            self.assertEqual(selection, ("hint:hint-context-card", "selected"))
+            self.assertEqual(use_count, 1)
+
+    def test_redacted_context_recall_hint_target_is_excluded_from_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_recall_hint(
+                    conn,
+                    ContextRecallHint(
+                        hint_id="hint-redacted-target",
+                        workroot_id=workroot_id,
+                        target_type="task",
+                        target_id="task-redacted",
+                        title="Redacted target hint",
+                        summary="This should be blocked through its target release state.",
+                        priority="critical",
+                        recall_rule="always",
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO redactions (
+                      redaction_id, workroot_id, target_type, target_id, redacted_fields, redaction_reason
+                    )
+                    VALUES ('redact-task', ?, 'task', 'task-redacted', 'summary', 'test')
+                    """,
+                    (workroot_id,),
+                )
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="target", debug=True),
+                ai_workroot_home=home,
+            )
+
+            self.assertNotIn("Redacted target hint", package)
+            self.assertIn("releaseFilters: dropped=hint:hint-redacted-target:redacted", package)
+
+    def test_tombstone_context_recall_hint_target_is_annotated_not_hard_excluded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_recall_hint(
+                    conn,
+                    ContextRecallHint(
+                        hint_id="hint-tombstone-target",
+                        workroot_id=workroot_id,
+                        target_type="task",
+                        target_id="task-tombstone",
+                        title="Tombstone target hint",
+                        summary="This should stay recallable with tombstone annotation.",
+                        priority="critical",
+                        recall_rule="always",
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO tombstones (
+                      tombstone_id, workroot_id, target_type, target_id, title, symbolic_note
+                    )
+                    VALUES ('tomb-task', ?, 'task', 'task-tombstone', 'Old task', 'kept as tombstone')
+                    """,
+                    (workroot_id,),
+                )
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="tombstone", debug=True),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("Tombstone target hint", package)
+            self.assertIn("annotated-release-state", package)
+            self.assertIn("releaseFilters: dropped=none annotated=hint-tombstone-target", package)
 
 
 if __name__ == "__main__":

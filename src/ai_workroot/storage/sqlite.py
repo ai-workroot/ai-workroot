@@ -26,6 +26,8 @@ REQUIRED_TABLES = (
     "work_actions",
     "work_checkpoints",
     "retrieval_cards",
+    "context_recall_hints",
+    "context_recall_hints_fts",
     "invalidation_records",
     "handoffs",
     "work_events",
@@ -90,6 +92,7 @@ CREATE TABLE IF NOT EXISTS assets (
   title TEXT,
   lifecycle_status TEXT,
   publication_status TEXT,
+  surface_id TEXT,
   current_path TEXT,
   content_hash TEXT,
   updated_at TEXT
@@ -170,21 +173,25 @@ CREATE TABLE IF NOT EXISTS tasks (
   task_id TEXT PRIMARY KEY,
   workroot_id TEXT NOT NULL,
   title TEXT,
-  status TEXT
+  status TEXT,
+  task_kind TEXT,
+  process_level TEXT
 );
 
 CREATE TABLE IF NOT EXISTS agent_runs (
   run_id TEXT PRIMARY KEY,
   task_id TEXT,
   workroot_id TEXT NOT NULL,
-  status TEXT
+  status TEXT,
+  validity TEXT
 );
 
 CREATE TABLE IF NOT EXISTS work_actions (
   action_id TEXT PRIMARY KEY,
   task_id TEXT,
   workroot_id TEXT NOT NULL,
-  action_type TEXT
+  action_type TEXT,
+  risk_level TEXT
 );
 
 CREATE TABLE IF NOT EXISTS work_checkpoints (
@@ -200,6 +207,27 @@ CREATE TABLE IF NOT EXISTS retrieval_cards (
   workroot_id TEXT NOT NULL,
   source_paths TEXT
 );
+
+CREATE TABLE IF NOT EXISTS context_recall_hints (
+  hint_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  scope_type TEXT,
+  scope_id TEXT,
+  kind TEXT,
+  title TEXT,
+  summary TEXT,
+  priority TEXT,
+  recall_rule TEXT,
+  lifecycle_status TEXT,
+  origin TEXT,
+  source_ref TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS context_recall_hints_fts USING fts5(hint_id, title, summary);
 
 CREATE TABLE IF NOT EXISTS invalidation_records (
   invalidation_id TEXT PRIMARY KEY,
@@ -380,6 +408,8 @@ CREATE INDEX IF NOT EXISTS idx_redactions_workroot_target
   ON redactions(workroot_id, target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_deletion_records_workroot_target
   ON deletion_records(workroot_id, target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_context_recall_hints_workroot_target
+  ON context_recall_hints(workroot_id, target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_context_candidates_workroot_source
   ON context_candidates(workroot_id, source_type, source_id);
 CREATE INDEX IF NOT EXISTS idx_indexed_files_workroot_source
@@ -391,6 +421,15 @@ CREATE INDEX IF NOT EXISTS idx_relationship_edges_workroot_nodes
 
 INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
 VALUES ('002-release-target-resolution-indexes', datetime('now'));
+
+INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+VALUES ('003-context-recall-hints', datetime('now'));
+
+INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+VALUES ('004-active-work-runtime-fields', datetime('now'));
+
+INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+VALUES ('005-active-asset-runtime-fields', datetime('now'));
 """
 
 
@@ -400,6 +439,8 @@ def initialize_workroot_sqlite(path: Path) -> None:
         connection.execute("PRAGMA journal_mode=WAL")
         connection.executescript(_schema_without_release_indexes())
         _ensure_indexed_file_source_columns(connection)
+        _ensure_active_work_runtime_columns(connection)
+        _ensure_active_asset_runtime_columns(connection)
         connection.executescript(SCHEMA)
 
 
@@ -408,6 +449,24 @@ def _ensure_indexed_file_source_columns(connection: sqlite3.Connection) -> None:
     for name in ("source_type", "source_id"):
         if name not in columns:
             connection.execute(f"ALTER TABLE indexed_files ADD COLUMN {name} TEXT")
+
+
+def _ensure_active_work_runtime_columns(connection: sqlite3.Connection) -> None:
+    for table, expected in {
+        "tasks": {"task_kind": "TEXT", "process_level": "TEXT"},
+        "agent_runs": {"validity": "TEXT"},
+        "work_actions": {"risk_level": "TEXT"},
+    }.items():
+        columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+        for name, column_type in expected.items():
+            if name not in columns:
+                connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
+
+
+def _ensure_active_asset_runtime_columns(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(assets)").fetchall()}
+    if "surface_id" not in columns:
+        connection.execute("ALTER TABLE assets ADD COLUMN surface_id TEXT")
 
 
 def _schema_without_release_indexes() -> str:
