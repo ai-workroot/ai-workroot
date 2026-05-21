@@ -1,33 +1,20 @@
-"""Core extension and legacy operation manifest boundary model."""
+"""Agent-facing operation manifest for AI Workroot CLI usage.
+
+The manifest is the operation contract agents should read before normal
+Workroot writes. It keeps agents from reverse-engineering workroot_client.py.
+"""
 
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
 
-
-@dataclass(frozen=True)
-class Capability:
-    capability_id: str
-    name: str
-    status: str = "reserved"
-
-
-TASK_STATUSES = {"active", "paused", "blocked", "closed", "released"}
-PROCESS_LEVELS = {"L0", "L1", "L2"}
-OWNER_SCOPES = {"personal", "team", "role", "organization"}
-VISIBILITIES = {"internal", "shared", "public", "private"}
-MIND_TYPES = {
-    "memory",
-    "knowledge",
-    "principle",
-    "decision",
-    "pattern",
-    "reflection",
-    "invalidated",
-    "released",
-    "tombstone",
-}
+from workroot_client import (
+    MIND_TYPES,
+    OWNER_SCOPES,
+    PROCESS_LEVELS,
+    TASK_STATUSES,
+    VISIBILITIES,
+)
 
 
 ACTION_TYPES = [

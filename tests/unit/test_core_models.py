@@ -5,6 +5,7 @@ import unittest
 from ai_workroot.core.assets import Asset, AssetPublication, AssetSurface
 from ai_workroot.core.common import SourceRef
 from ai_workroot.core.context import ContextBudget
+from ai_workroot.core.extensions import manifest, recipe, schema
 from ai_workroot.core.relationships import RelationshipEdge, RelationshipEvidence
 from ai_workroot.core.release import DeletionRecord, Redaction, ReleaseTargetRef, Tombstone
 from ai_workroot.core.retrieval import IndexManifest
@@ -142,6 +143,21 @@ class CoreModelsTest(unittest.TestCase):
         self.assertTrue(budget.requires_trim(121))
         self.assertFalse(budget.requires_trim(120))
         self.assertEqual(budget.final_fallback("x" * 1000), "x" * 120)
+
+    def test_operation_manifest_is_package_owned(self) -> None:
+        payload = manifest()
+
+        self.assertEqual(payload["manifest_id"], "agent-operation-manifest")
+        self.assertIn("task.create", payload["batch_operations"])
+        self.assertIn("legacy public-seed", payload["legacy_mode"]["description"])
+
+    def test_operation_schema_and_recipe_are_package_owned(self) -> None:
+        payload = schema()
+        batch_recipe = recipe("batch-12-tasks")
+
+        self.assertIn("batch_operations", payload)
+        self.assertIn("artifact.add", payload["batch_operations"])
+        self.assertEqual(batch_recipe["format"], "batch-json")
 
 
 if __name__ == "__main__":
