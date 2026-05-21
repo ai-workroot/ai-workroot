@@ -6,6 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.runtime.legacy_seed import client as legacy_client
+from ai_workroot.runtime.legacy_seed.client import REGISTRY_HEADERS, WorkrootClient, file_lock
+
 from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
@@ -13,11 +16,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def create_task(root: str, suffix: int) -> None:
-    import sys
-
-    sys.path.insert(0, str(ROOT / "scripts"))
-    from workroot_client import WorkrootClient
-
     client = WorkrootClient(root)
     client.create_task(
         title=f"Concurrent Task {suffix}",
@@ -35,13 +33,6 @@ class RegistryStoreTest(unittest.TestCase):
         return tmp, work
 
     def test_concurrent_task_creates_do_not_corrupt_registry(self) -> None:
-        sys_path = str(ROOT / "scripts")
-        import sys
-
-        if sys_path not in sys.path:
-            sys.path.insert(0, sys_path)
-        from workroot_client import REGISTRY_HEADERS
-
         tmp, work = self.copy_workroot()
         with tmp:
             processes = [mp.Process(target=create_task, args=(str(work), i)) for i in range(8)]
@@ -61,13 +52,6 @@ class RegistryStoreTest(unittest.TestCase):
             self.assertEqual(created_ids, {f"concurrent-task-{i}" for i in range(8)})
 
     def test_file_lock_records_owner_and_releases(self) -> None:
-        import sys
-
-        sys_path = str(ROOT / "scripts")
-        if sys_path not in sys.path:
-            sys.path.insert(0, sys_path)
-        from workroot_client import file_lock
-
         tmp, work = self.copy_workroot()
         with tmp:
             lock = work / ".workroot/runtime/locks/workroot.lock"
@@ -78,17 +62,9 @@ class RegistryStoreTest(unittest.TestCase):
             self.assertFalse(lock.exists())
 
     def test_batch_mode_uses_one_outer_lock(self) -> None:
-        import sys
-
-        sys_path = str(ROOT / "scripts")
-        if sys_path not in sys.path:
-            sys.path.insert(0, sys_path)
-        import workroot_client
-        from workroot_client import WorkrootClient
-
         tmp, work = self.copy_workroot()
         calls: list[Path] = []
-        original = workroot_client.file_lock
+        original = legacy_client.file_lock
 
         def counting_lock(path: Path, timeout: float = 10.0):
             calls.append(path)
@@ -100,11 +76,11 @@ class RegistryStoreTest(unittest.TestCase):
                 '{"operations":[{"op":"task.create","title":"A","task_id":"a"},{"op":"task.create","title":"B","task_id":"b"}]}',
                 encoding="utf-8",
             )
-            workroot_client.file_lock = counting_lock
+            legacy_client.file_lock = counting_lock
             try:
                 WorkrootClient(work).apply_batch(str(batch))
             finally:
-                workroot_client.file_lock = original
+                legacy_client.file_lock = original
 
         self.assertEqual(len(calls), 1)
 

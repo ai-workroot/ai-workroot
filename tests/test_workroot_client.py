@@ -7,6 +7,12 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import ModuleType
+
+from ai_workroot.runtime.legacy_seed import client as package_client
+from ai_workroot.runtime.legacy_seed.filesystem import copy_tree_or_file, remove_tree_or_file, restore_tree_or_file
+from ai_workroot.runtime.legacy_seed.registries import read_registry, write_registry_atomic
+from ai_workroot.runtime.legacy_seed.time import normalize_instant, now_utc, timestamp_slug
 
 from tests.fixtures.public_seed import copy_repo_with_public_seed
 
@@ -14,7 +20,11 @@ from tests.fixtures.public_seed import copy_repo_with_public_seed
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load_client_module():
+def load_client_module() -> ModuleType:
+    return package_client
+
+
+def load_script_client_module() -> ModuleType:
     spec = importlib.util.spec_from_file_location("workroot_client", ROOT / "scripts/workroot_client.py")
     if spec is None or spec.loader is None:
         raise RuntimeError("cannot load workroot_client.py")
@@ -29,6 +39,24 @@ class WorkrootClientTest(unittest.TestCase):
         work = Path(tmp.name) / "workroot"
         copy_repo_with_public_seed(work)
         return tmp, work
+
+    def test_script_wrapper_exports_legacy_client_public_names(self) -> None:
+        client_mod = load_script_client_module()
+
+        self.assertIs(client_mod.WorkrootClient, package_client.WorkrootClient)
+        self.assertIs(client_mod.file_lock, package_client.file_lock)
+        self.assertIs(client_mod.normalize_instant, package_client.normalize_instant)
+        self.assertEqual(client_mod.slugify("Hello Workroot"), "hello-workroot")
+
+    def test_legacy_seed_helper_modules_export_client_helpers(self) -> None:
+        self.assertIs(normalize_instant, package_client.normalize_instant)
+        self.assertIs(now_utc, package_client.now_utc)
+        self.assertIs(timestamp_slug, package_client.timestamp_slug)
+        self.assertIs(read_registry, package_client.read_registry)
+        self.assertIs(write_registry_atomic, package_client.write_registry_atomic)
+        self.assertIs(copy_tree_or_file, package_client.copy_tree_or_file)
+        self.assertIs(restore_tree_or_file, package_client.restore_tree_or_file)
+        self.assertIs(remove_tree_or_file, package_client.remove_tree_or_file)
 
     def test_create_l0_task_uses_stable_tasks_path(self) -> None:
         tmp, work = self.copy_workroot()
