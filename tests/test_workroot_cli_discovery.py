@@ -6,6 +6,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from ai_workroot.cli import legacy_seed
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts/workroot_cli.py"
@@ -23,6 +25,12 @@ def run_cli(*args: str) -> str:
 
 
 class WorkrootCliDiscoveryTest(unittest.TestCase):
+    def test_package_legacy_cli_exports_parser_and_main(self) -> None:
+        parser = legacy_seed.build_parser()
+
+        self.assertTrue(callable(legacy_seed.main))
+        self.assertIn("quickstart", parser.format_help())
+
     def test_quickstart_mentions_happy_path(self) -> None:
         out = run_cli("quickstart")
         self.assertIn("Clean Mode", out)
