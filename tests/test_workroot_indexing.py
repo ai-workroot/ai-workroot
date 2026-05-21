@@ -11,7 +11,7 @@ from ai_workroot.indexing.legacy_fts import (
     is_binary_file,
     search_fts,
 )
-from scripts.workroot_sqlite import initialize_workroot_sqlite, open_sqlite
+from ai_workroot.storage.legacy_sqlite import initialize_workroot_sqlite, open_sqlite
 
 
 class WorkrootIndexingTest(unittest.TestCase):

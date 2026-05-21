@@ -11,7 +11,7 @@ from pathlib import Path
 
 from ai_workroot.runtime.legacy_doctor import run_doctor
 from ai_workroot.storage.legacy_sqlite import initialize_workroot_sqlite
-from scripts.workroot_state import initialize_workroot_state, write_json
+from ai_workroot.runtime.state import initialize_workroot_state, write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]

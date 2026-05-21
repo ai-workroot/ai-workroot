@@ -11,7 +11,7 @@ from ai_workroot.indexing.legacy_candidates import (
     query_context_candidates,
     upsert_context_candidate,
 )
-from scripts.workroot_sqlite import initialize_workroot_sqlite, open_sqlite
+from ai_workroot.storage.legacy_sqlite import initialize_workroot_sqlite, open_sqlite
 
 
 class WorkrootCandidatesTest(unittest.TestCase):
