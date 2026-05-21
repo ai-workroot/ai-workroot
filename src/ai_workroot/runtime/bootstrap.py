@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-import os
 from pathlib import Path
 import re
 from typing import Any
 
 from ai_workroot.agent.native_entry import sync_native_agent_entry
 from ai_workroot.runtime.environment import WorkrootRegistration, initialize_environment, register_workroot_unlocked
+from ai_workroot.runtime.paths import resolve_ai_workroot_home
 from ai_workroot.storage.jsonl_registry import read_jsonl
 from ai_workroot.storage.locks import file_lock
 from ai_workroot.storage.sqlite import initialize_workroot_sqlite
@@ -30,11 +30,6 @@ class BootstrapResult:
 
     def message(self) -> str:
         return f"bootstrap-dev {self.status} {self.workroot_id}"
-
-
-def resolve_ai_workroot_home(value: str | Path | None = None) -> Path:
-    raw = value or os.environ.get("AI_WORKROOT_HOME") or (Path.home() / ".ai-workroot")
-    return Path(raw).expanduser().resolve()
 
 
 def bootstrap_dev(

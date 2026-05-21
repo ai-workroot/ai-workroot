@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from scripts.workroot_paths import (
+from ai_workroot.runtime.paths import (
     CleanModeBoundaryError,
     assert_clean_mode_boundary,
     resolve_ai_workroot_home,
@@ -23,8 +23,14 @@ class WorkrootPathsTest(unittest.TestCase):
     def test_macos_linux_default(self) -> None:
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch("platform.system", return_value="Darwin"):
-                home = resolve_ai_workroot_home(home=Path("/Users/example"))
+                with mock.patch("pathlib.Path.home", return_value=Path("/Users/example")):
+                    home = resolve_ai_workroot_home()
         self.assertEqual(home, Path("/Users/example/.ai-workroot"))
+
+    def test_explicit_home_argument_wins_when_env_is_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(resolve_ai_workroot_home(Path(tmp)), Path(tmp).resolve())
 
     def test_windows_default(self) -> None:
         with mock.patch.dict(os.environ, {"LOCALAPPDATA": r"C:\Users\Example\AppData\Local"}, clear=True):

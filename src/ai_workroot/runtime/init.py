@@ -8,8 +8,8 @@ import re
 import secrets
 
 from ai_workroot.agent.native_entry import sync_native_agent_entry
-from ai_workroot.runtime.bootstrap import resolve_ai_workroot_home
 from ai_workroot.runtime.environment import WorkrootRegistration, register_workroot
+from ai_workroot.runtime.paths import ensure_workroot_id, resolve_ai_workroot_home, validate_user_directory
 from ai_workroot.storage.jsonl_registry import read_jsonl
 from ai_workroot.storage.sqlite import initialize_workroot_sqlite
 
@@ -34,13 +34,10 @@ def initialize_workroot(
     ai_workroot_home: Path | str | None = None,
 ) -> InitResult:
     home = resolve_ai_workroot_home(ai_workroot_home)
-    user_directory = Path(directory).expanduser().resolve()
-    _validate_user_directory(user_directory, home)
-    user_directory.mkdir(parents=True, exist_ok=True)
-    _probe_directory(user_directory)
+    user_directory = validate_user_directory(Path(directory), home, create=True)
 
     resolved_id = workroot_id or _generate_workroot_id(name)
-    _check_workroot_id(resolved_id)
+    ensure_workroot_id(resolved_id)
 
     warnings = tuple(_nested_workroot_warnings(home, user_directory))
     registration = register_workroot(home, resolved_id, name, user_directory)
@@ -60,29 +57,6 @@ def _generate_workroot_id(name: str) -> str:
 def _slug(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
     return slug or "workroot"
-
-
-def _check_workroot_id(workroot_id: str) -> None:
-    if not re.fullmatch(r"wr_[a-z0-9_]+", workroot_id):
-        raise ValueError(f"invalid Workroot ID: {workroot_id}")
-    if "/" in workroot_id or "\\" in workroot_id or ".." in workroot_id:
-        raise ValueError(f"invalid Workroot ID: {workroot_id}")
-
-
-def _validate_user_directory(user_directory: Path, home: Path) -> None:
-    if user_directory == home or home in user_directory.parents:
-        raise ValueError("user directory must not be AI_WORKROOT_HOME or inside it")
-    if user_directory.exists() and not user_directory.is_dir():
-        raise ValueError(f"user directory is not a directory: {user_directory}")
-
-
-def _probe_directory(user_directory: Path) -> None:
-    probe = user_directory / f".ai-workroot-write-probe-{secrets.token_hex(4)}"
-    try:
-        probe.write_text("probe\n", encoding="utf-8")
-        probe.unlink()
-    except OSError as exc:
-        raise ValueError(f"user directory is not writable: {user_directory}") from exc
 
 
 def _nested_workroot_warnings(home: Path, user_directory: Path) -> list[str]:

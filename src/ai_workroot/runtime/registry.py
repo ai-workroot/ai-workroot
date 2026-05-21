@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ai_workroot.runtime.bootstrap import resolve_ai_workroot_home
+from ai_workroot.runtime.paths import resolve_ai_workroot_home
 from ai_workroot.storage.jsonl_registry import read_jsonl
 
 
