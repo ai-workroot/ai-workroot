@@ -24,7 +24,7 @@ from ai_workroot.runtime.state import initialize_workroot_state, write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "scripts/workroot_cli.py"
+CLI = ROOT / "scripts/compat/workroot_cli.py"
 
 
 class WorkrootContextTest(unittest.TestCase):

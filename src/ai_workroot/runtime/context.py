@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import re
 import sqlite3
 import time
 from pathlib import Path
@@ -188,8 +189,11 @@ def build_context_package(
                 rendered = _minimal_debug_package(record=record, request=request, started=started, trim_steps=trim_steps)
             rendered = _append_trim_marker(rendered, trim_steps)
             rendered, _ = _enforce_hard_token_limit(rendered, request.hard_token_limit)
+            rendered = _refresh_rendered_token_usage(rendered, request.hard_token_limit)
             if "## Debug Trace" not in rendered:
                 rendered = _minimal_debug_package(record=record, request=request, started=started, trim_steps=trim_steps)
+                rendered, _ = _enforce_hard_token_limit(rendered, request.hard_token_limit)
+                rendered = _refresh_rendered_token_usage(rendered, request.hard_token_limit)
             if db_path.is_file():
                 with sqlite3.connect(db_path) as conn:
                     _persist_context_runtime_state(
@@ -230,6 +234,7 @@ def build_context_package(
             trim_steps.extend(step for step in fallback_steps if step not in trim_steps)
             rendered = _append_trim_marker(rendered, trim_steps)
             rendered, _ = _enforce_hard_token_limit(rendered, request.hard_token_limit)
+            rendered = _refresh_rendered_token_usage(rendered, request.hard_token_limit)
     if db_path.is_file():
         with sqlite3.connect(db_path) as conn:
             _persist_context_runtime_state(
@@ -733,6 +738,31 @@ def _append_trim_marker(rendered: str, trim_steps: list[str]) -> str:
     if "trimSteps:" in rendered:
         return rendered
     return rendered.rstrip() + marker
+
+
+def _refresh_rendered_token_usage(rendered: str, hard_token_limit: int) -> str:
+    token_usage = 1
+    refreshed = rendered
+    for _ in range(3):
+        refreshed = re.sub(r"^TokenUsage:\s*\d+/\d+\s*$", f"TokenUsage: {token_usage}/{hard_token_limit}", rendered, flags=re.MULTILINE)
+        refreshed = re.sub(
+            r"^tokenUsage:\s*estimated=\d+\s+target=",
+            f"tokenUsage: estimated={token_usage} target=",
+            refreshed,
+            flags=re.MULTILINE,
+        )
+        next_usage = estimate_tokens(refreshed)
+        if next_usage == token_usage:
+            return refreshed
+        token_usage = next_usage
+    final_usage = estimate_tokens(refreshed)
+    refreshed = re.sub(r"^TokenUsage:\s*\d+/\d+\s*$", f"TokenUsage: {final_usage}/{hard_token_limit}", refreshed, flags=re.MULTILINE)
+    return re.sub(
+        r"^tokenUsage:\s*estimated=\d+\s+target=",
+        f"tokenUsage: estimated={final_usage} target=",
+        refreshed,
+        flags=re.MULTILINE,
+    )
 
 
 def _package_body_for_tokens(

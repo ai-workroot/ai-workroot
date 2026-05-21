@@ -31,6 +31,8 @@ class RelationshipNode:
     workroot_id: str
     node_type: str
     title: str = ""
+    target_type: str = ""
+    target_id: str = ""
 
 
 @dataclass(frozen=True)

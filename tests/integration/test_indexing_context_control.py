@@ -412,10 +412,24 @@ class IndexingContextControlTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(
+                name="E2E Software Engineer",
+                directory=user_dir,
+                native_agent_entry=False,
+                ai_workroot_home=home,
+                workroot_id="wr_e2e_software_engineer_test",
+            )
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
+                create_task(
+                    conn,
+                    workroot_id=workroot_id,
+                    task_id="task-debug-trim",
+                    title="Debug recurring failure: E2E Software Engineer",
+                    task_kind="debugging",
+                    process_level="L2",
+                )
                 upsert_context_candidate(
                     conn,
                     {
@@ -423,9 +437,36 @@ class IndexingContextControlTest(unittest.TestCase):
                         "workroot_id": workroot_id,
                         "source_type": "asset",
                         "source_id": "asset-debug-trim",
-                        "title": "Large context debug trim",
+                        "title": "Large context trim budget: E2E Software Engineer",
                         "summary": "large context trim budget " * 300,
                         "importance": "critical",
+                        "context_policy": "always",
+                    },
+                )
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-debug-trim-tombstone",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-debug-trim-tombstone",
+                        "title": "Protected Outdated conclusion tombstone",
+                        "summary": "large context trim budget " * 120,
+                        "importance": "critical",
+                        "context_policy": "always",
+                    },
+                )
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-debug-trim-redaction",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-debug-trim-redaction",
+                        "title": "Protected redaction detail",
+                        "summary": "large context trim budget " * 120,
+                        "importance": "critical",
+                        "context_policy": "always",
                     },
                 )
 
@@ -449,7 +490,8 @@ class IndexingContextControlTest(unittest.TestCase):
             self.assertIn("tokenUsage:", package)
             self.assertIn("trimSteps:", package)
             reported = _parse_token_usage(package)
-            self.assertGreaterEqual(reported, estimate_tokens(package))
+            self.assertEqual(reported, estimate_tokens(package))
+            self.assertLessEqual(reported, 180)
 
     def test_context_recall_hint_affects_active_context_selection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

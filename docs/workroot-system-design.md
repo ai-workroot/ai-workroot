@@ -104,9 +104,11 @@ Responsibilities:
 Migration status:
 
 - `src/ai_workroot/` is the active package direction for Clean Workroot.
-- `scripts/` still holds preserved Public Seed era capabilities and compatibility command wrappers.
+- `scripts/dev/` holds developer, release, review, and smoke helpers.
+- `scripts/compat/` holds short wrappers for historical script entry points.
+- `scripts/legacy/public_seed/` quarantines preserved Public Seed era entry points.
 - New Clean Workroot behavior should be implemented in the package path first.
-- Legacy script changes should be compatibility-scoped and covered by tests until their behavior is migrated.
+- Legacy script changes should be compatibility-scoped and covered by tests until a separately approved Compatibility Removal phase.
 
 Dependency rules:
 

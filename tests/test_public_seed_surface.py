@@ -11,6 +11,17 @@ from ai_workroot.runtime.release_validation import is_git_ignored
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_SEED = ROOT / "docs/history/public-seed"
 TEXT_SUFFIXES = {".md", ".json", ".csv", ".py", ".yml", ".yaml", ".txt", ".sql"}
+CURRENT_DOC_ROOTS = (
+    ROOT / "README.md",
+    ROOT / "ROADMAP.md",
+    ROOT / "START_HERE_FOR_HUMANS.md",
+    ROOT / "docs",
+)
+HISTORICAL_DOC_PREFIXES = (
+    ROOT / "docs/history",
+    ROOT / "docs/releases",
+    ROOT / "docs/incidents",
+)
 NOVICE_INTERNAL_TERMS = [
     ".workroot",
     "kernel",
@@ -63,7 +74,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
 
     def test_release_validation(self) -> None:
         result = subprocess.run(
-            [sys.executable, "scripts/validate_kernel.py", "--release"],
+            [sys.executable, "scripts/compat/validate_kernel.py", "--release"],
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -87,6 +98,24 @@ class PublicSeedSurfaceTest(unittest.TestCase):
             for pattern in FORBIDDEN_TEXT_PATTERNS:
                 if pattern in text:
                     hits.append(f"{path.relative_to(ROOT).as_posix()}: {pattern}")
+        self.assertEqual(hits, [])
+
+    def test_current_docs_do_not_contain_local_absolute_paths(self) -> None:
+        hits: list[str] = []
+        for path in current_doc_files():
+            text = path.read_text(encoding="utf-8")
+            if "/Users/" in text:
+                hits.append(path.relative_to(ROOT).as_posix())
+
+        self.assertEqual(hits, [])
+
+    def test_current_docs_do_not_present_old_script_paths_as_active_workflow(self) -> None:
+        hits: list[str] = []
+        for path in current_doc_files():
+            text = path.read_text(encoding="utf-8")
+            if "scripts/workroot_" in text or "python3 scripts/workroot_" in text or "python scripts/workroot_" in text:
+                hits.append(path.relative_to(ROOT).as_posix())
+
         self.assertEqual(hits, [])
 
     def test_start_here_starts_with_one_sentence_path(self) -> None:
@@ -138,7 +167,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
                 for phrase in phrases:
                     self.assertIn(phrase, text)
 
-    def test_scripts_to_src_migration_checkpoint_is_explicit(self) -> None:
+    def test_scripts_to_src_migration_closure_is_explicit(self) -> None:
         text = (ROOT / "docs/dev/0.9.530/scripts-to-src-migration.md").read_text(encoding="utf-8")
         script_rows = [
             [cell.strip() for cell in row.strip("|").split("|")]
@@ -146,22 +175,34 @@ class PublicSeedSurfaceTest(unittest.TestCase):
             if row.startswith("| `scripts/")
         ]
 
-        self.assertIn("architecture alignment checkpoint", text)
-        self.assertIn("not the final scripts-to-source migration", text)
-        self.assertIn("scripts/workroot_client.py", text)
+        self.assertIn("scripts closure", text)
+        self.assertIn("scripts/compat", text)
+        self.assertIn("scripts/legacy/public_seed", text)
+        self.assertIn("scripts/dev", text)
+        self.assertIn("scripts/legacy/public_seed/workroot_client.py", text)
         self.assertIn("src/ai_workroot/runtime/context.py", text)
-        self.assertIn("Legacy retained", text)
-        self.assertIn("Partial migration", text)
-        self.assertIn("Migration priority", text)
+        self.assertIn("legacy-quarantine", text)
+        self.assertIn("wrapper", text)
+        self.assertIn("dev-helper", text)
         for cells in script_rows:
             self.assertGreaterEqual(len(cells), 7, cells)
-            self.assertIn(cells[-1], {"P0", "P1", "P2", "P3"}, cells)
+            self.assertIn(cells[3], {"migrated", "wrapper", "dev-helper", "legacy-quarantine", "retired", "deferred", "release validation helper"}, cells)
         documented_scripts = {cells[0].strip("`") for cells in script_rows}
         actual_scripts = {
-            f"scripts/{path.name}"
-            for path in (ROOT / "scripts").glob("*.py")
+            path.relative_to(ROOT).as_posix()
+            for path in (ROOT / "scripts").rglob("*")
+            if path.is_file()
         }
         self.assertEqual(documented_scripts, actual_scripts)
+
+    def test_scripts_root_has_no_python_product_or_compat_files(self) -> None:
+        root_python = sorted(path.name for path in (ROOT / "scripts").glob("*.py"))
+        self.assertEqual(root_python, [])
+
+    def test_scripts_subdirectories_make_roles_explicit(self) -> None:
+        for rel in ("scripts/dev", "scripts/compat", "scripts/legacy/public_seed"):
+            with self.subTest(rel=rel):
+                self.assertTrue((ROOT / rel / "README.md").is_file())
 
     def test_part2_means_capability_parity_not_compatibility_removal(self) -> None:
         docs = (
@@ -287,6 +328,30 @@ class PublicSeedSurfaceTest(unittest.TestCase):
         self.assertIn("This task is finished. Save what matters and help me start a new task.", combined)
         self.assertIn("What tasks have I done before?", combined)
         self.assertIn("answer in the language", combined)
+
+
+def current_doc_files() -> list[Path]:
+    files: list[Path] = []
+    for root in CURRENT_DOC_ROOTS:
+        if root.is_file():
+            candidates = [root]
+        else:
+            candidates = [path for path in root.rglob("*") if path.is_file()]
+        for path in candidates:
+            if path.suffix.lower() not in TEXT_SUFFIXES:
+                continue
+            if any(_is_relative_to(path, historical) for historical in HISTORICAL_DOC_PREFIXES):
+                continue
+            files.append(path)
+    return sorted(set(files))
+
+
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
 
 
 if __name__ == "__main__":

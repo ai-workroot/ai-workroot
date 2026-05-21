@@ -12,9 +12,9 @@ Compatibility correction: the remaining migration has two explicitly named phase
 
 The current branch has established the Clean Workroot source layout and moved important 0.9.530 foundations into `src/ai_workroot/`. However, much of the mature product behavior still lives in Python scripts:
 
-- old Work process commands and registries in `scripts/workroot_client.py`;
-- old Context Guide behavior in `scripts/workroot_context.py`;
-- old SQLite, state, path, doctor, indexing, bootstrap, and CLI helpers in `scripts/workroot_*.py`;
+- old Work process commands and registries now package-owned by `ai_workroot.runtime.legacy_seed.client`;
+- old Context Guide behavior in `scripts/legacy/public_seed/workroot_context.py`;
+- old SQLite, state, path, doctor, indexing, bootstrap, and CLI helpers in `scripts/compat/workroot_*.py and scripts/legacy/public_seed/workroot_*.py`;
 - historical first-use/profile/task helpers in smaller `scripts/*.py` files.
 
 That state is acceptable as an intermediate checkpoint, but it is not the final architecture direction. Active Clean Workroot product logic must live under the package structure:
@@ -77,7 +77,7 @@ resources/  package templates and static resources
 scripts/dev/                 checkbot, release validation, review export helpers
 scripts/*.sh / *.ps1         wrappers that call package entry points
 scripts/legacy/*.py          temporary compatibility commands for Public Seed capability
-scripts/validate_kernel.py   historical validator until a package release validator fully replaces it
+scripts/compat/validate_kernel.py   historical validator until a package release validator fully replaces it
 ```
 
 Python scripts that implement product behavior must either move into `src/ai_workroot/` or become thin adapters that import package modules.
@@ -260,7 +260,7 @@ Minimum checks:
 python3 -m py_compile $(find src scripts -name "*.py")
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 PYTHONPATH=src python3 -m ai_workroot doctor --release
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 scripts/dev/validate-release.sh
 git diff --check origin/main...HEAD
 ```
@@ -285,7 +285,7 @@ Each phase must be committable and revertible independently.
 ## Risks
 
 - Capability loss from deleting old scripts before package parity.
-- Mixed active paths where `scripts/workroot_cli.py` and `ai_workroot.cli.main` behave differently.
+- Mixed active paths where compatibility wrappers and `ai_workroot.cli.main` behave differently.
 - Tests passing because they still exercise legacy scripts, not active package behavior.
 - Context Control regressions during extraction from the large legacy file.
 - Release/redaction leakage through derived FTS/candidate/relationship projections.

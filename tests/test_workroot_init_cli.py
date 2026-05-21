@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "scripts/workroot_cli.py"
+CLI = ROOT / "scripts/compat/workroot_cli.py"
 
 
 class WorkrootInitCliTest(unittest.TestCase):

@@ -24,14 +24,24 @@ src/ai_workroot/
 
 `src/ai_workroot/` is the active architecture target for 0.9.530. New Clean Workroot behavior should land here unless a change is explicitly preserving legacy compatibility.
 
-`scripts/` still contains older Public Seed capability implementations and command wrappers. Those files are retained so legacy capabilities can be tested and migrated without losing behavior. They are not the desired long-term home for new domain logic.
+`scripts/` is support-only and no longer carries active Clean Workroot product implementation:
+
+```text
+scripts/
+  dev/                  developer, release, review, and smoke helpers
+  compat/               short wrappers that delegate to src/ai_workroot
+  legacy/public_seed/   quarantined Public Seed compatibility entry points
+```
+
+Old Public Seed capabilities remain callable where compatibility tests require
+them, but new Clean Workroot domain logic must land under `src/ai_workroot/`.
 
 When touching a capability that exists in both places:
 
 - prefer the `src/ai_workroot/` package for new Clean Workroot runtime behavior;
-- keep `scripts/` changes limited to compatibility, wrappers, and legacy tests;
+- keep `scripts/` changes limited to developer helpers, compatibility wrappers, and legacy quarantine;
 - add tests that make the intended active path explicit;
-- do not silently move behavior out of `scripts/` unless the matching capability is already covered in `src/ai_workroot/`.
+- do not hard-delete legacy behavior unless the matching capability is covered in `src/ai_workroot/` and Compatibility Removal has been approved.
 
 ### `core/`
 

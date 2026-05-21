@@ -234,22 +234,22 @@ RECIPES: dict[str, dict[str, object]] = {
     "task-l0-report": {
         "format": "commands",
         "commands": [
-            'python3 scripts/workroot_cli.py task create "Simple task" --process-level L0 --id TASK',
-            "python3 scripts/workroot_cli.py task complete --process-level L0 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md",
+            'workroot legacy task create "Simple task" --process-level L0 --id TASK',
+            "workroot legacy task complete --process-level L0 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md",
         ],
     },
     "task-l1-report": {
         "format": "commands",
         "commands": [
-            'python3 scripts/workroot_cli.py task create "Report task" --process-level L1 --id TASK',
-            "python3 scripts/workroot_cli.py task complete --process-level L1 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md",
+            'workroot legacy task create "Report task" --process-level L1 --id TASK',
+            "workroot legacy task complete --process-level L1 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md",
         ],
     },
     "task-l2-evidence": {
         "format": "commands",
         "commands": [
-            'python3 scripts/workroot_cli.py task create "Evidence task" --process-level L2 --id TASK',
-            "python3 scripts/workroot_cli.py task complete --process-level L2 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md --checkpoint",
+            'workroot legacy task create "Evidence task" --process-level L2 --id TASK',
+            "workroot legacy task complete --process-level L2 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md --checkpoint",
         ],
     },
 }
@@ -327,12 +327,11 @@ def manifest() -> dict[str, object]:
             "read_first": [
                 "AGENTS.md",
                 ".workroot/kernel/boot/agent-fast-start.md",
-                "scripts/workroot_cli.py manifest --format json",
+                "workroot legacy manifest --format json",
             ],
             "do_not_read": [
-                "scripts/workroot_client.py",
-                "scripts/validate_kernel.py",
-                "docs/plans/",
+                "implementation source modules",
+                "historical execution plans",
             ],
             "source_code_exception": "Read implementation source only when debugging or changing AI Workroot itself.",
         },
@@ -370,7 +369,7 @@ def manifest() -> dict[str, object]:
             "mind_types": sorted(MIND_TYPES),
         },
         "batch": {
-            "command": "python3 scripts/workroot_cli.py batch apply --file plan.json",
+            "command": "workroot legacy batch apply --file plan.json",
             "transaction_journal_path": ".workroot/runtime/transactions/",
             "rollback_status": "rolled_back",
             "committed_status": "committed",

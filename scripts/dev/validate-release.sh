@@ -6,9 +6,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 cd "$PROJECT_ROOT"
 
-python3 -m py_compile $(find src -name "*.py")
-python3 -m py_compile scripts/*.py
-bash -n install/unix/install.sh scripts/install.sh scripts/bootstrap-dev.sh scripts/dev/export-review-zip.sh
+python3 -m py_compile $(find src scripts -name "*.py")
+bash -n install/unix/install.sh scripts/compat/install.sh scripts/dev/bootstrap-dev.sh scripts/dev/export-review-zip.sh
 PYTHONPATH="$PROJECT_ROOT/src${PYTHONPATH:+:${PYTHONPATH}}" python3 -m ai_workroot doctor --release
 git diff --check
 

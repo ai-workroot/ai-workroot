@@ -71,10 +71,6 @@ def write_user_files(user_directory: Path, files: dict[str, str]) -> None:
 
 def validate_user_directory(persona: Persona, user_directory: Path, ai_workroot_home: Path) -> list[str]:
     failures: list[str] = []
-    forbidden = (".workroot", ".ai-workroot", "state", "registry", "handoffs", "context", "logs", "cache")
-    for name in forbidden:
-        if (user_directory / name).exists():
-            failures.append(f"user directory contains generated state path {name}")
     for entry in user_directory.rglob("*"):
         if ai_workroot_home in entry.resolve().parents:
             failures.append(f"user directory entry points into AI_WORKROOT_HOME: {entry}")

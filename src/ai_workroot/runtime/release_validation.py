@@ -47,10 +47,10 @@ def is_git_ignored(root: Path, path: Path) -> bool:
 
 
 def validate_release_surface(root: Path, errors: list[str]) -> None:
-    for path in root.rglob("*"):
-        if ".git" in path.parts:
-            continue
-        if is_git_ignored(root, path):
+    root = root.expanduser().resolve()
+    release_paths = _release_surface_paths(root)
+    for path in release_paths:
+        if not path.exists():
             continue
         if path.is_file() and path.suffix.lower() in GENERATED_SUFFIXES:
             add_error(errors, f"generated store must not be committed for release: {path.relative_to(root).as_posix()}")
@@ -65,10 +65,8 @@ def validate_release_surface(root: Path, errors: list[str]) -> None:
             add_error(errors, f"local metadata must not be committed: {path.relative_to(root).as_posix()}")
 
     text_exts = {".md", ".json", ".csv", ".py", ".yml", ".yaml", ".txt", ".sql"}
-    for path in root.rglob("*"):
-        if ".git" in path.parts or not path.is_file() or path.suffix.lower() not in text_exts:
-            continue
-        if is_git_ignored(root, path):
+    for path in release_paths:
+        if not path.is_file() or path.suffix.lower() not in text_exts:
             continue
         try:
             text = path.read_text(encoding="utf-8")
@@ -79,3 +77,47 @@ def validate_release_surface(root: Path, errors: list[str]) -> None:
             if pattern.search(text):
                 add_error(errors, f"possible private residue in {path.relative_to(root).as_posix()}")
                 break
+
+
+def _release_surface_paths(root: Path) -> list[Path]:
+    root = root.expanduser().resolve()
+    git_paths = _git_release_surface_paths(root)
+    if git_paths is not None:
+        return git_paths
+    return _filesystem_release_surface_paths(root)
+
+
+def _git_release_surface_paths(root: Path) -> list[Path] | None:
+    tracked = _git_list(root, ("ls-files", "-z"))
+    untracked = _git_list(root, ("ls-files", "-z", "--others", "--exclude-standard"))
+    if tracked is None or untracked is None:
+        return None
+    rels = sorted({rel for rel in (*tracked, *untracked) if rel})
+    return [root / rel for rel in rels]
+
+
+def _git_list(root: Path, args: tuple[str, ...]) -> list[str] | None:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=root,
+            text=False,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return [item.decode("utf-8", errors="replace") for item in result.stdout.split(b"\0") if item]
+
+
+def _filesystem_release_surface_paths(root: Path) -> list[Path]:
+    paths: list[Path] = []
+    for path in root.rglob("*"):
+        if ".git" in path.parts:
+            continue
+        if is_git_ignored(root, path):
+            continue
+        paths.append(path)
+    return paths

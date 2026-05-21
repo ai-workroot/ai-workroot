@@ -46,7 +46,7 @@ class ListTasksScriptTest(unittest.TestCase):
             work = Path(tmp) / "workroot"
             copy_repo_with_public_seed(work)
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -78,7 +78,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py", "--format", "json"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py", "--format", "json"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -110,7 +110,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py", "--status", "closed", "--format", "json"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py", "--status", "closed", "--format", "json"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -143,7 +143,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -177,7 +177,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -208,7 +208,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -234,7 +234,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -260,7 +260,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,

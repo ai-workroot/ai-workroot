@@ -1,7 +1,7 @@
 # AI Workroot 0.9.530 Final Codex Implementation Package
 
 > This is an imported package README retained for traceability.
-> If this file conflicts with `docs/dev/0.9.530/final-architect-review-clarifications.md`, `docs/specs/`, `docs/architecture/`, `docs/adr/`, or `docs/plans/2026-05-20-0530-clean-workroot-domain-reset-plan.md`, the later clarified documents win.
+> If this file conflicts with `docs/dev/0.9.530/final-architect-review-clarifications.md`, `docs/specs/`, `docs/architecture/`, `docs/adr/`, or `docs/history/0.9.530/plans/2026-05-20-0530-clean-workroot-domain-reset-plan.md`, the later clarified documents win.
 
 This package is the final source of truth for the 0.9.530 Clean Workroot architecture reset.
 

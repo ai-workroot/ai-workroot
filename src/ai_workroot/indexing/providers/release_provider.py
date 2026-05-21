@@ -183,7 +183,7 @@ class CandidateReleaseTargetResolver:
         try:
             row = self.conn.execute(
                 """
-                SELECT node_type
+                SELECT node_type, target_type, target_id
                 FROM relationship_nodes
                 WHERE workroot_id = ? AND node_id = ?
                 """,
@@ -192,6 +192,10 @@ class CandidateReleaseTargetResolver:
         except sqlite3.OperationalError:
             row = None
         node_type = str(row[0] or "") if row else ""
+        target_type = str(row[1] or "") if row else ""
+        target_id = str(row[2] or "") if row else ""
+        if target_type and target_id:
+            return (self._target_ref(target_type, target_id),)
         if node_type in CANONICAL_SOURCE_TYPES:
             return (self._target_ref(node_type, node_id),)
         return (self._target_ref("relationship_node", node_id),)

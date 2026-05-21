@@ -33,23 +33,23 @@ Use `.workroot/runtime/index/task_registry.csv` before reading task directories.
 For formal work, read the operation manifest before reading long docs or source code:
 
 ```bash
-python3 scripts/workroot_cli.py manifest --format json
+workroot legacy manifest --format json
 ```
 
 For exact batch fields and directly usable examples, use:
 
 ```bash
-python3 scripts/workroot_cli.py schema --format json
-python3 scripts/workroot_cli.py recipe batch-12-tasks --format json
+workroot legacy schema --format json
+workroot legacy recipe batch-12-tasks --format json
 ```
 
 For multi-task continuation without a long task id list, use:
 
 ```bash
-python3 scripts/workroot_cli.py session summarize --from-registry --recent 12 --summary "..." --next-action "..."
+workroot legacy session summarize --from-registry --recent 12 --summary "..." --next-action "..."
 ```
 
-Do not read `scripts/workroot_client.py` for normal Workroot operations. Read implementation source only when debugging or changing AI Workroot itself.
+Do not read implementation source modules for normal Workroot operations. Read implementation source only when debugging legacy Public Seed compatibility or changing AI Workroot itself.
 
 ## Preserve Output
 

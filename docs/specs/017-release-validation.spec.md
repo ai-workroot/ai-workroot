@@ -6,15 +6,14 @@ Target: 0.9.530
 ## Required validation before tag
 
 ```text
-python3 -m py_compile $(find src -name "*.py")
-python3 -m py_compile scripts/*.py  # if remaining scripts exist
+python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release  # Phase 0 baseline only until replaced or rewritten
+python3 scripts/compat/validate_kernel.py --release  # Phase 0 baseline only until replaced or rewritten
 python3 -m ai_workroot --help
 git diff --check
 ```
 
-`scripts/validate_kernel.py --release` is tied to the old Public Seed/kernel architecture. It may be used for baseline comparison, but final 0.9.530 release readiness must not rely on it alone unless it is rewritten to validate Clean Workroot.
+`scripts/compat/validate_kernel.py --release` is tied to the old Public Seed/kernel architecture. It may be used for baseline comparison, but final 0.9.530 release readiness must not rely on it alone unless it is rewritten to validate Clean Workroot.
 
 Final validation must provide a Clean Workroot release entry point, for example:
 

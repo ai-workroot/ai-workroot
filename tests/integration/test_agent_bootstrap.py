@@ -119,7 +119,7 @@ class BootstrapDevReplacementTest(unittest.TestCase):
             self.make_minimal_repo(repo)
 
             result = subprocess.run(
-                [str(ROOT / "scripts/bootstrap-dev.sh")],
+                [str(ROOT / "scripts/dev/bootstrap-dev.sh")],
                 cwd=repo,
                 env={**os.environ, "PYTHONPATH": str(ROOT / "src"), "AI_WORKROOT_HOME": str(home)},
                 text=True,
@@ -132,7 +132,7 @@ class BootstrapDevReplacementTest(unittest.TestCase):
             self.assertTrue((home / "workroots/wr_ai_workroot/cache/workroot.sqlite").is_file())
 
     def test_legacy_python_bootstrap_wrapper_delegates_to_package_runtime(self) -> None:
-        from scripts.workroot_bootstrap import bootstrap_dev as script_bootstrap_dev
+        from scripts.compat.workroot_bootstrap import bootstrap_dev as script_bootstrap_dev
 
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo"

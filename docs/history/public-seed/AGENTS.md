@@ -129,7 +129,7 @@ Lightweight usage-direction updates:
 - Do not edit `roles.md`, `preferences.md`, or `values.md` just because the user gave a role label.
 - If the new direction conflicts with an existing profile, ask a short clarification instead of replacing prior context.
 - Do not show file paths, diffs, or internal storage details in the user-facing reply.
-- Prefer `scripts/update_usage_direction.py` for this case so only the visible profile summary is updated.
+- Prefer the legacy usage-direction command for this case so only the visible profile summary is updated.
 
 Good user-facing reply:
 
@@ -162,7 +162,7 @@ Continue:
 Review history:
 
 - when the user asks what has been done before, list or summarize local tasks from the Workroot rather than relying on chat memory
-- use `scripts/list_tasks.py` when available, then explain the result in the user's language
+- use the legacy task listing command when available, then explain the result in the user's language
 - include user-visible outputs and next steps when they exist
 
 Save what matters:

@@ -10,7 +10,7 @@ When documents conflict, use this order:
 2. `docs/specs/`
 3. `docs/architecture/`
 4. `docs/adr/`
-5. `docs/plans/2026-05-20-0530-clean-workroot-domain-reset-plan.md`
+5. `docs/history/0.9.530/plans/2026-05-20-0530-clean-workroot-domain-reset-plan.md`
 6. `docs/dev/0.9.530/execution/`
 7. Raw package snapshots: `00-final-master-plan.md`, `final-all-in-one.md`, `package-readme.md`
 
@@ -54,8 +54,8 @@ Do not begin implementation by deleting or moving root `space/`, `.workroot/`, `
 Before source-of-truth docs were imported, the branch passed:
 
 ```text
-python3 -m py_compile scripts/*.py
-python3 scripts/validate_kernel.py --release
+python3 -m py_compile $(find src scripts -name "*.py")
+python3 scripts/compat/validate_kernel.py --release
 python3 -m unittest discover -s tests -v
 ```
 

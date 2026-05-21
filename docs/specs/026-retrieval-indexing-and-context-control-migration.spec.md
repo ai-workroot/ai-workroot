@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-The mature 0.9.529 Context Guide and indexing behavior still exists largely in `scripts/workroot_context.py`, `scripts/workroot_indexing.py`, and `scripts/workroot_candidates.py`. Clean Workroot 0.9.530 must move this behavior into package Retrieval & Index Control and Context Control.
+The mature 0.9.529 Context Guide and indexing behavior is preserved through `scripts/legacy/public_seed/workroot_context.py`, `scripts/legacy/public_seed/workroot_indexing.py`, and `scripts/legacy/public_seed/workroot_candidates.py` compatibility wrappers while active behavior moves into package Retrieval & Index Control and Context Control.
 
 ## Goals
 

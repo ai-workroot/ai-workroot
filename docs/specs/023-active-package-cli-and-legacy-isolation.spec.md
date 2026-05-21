@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-AI Workroot now has a package CLI at `ai_workroot.cli.main`, but older command behavior still exists in `scripts/workroot_cli.py`. Clean Workroot users must see a small current command surface, while old Public Seed capabilities must remain available only as explicitly legacy behavior until replaced.
+AI Workroot now has a package CLI at `ai_workroot.cli.main`. Older command behavior is owned by `ai_workroot.cli.legacy_seed` and remains callable through compatibility wrappers and the legacy Public Seed quarantine. Clean Workroot users must see a small current command surface, while old Public Seed capabilities must remain available only as explicitly legacy behavior until replaced.
 
 ## Goals
 
@@ -31,7 +31,7 @@ AI Workroot now has a package CLI at `ai_workroot.cli.main`, but older command b
 ### Included
 
 - `src/ai_workroot/cli/` command organization.
-- `scripts/workroot_cli.py` delegation or legacy isolation.
+- compatibility wrapper delegation or legacy isolation.
 - CLI help text and command discovery tests.
 - Wrapper compatibility behavior.
 
@@ -56,7 +56,7 @@ FR-001: `python -m ai_workroot --help` must show Clean Workroot primary commands
 
 FR-002: `workroot --help` must resolve to the package CLI when installed.
 
-FR-003: Clean commands invoked through `scripts/workroot_cli.py` must delegate to package behavior or produce equivalent output.
+FR-003: Clean commands invoked through the compatibility CLI wrapper must delegate to package behavior or produce equivalent output without requiring the caller to set `PYTHONPATH`.
 
 FR-004: Legacy seed commands must be hidden from default help or exposed only under `workroot legacy ...`.
 
@@ -69,6 +69,8 @@ NFR-001: CLI modules must not import SQLite/storage implementations directly.
 NFR-002: CLI output must use Clean Workroot wording, not Public Seed as active architecture.
 
 NFR-003: Wrapper behavior must be testable without mutating real user state.
+
+NFR-004: Package code under `src/ai_workroot/` must not import or execute `scripts/` paths. Dependency direction is `scripts -> src`, never `src -> scripts`.
 
 ## Proposed Design
 
@@ -91,10 +93,10 @@ src/ai_workroot/cli/commands/context.py
 src/ai_workroot/cli/commands/doctor.py
 src/ai_workroot/cli/commands/bootstrap_dev.py
 src/ai_workroot/cli/commands/legacy.py
-scripts/workroot_cli.py
+scripts/compat/workroot_cli.py
 ```
 
-`scripts/workroot_cli.py` remains only as a wrapper or legacy adapter.
+`scripts/compat/workroot_cli.py` remains only as a wrapper or legacy adapter.
 
 ### CLI / API
 
@@ -124,7 +126,7 @@ workroot legacy continue ...
 workroot legacy batch ...
 ```
 
-If a legacy command is not yet reachable through package CLI, it may remain hidden in `scripts/workroot_cli.py` with tests labeled legacy.
+Legacy commands must be reachable through the package-owned `workroot legacy ...` boundary. Script compatibility may continue to call the same package-owned legacy implementation.
 
 ### Runtime Behavior
 
@@ -146,7 +148,7 @@ The installed `workroot` command remains package-based. Existing script-based te
 
 AC-001: Given a clean checkout, when `python -m ai_workroot --help` runs, then primary help contains only Clean Workroot primary commands.
 
-AC-002: Given `scripts/workroot_cli.py init`, when invoked with a temporary `AI_WORKROOT_HOME`, then behavior matches package init and does not write managed state into the user directory.
+AC-002: Given the compatibility CLI wrapper runs `init`, when invoked with a temporary `AI_WORKROOT_HOME` and no caller-provided `PYTHONPATH`, then behavior matches package init and does not write managed state into the user directory.
 
 AC-003: Given a legacy task command, when default package help is shown, then the legacy command is absent from primary help.
 
@@ -168,7 +170,7 @@ AC-004: Given a legacy command is still supported, when invoked through its lega
 ### Manual Verification
 
 - Run `python -m ai_workroot --help`.
-- Run `scripts/workroot_cli.py --help`.
+- Run the compatibility CLI wrapper `--help`.
 
 ## Migration / Rollback
 
@@ -187,12 +189,12 @@ T1: Split package command modules if needed
 
 T2: Add legacy command boundary
 - Change: Define `legacy` namespace or hidden adapter rules.
-- Files likely affected: `src/ai_workroot/cli/commands/legacy.py`, `scripts/workroot_cli.py`.
+- Files likely affected: `src/ai_workroot/cli/commands/legacy.py`, compatibility CLI wrapper.
 - Verification: Help text tests.
 
 T3: Delegate script Clean commands
-- Change: Make script primary commands call package CLI/runtime.
-- Files likely affected: `scripts/workroot_cli.py`.
+- Change: Make script primary commands call package CLI/runtime directly, not by executing `scripts/` from package code.
+- Files likely affected: compatibility CLI wrapper, `src/ai_workroot/cli/legacy_seed.py`.
 - Verification: Script wrapper smoke tests.
 
 T4: Move tests into package/legacy categories
@@ -203,6 +205,7 @@ T4: Move tests into package/legacy categories
 ## Risks
 
 - Script and package CLI behavior drift.
+- Package code accidentally reintroduces runtime dependence on `scripts/`.
 - Legacy command discoverability confuses Clean Workroot users.
 - Tests continue to validate only script behavior.
 

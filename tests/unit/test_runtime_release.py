@@ -188,6 +188,115 @@ class RuntimeReleaseTest(unittest.TestCase):
         self.assertIn("release-redacted:context-candidates", invalidations)
         self.assertIn("release-redacted:context-recall-hints", invalidations)
 
+    def test_direct_context_recall_hint_redaction_sanitizes_hint_and_materialized_candidate(self) -> None:
+        conn = self.open_db()
+        hint = ContextRecallHint(
+            hint_id="hint-direct",
+            workroot_id="wr_demo",
+            target_type="asset",
+            target_id="asset-sensitive",
+            title="Direct sensitive hint",
+            summary="SECRETDIRECTHINT must be removed.",
+            priority="critical",
+        )
+        upsert_context_recall_hint(conn, hint)
+        upsert_context_candidate(
+            conn,
+            {
+                "candidate_id": "hint:hint-direct",
+                "workroot_id": "wr_demo",
+                "source_type": "context_recall_hint",
+                "source_id": "hint-direct",
+                "title": "Direct materialized hint",
+                "summary": "SECRETDIRECTMATERIALIZED must be removed.",
+                "importance": "critical",
+            },
+        )
+
+        create_redaction(
+            conn,
+            redaction_id="redact-direct-hint",
+            workroot_id="wr_demo",
+            target=ReleaseTargetRef(
+                target_type="context_recall_hint",
+                target_id="hint-direct",
+                workroot_id="wr_demo",
+            ),
+            redacted_fields=("title", "summary"),
+            redaction_reason="sensitive direct hint",
+        )
+
+        hint_row = conn.execute("SELECT title, summary FROM context_recall_hints WHERE hint_id = 'hint-direct'").fetchone()
+        hint_fts = conn.execute(
+            "SELECT hint_id FROM context_recall_hints_fts WHERE context_recall_hints_fts MATCH 'SECRETDIRECTHINT'"
+        ).fetchall()
+        candidate = conn.execute(
+            "SELECT title, summary FROM context_candidates WHERE candidate_id = 'hint:hint-direct'"
+        ).fetchone()
+        candidate_fts = conn.execute(
+            "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH 'SECRETDIRECTMATERIALIZED'"
+        ).fetchall()
+
+        self.assertEqual(hint_row, ("[redacted]", "[redacted]"))
+        self.assertEqual(hint_fts, [])
+        self.assertEqual(candidate, ("[redacted]", "[redacted]"))
+        self.assertEqual(candidate_fts, [])
+
+    def test_direct_context_recall_hint_deletion_sanitizes_hint_and_materialized_candidate(self) -> None:
+        conn = self.open_db()
+        hint = ContextRecallHint(
+            hint_id="hint-delete-direct",
+            workroot_id="wr_demo",
+            target_type="asset",
+            target_id="asset-deleted",
+            title="Direct deleted hint",
+            summary="SECRETDELETEDHINT must be removed.",
+            priority="critical",
+        )
+        upsert_context_recall_hint(conn, hint)
+        upsert_context_candidate(
+            conn,
+            {
+                "candidate_id": "hint:hint-delete-direct",
+                "workroot_id": "wr_demo",
+                "source_type": "context_recall_hint",
+                "source_id": "hint-delete-direct",
+                "title": "Direct deleted materialized hint",
+                "summary": "SECRETDELETEDMATERIALIZED must be removed.",
+                "importance": "critical",
+            },
+        )
+
+        create_deletion_record(
+            conn,
+            deletion_id="delete-direct-hint",
+            workroot_id="wr_demo",
+            target=ReleaseTargetRef(
+                target_type="context_recall_hint",
+                target_id="hint-delete-direct",
+                workroot_id="wr_demo",
+            ),
+            minimum_audit_note="delete direct hint",
+        )
+
+        hint_row = conn.execute(
+            "SELECT title, summary FROM context_recall_hints WHERE hint_id = 'hint-delete-direct'"
+        ).fetchone()
+        hint_fts = conn.execute(
+            "SELECT hint_id FROM context_recall_hints_fts WHERE context_recall_hints_fts MATCH 'SECRETDELETEDHINT'"
+        ).fetchall()
+        candidate = conn.execute(
+            "SELECT title, summary FROM context_candidates WHERE candidate_id = 'hint:hint-delete-direct'"
+        ).fetchone()
+        candidate_fts = conn.execute(
+            "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH 'SECRETDELETEDMATERIALIZED'"
+        ).fetchall()
+
+        self.assertEqual(hint_row, ("[deleted]", "[deleted]"))
+        self.assertEqual(hint_fts, [])
+        self.assertEqual(candidate, ("[deleted]", "[deleted]"))
+        self.assertEqual(candidate_fts, [])
+
     def test_create_deletion_record_removes_indexed_chunk_derived_text(self) -> None:
         conn = self.open_db()
         target = ReleaseTargetRef(target_type="asset", target_id="asset-deleted", workroot_id="wr_demo")

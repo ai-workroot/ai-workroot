@@ -43,7 +43,7 @@ class WorkrootMigrationsTest(unittest.TestCase):
             self.assertIn("boom", records[0]["error"])
 
     def test_legacy_script_wrapper_exports_package_runner(self) -> None:
-        from scripts.workroot_migrations import MigrationRunner as LegacyMigrationRunner
+        from scripts.compat.workroot_migrations import MigrationRunner as LegacyMigrationRunner
 
         self.assertIs(LegacyMigrationRunner, MigrationRunner)
 

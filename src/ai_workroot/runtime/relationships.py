@@ -17,17 +17,22 @@ def create_relationship_node(
     workroot_id: str,
     node_type: str,
     title: str = "",
+    target_type: str = "",
+    target_id: str = "",
 ) -> RelationshipNode:
+    _validate_node_target(target_type, target_id)
     conn.execute(
         """
-        INSERT INTO relationship_nodes (node_id, workroot_id, node_type, title)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO relationship_nodes (node_id, workroot_id, node_type, title, target_type, target_id)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(node_id) DO UPDATE SET
           workroot_id=excluded.workroot_id,
           node_type=excluded.node_type,
-          title=excluded.title
+          title=excluded.title,
+          target_type=excluded.target_type,
+          target_id=excluded.target_id
         """,
-        (node_id, workroot_id, node_type, title),
+        (node_id, workroot_id, node_type, title, target_type or None, target_id or None),
     )
     record_index_invalidation(
         conn,
@@ -38,7 +43,14 @@ def create_relationship_node(
         reason=f"relationship-node-changed:{node_id}",
     )
     conn.commit()
-    return RelationshipNode(node_id=node_id, workroot_id=workroot_id, node_type=node_type, title=title)
+    return RelationshipNode(
+        node_id=node_id,
+        workroot_id=workroot_id,
+        node_type=node_type,
+        title=title,
+        target_type=target_type,
+        target_id=target_id,
+    )
 
 
 def create_relationship_edge(
@@ -160,3 +172,8 @@ def _ensure_node_exists(conn: sqlite3.Connection, workroot_id: str, node_id: str
     ).fetchone()
     if row is None:
         raise ValueError(f"relationship node does not exist for Workroot {workroot_id}: {node_id}")
+
+
+def _validate_node_target(target_type: str, target_id: str) -> None:
+    if bool(target_type) != bool(target_id):
+        raise ValueError("relationship node canonical target requires both target_type and target_id")

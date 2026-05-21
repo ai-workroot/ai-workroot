@@ -1,7 +1,7 @@
 # AI Workroot 0.9.530 Final Codex Package — All In One
 
 > This is a raw imported package snapshot retained for traceability.
-> If this file conflicts with `docs/dev/0.9.530/final-architect-review-clarifications.md`, `docs/specs/`, `docs/architecture/`, `docs/adr/`, or `docs/plans/2026-05-20-0530-clean-workroot-domain-reset-plan.md`, the later clarified documents win.
+> If this file conflicts with `docs/dev/0.9.530/final-architect-review-clarifications.md`, `docs/specs/`, `docs/architecture/`, `docs/adr/`, or `docs/history/0.9.530/plans/2026-05-20-0530-clean-workroot-domain-reset-plan.md`, the later clarified documents win.
 > In particular: build replacement architecture first, then quarantine the old Public Seed active root.
 
 This file concatenates the final architecture, specs, execution plans, migration plans, test plans, acceptance checklist, and ADRs.
@@ -3034,7 +3034,7 @@ PowerShell script under `install/windows/install.ps1`.
 
 ## Acceptance
 
-- old `scripts/install.sh` and `scripts/install.ps1` are wrappers or moved.
+- old `scripts/compat/install.sh` and `scripts/compat/install.ps1` are wrappers or moved.
 - docs point to new install paths.
 - shell parse passes for unix installer.
 - PowerShell parse/documented validation included where possible.
@@ -3124,7 +3124,7 @@ Target: 0.9.530
 python3 -m py_compile $(find src -name "*.py")
 python3 -m py_compile scripts/*.py  # if remaining scripts exist
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release  # until replaced or retired
+python3 scripts/compat/validate_kernel.py --release  # until replaced or retired
 python3 -m ai_workroot --help
 git diff --check
 ```
@@ -3537,7 +3537,7 @@ Example commands:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 git diff --check
 bash -n install/unix/install.sh
 ```
@@ -3581,7 +3581,7 @@ Baseline commands:
 
 ```bash
 python3 -m py_compile scripts/*.py
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 python3 -m unittest discover -s tests -v
 ```
 
@@ -3852,7 +3852,7 @@ Required:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 git diff --check
 git status --short
 ```
@@ -3908,8 +3908,8 @@ Checkpoint:
 | `AGENTS.md` | Remove from tracked root | `templates/native-agent-entry/AGENTS.md.template` |
 | `CLAUDE.md` | Remove from tracked root | `templates/native-agent-entry/CLAUDE.md.template` |
 | `.idea/` | Remove from Git | none |
-| `scripts/install.sh` | Move/wrap | `install/unix/install.sh` |
-| `scripts/install.ps1` | Move/wrap | `install/windows/install.ps1` |
+| `scripts/compat/install.sh` | Move/wrap | `install/unix/install.sh` |
+| `scripts/compat/install.ps1` | Move/wrap | `install/windows/install.ps1` |
 | product logic in `scripts/*.py` | Migrate | `src/ai_workroot/*` |
 | dev helper scripts | Move | `scripts/dev/` |
 
@@ -4204,7 +4204,7 @@ Smoke scripts should cover:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 git diff --check
 git status --short
 ```
@@ -4410,7 +4410,7 @@ Run:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 git diff --check
 git status --short
 ```
@@ -4456,12 +4456,12 @@ Include output for:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 git diff --check
 git status --short
 ```
 
-If `scripts/validate_kernel.py` is retired or replaced, provide the replacement command and reason.
+If `scripts/compat/validate_kernel.py` is retired or replaced, provide the replacement command and reason.
 
 ## 3. Smoke scenarios
 

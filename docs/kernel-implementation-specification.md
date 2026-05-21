@@ -253,7 +253,7 @@ Required gates:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 PYTHONPATH=src python3 -m ai_workroot doctor --release
 scripts/dev/validate-release.sh
 git diff --check
@@ -263,7 +263,7 @@ Install script syntax checks:
 
 ```bash
 bash -n install/unix/install.sh
-bash -n scripts/bootstrap-dev.sh
+bash -n scripts/dev/bootstrap-dev.sh
 ```
 
 PowerShell parse validation should run when `pwsh` is available. If unavailable, document the gap.

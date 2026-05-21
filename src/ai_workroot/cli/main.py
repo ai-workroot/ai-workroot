@@ -25,10 +25,24 @@ COMMAND_HELP = {
 }
 
 
+class CleanHelpFormatter(argparse.HelpFormatter):
+    def add_arguments(self, actions: Sequence[argparse.Action]) -> None:
+        visible_actions: list[argparse.Action] = []
+        for action in actions:
+            if isinstance(action, argparse._SubParsersAction):  # type: ignore[attr-defined]
+                action._choices_actions = [  # type: ignore[attr-defined]
+                    choice for choice in action._choices_actions if choice.help is not argparse.SUPPRESS  # type: ignore[attr-defined]
+                ]
+            if action.help is not argparse.SUPPRESS:
+                visible_actions.append(action)
+        super().add_arguments(visible_actions)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="workroot",
         description="AI Workroot Clean Workroot command line interface.",
+        formatter_class=CleanHelpFormatter,
     )
     parser.add_argument(
         "--version",
@@ -64,6 +78,9 @@ def build_parser() -> argparse.ArgumentParser:
         if command == "bootstrap-dev":
             command_parser.add_argument("--dry-run", action="store_true", help="Validate bootstrap-dev inputs without writes.")
             command_parser.add_argument("--cwd", default=".", help="Repository directory to bootstrap.")
+    legacy = subparsers.add_parser("legacy", help=argparse.SUPPRESS, add_help=False)
+    legacy.add_argument("-h", "--help", action="store_true", dest="legacy_help")
+    legacy.add_argument("legacy_args", nargs=argparse.REMAINDER)
 
     return parser
 
@@ -144,6 +161,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             parser.exit(1, f"{exc}\n")
         print(result.message())
+        return 0
+
+    if args.command == "legacy":
+        from ai_workroot.cli.legacy_seed import main as legacy_main
+
+        legacy_args = list(args.legacy_args)
+        if args.legacy_help or not legacy_args:
+            legacy_main(["--help"])
+        else:
+            legacy_main(legacy_args)
         return 0
 
     if args.command:

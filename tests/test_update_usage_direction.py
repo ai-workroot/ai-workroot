@@ -32,7 +32,7 @@ class UpdateUsageDirectionTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    "scripts/update_usage_direction.py",
+                    "scripts/legacy/public_seed/update_usage_direction.py",
                     "--direction",
                     "The user wants CTO-level technical collaboration.",
                     "--focus",
@@ -64,7 +64,7 @@ class UpdateUsageDirectionTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    "scripts/update_usage_direction.py",
+                    "scripts/legacy/public_seed/update_usage_direction.py",
                     "--direction",
                     "The user wants product leadership collaboration.",
                     "--focus",

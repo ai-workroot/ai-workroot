@@ -118,6 +118,7 @@ class EnvironmentStorageTest(unittest.TestCase):
                 "idx_context_recall_hints_workroot_target",
                 "idx_context_candidates_workroot_source",
                 "idx_indexed_files_workroot_source",
+                "idx_relationship_nodes_workroot_target",
                 "idx_relationship_edges_workroot_nodes",
             ):
                 with self.subTest(index=index_name):
@@ -225,6 +226,55 @@ class EnvironmentStorageTest(unittest.TestCase):
             self.assertIn("source_id", indexed_file_columns)
             self.assertIn("idx_indexed_files_workroot_source", indexes)
             self.assertEqual(row, ("file-1", "notes.md"))
+
+    def test_initialize_workroot_sqlite_migrates_old_relationship_nodes_without_target_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "old-workroot.sqlite"
+            with sqlite3.connect(db_path) as connection:
+                connection.execute(
+                    """
+                    CREATE TABLE relationship_nodes (
+                      node_id TEXT PRIMARY KEY,
+                      workroot_id TEXT NOT NULL,
+                      node_type TEXT NOT NULL,
+                      title TEXT
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    INSERT INTO relationship_nodes (node_id, workroot_id, node_type, title)
+                    VALUES ('graph-asset-node-1', 'wr_demo', 'asset', 'Asset node')
+                    """
+                )
+                connection.commit()
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                columns = {row[1] for row in connection.execute("PRAGMA table_info(relationship_nodes)").fetchall()}
+                indexes = {
+                    row[1]
+                    for row in connection.execute(
+                        "SELECT type, name FROM sqlite_master WHERE type = 'index'"
+                    )
+                }
+                migrations = {
+                    row[0] for row in connection.execute("SELECT migration_id FROM schema_migrations").fetchall()
+                }
+                row = connection.execute(
+                    """
+                    SELECT node_id, node_type, target_type, target_id
+                    FROM relationship_nodes
+                    WHERE node_id = 'graph-asset-node-1'
+                    """
+                ).fetchone()
+
+            self.assertIn("target_type", columns)
+            self.assertIn("target_id", columns)
+            self.assertIn("idx_relationship_nodes_workroot_target", indexes)
+            self.assertIn("007-relationship-node-canonical-targets", migrations)
+            self.assertEqual(row, ("graph-asset-node-1", "asset", None, None))
 
 
 if __name__ == "__main__":

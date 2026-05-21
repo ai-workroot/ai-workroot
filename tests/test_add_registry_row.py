@@ -25,7 +25,7 @@ class AddRegistryRowTest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/add_registry_row.py",
+                    "scripts/legacy/public_seed/add_registry_row.py",
                     "run",
                     "run_id=run-test",
                     "task_id=task-test",

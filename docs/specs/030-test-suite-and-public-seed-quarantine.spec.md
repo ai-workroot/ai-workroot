@@ -64,11 +64,13 @@ FR-005: Docs/spec checks must ensure 0.9.530 specs remain accepted/draft with co
 
 ### Non-functional Requirements
 
-NFR-001: Full test suite must run through `python3 -m unittest discover -s tests -v`.
+NFR-001: Default test suite must run through `python3 -m unittest discover -s tests -v` without running E2E, longrun, or live-agent tests.
 
-NFR-002: Smoke tests must use temporary `AI_WORKROOT_HOME`.
+NFR-002: E2E suites must be opt-in only through `AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite <suite>`.
 
-NFR-003: Tests must not depend on the developer's real GitHub, SSH, or global environment.
+NFR-003: Smoke tests must use temporary `AI_WORKROOT_HOME`.
+
+NFR-004: Tests must not depend on the developer's real GitHub, SSH, or global environment.
 
 ## Proposed Design
 

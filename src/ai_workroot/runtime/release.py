@@ -255,7 +255,9 @@ def _sanitize_context_recall_hints(
     target: ReleaseTargetRef,
     placeholder: str,
 ) -> None:
-    hint_ids = _rows_for_source(conn, "context_recall_hints", workroot_id, target, id_column="hint_id")
+    hint_ids = set(_rows_for_source(conn, "context_recall_hints", workroot_id, target, id_column="hint_id"))
+    if target.target_type == "context_recall_hint":
+        hint_ids.add(target.target_id)
     for hint_id in hint_ids:
         conn.execute(
             """

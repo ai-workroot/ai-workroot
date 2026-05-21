@@ -95,4 +95,4 @@ Do not keep long-term understanding only inside chat history.
 
 The old Public Seed layout is preserved for history and compatibility tests under `docs/history/public-seed/`. It is not the active setup path for new Clean Workroots.
 
-`scripts/rebuild_sqlite.py` remains legacy public seed tooling for the historical fixture. Clean Workroot users should use `workroot init`, `workroot context`, and `workroot doctor`, which use managed state under `AI_WORKROOT_HOME`.
+`scripts/legacy/public_seed/rebuild_sqlite.py` remains legacy public seed tooling for the historical fixture. Clean Workroot users should use `workroot init`, `workroot context`, and `workroot doctor`, which use managed state under `AI_WORKROOT_HOME`.

@@ -56,7 +56,7 @@ class KernelContractsTest(unittest.TestCase):
 
     def test_validate_kernel(self) -> None:
         result = subprocess.run(
-            [sys.executable, "scripts/validate_kernel.py"],
+            [sys.executable, "scripts/compat/validate_kernel.py"],
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -79,7 +79,7 @@ class KernelContractsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
+                [sys.executable, "scripts/compat/validate_kernel.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -107,7 +107,7 @@ class KernelContractsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
+                [sys.executable, "scripts/compat/validate_kernel.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -131,7 +131,7 @@ class KernelContractsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
+                [sys.executable, "scripts/compat/validate_kernel.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -171,7 +171,7 @@ class KernelContractsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
+                [sys.executable, "scripts/compat/validate_kernel.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -202,7 +202,7 @@ class KernelContractsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
+                [sys.executable, "scripts/compat/validate_kernel.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -226,7 +226,7 @@ class KernelContractsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
+                [sys.executable, "scripts/compat/validate_kernel.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -250,7 +250,7 @@ class KernelContractsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
+                [sys.executable, "scripts/compat/validate_kernel.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -275,7 +275,7 @@ class KernelContractsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
+                [sys.executable, "scripts/compat/validate_kernel.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -299,7 +299,7 @@ class KernelContractsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
+                [sys.executable, "scripts/compat/validate_kernel.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,

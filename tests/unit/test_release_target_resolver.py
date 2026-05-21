@@ -130,6 +130,53 @@ class ReleaseTargetResolverTest(unittest.TestCase):
             self.assertIn(ref("asset", "asset-1"), refs)
             self.assertIn(ref("task", "task-1"), refs)
 
+    def test_relationship_signal_resolver_uses_explicit_node_canonical_target(self) -> None:
+        conn = self.open_db()
+        with conn:
+            upsert_relationship_node(
+                conn,
+                "graph-asset-node-1",
+                "wr_demo",
+                "asset",
+                "Asset node",
+                target_type="asset",
+                target_id="asset-1",
+            )
+            upsert_relationship_node(
+                conn,
+                "graph-task-node-1",
+                "wr_demo",
+                "task",
+                "Task node",
+                target_type="task",
+                target_id="task-1",
+            )
+            upsert_relationship_edge(
+                conn,
+                edge_id="edge-canonical",
+                workroot_id="wr_demo",
+                from_node_id="graph-asset-node-1",
+                to_node_id="graph-task-node-1",
+                relationship_type="supports",
+                confidence=0.9,
+            )
+            signal = RelationshipSignal(
+                edge_id="edge-canonical",
+                from_node_id="graph-asset-node-1",
+                to_node_id="graph-task-node-1",
+                relationship_type="supports",
+                confidence=0.9,
+            )
+            resolver = CandidateReleaseTargetResolver(conn, "wr_demo")
+
+            refs = resolver.resolve_relationship_signal(signal)
+
+            self.assertIn(ref("relationship_edge", "edge-canonical"), refs)
+            self.assertIn(ref("asset", "asset-1"), refs)
+            self.assertIn(ref("task", "task-1"), refs)
+            self.assertNotIn(ref("asset", "graph-asset-node-1"), refs)
+            self.assertNotIn(ref("task", "graph-task-node-1"), refs)
+
     def test_release_evaluator_uses_most_protective_level_across_all_refs(self) -> None:
         conn = self.open_db()
         with conn:

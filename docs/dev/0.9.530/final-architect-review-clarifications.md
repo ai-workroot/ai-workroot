@@ -502,7 +502,7 @@ Root `AGENTS.md` and `CLAUDE.md` must not be tracked.
 Codex listed:
 
 ```text
-python3 scripts/validate_kernel.py --release until replaced
+python3 scripts/compat/validate_kernel.py --release until replaced
 ```
 
 This is acceptable for Phase 0 baseline only.

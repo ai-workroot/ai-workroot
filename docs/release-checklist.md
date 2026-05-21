@@ -79,16 +79,25 @@ vX.Y.Z
 Run:
 
 ```bash
-python3 -m py_compile scripts/*.py
-python3 -m unittest discover tests
-python3 scripts/validate_kernel.py
-python3 scripts/validate_kernel.py --release
-python3 scripts/new_task_smoke.py
-python3 scripts/setup_workroot.py --help
+python3 -m py_compile $(find src scripts -name "*.py")
+python3 -m unittest discover -s tests -v
+python3 scripts/compat/validate_kernel.py
+python3 scripts/compat/validate_kernel.py --release
+python3 scripts/dev/new_task_smoke.py
+python3 scripts/legacy/public_seed/setup_workroot.py --help
 git diff --check
 ```
 
-Windows PowerShell parse validation is pending unless a Windows CI job or local `pwsh` check parses `scripts/install.ps1` and `scripts/bootstrap-dev.ps1`.
+Default release validation does not run E2E, longrun, or live-agent tests.
+Run E2E only when explicitly requested:
+
+```bash
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite safety
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite persona-smoke
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite longrun
+```
+
+Windows PowerShell parse validation is pending unless a Windows CI job or local `pwsh` check parses `scripts/compat/install.ps1` and `scripts/dev/bootstrap-dev.ps1`.
 
 The final status should contain only intentional release changes.
 
@@ -108,12 +117,13 @@ The final status should contain only intentional release changes.
 - Context Package includes mode, confidence, latency, token usage, fallback status, and low-confidence reasons when applicable.
 - Codex, Claude, and default agent token budgets are represented and bounded.
 - `AGENTS.md` and `CLAUDE.md` remain short launcher files and do not embed full Context Packages.
-- Follow-up: split `scripts/workroot_context.py` budget, token, render, and trace logic into smaller modules on a separate refactor branch.
+- Follow-up: split `scripts/legacy/public_seed/workroot_context.py` budget, token, render, and trace logic into smaller modules on a separate refactor branch.
 - Debug trace records resolution, mode, confidence, challengers, selected and dropped candidates, FTS matches, token budget, and timing.
 - P0 retrieval does not require a vector database or remote embedding provider.
 - `bootstrap-dev` creates no commits, tags, releases, or pushes automatically.
 - `bootstrap-dev` initializes SQLite and supports `context` and `doctor` immediately after bootstrap.
 - Install scripts are documented as CLI wrapper installers unless full first-run setup is implemented.
 - Legacy public-seed commands are clearly marked apart from the Clean Mode user path.
+- `scripts/` root contains no Python product implementation files; support scripts live under `scripts/dev`, `scripts/compat`, or `scripts/legacy/public_seed`.
 - `.ai-workroot-local/` is ignored and must not appear in release artifacts.
 - Release validation rejects generated caches, SQLite stores, debug traces, local metadata, and private residue.

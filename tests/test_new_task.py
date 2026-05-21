@@ -21,7 +21,7 @@ class NewTaskScriptTest(unittest.TestCase):
 
     def test_multilingual_task_script(self) -> None:
         result = subprocess.run(
-            [sys.executable, "scripts/new_task_smoke.py"],
+            [sys.executable, "scripts/dev/new_task_smoke.py"],
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -32,7 +32,7 @@ class NewTaskScriptTest(unittest.TestCase):
     def test_timezone_offset_is_normalized(self) -> None:
         code = (
             "import importlib.util;"
-            "spec=importlib.util.spec_from_file_location('new_task','scripts/new_task.py');"
+            "spec=importlib.util.spec_from_file_location('new_task','scripts/legacy/public_seed/new_task.py');"
             "m=importlib.util.module_from_spec(spec);"
             "spec.loader.exec_module(m);"
             "print(m.normalize_instant('2026-05-15T08:00:00+08:00'))"
@@ -50,7 +50,7 @@ class NewTaskScriptTest(unittest.TestCase):
     def test_timezone_free_instant_is_rejected(self) -> None:
         code = (
             "import importlib.util;"
-            "spec=importlib.util.spec_from_file_location('new_task','scripts/new_task.py');"
+            "spec=importlib.util.spec_from_file_location('new_task','scripts/legacy/public_seed/new_task.py');"
             "m=importlib.util.module_from_spec(spec);"
             "spec.loader.exec_module(m);"
             "m.normalize_instant('2026-05-15T17:00:00')"
@@ -72,7 +72,7 @@ class NewTaskScriptTest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/new_task.py",
+                    "scripts/legacy/public_seed/new_task.py",
                     "Process task",
                     "--id",
                     "task-process-cli",
@@ -99,7 +99,7 @@ class NewTaskScriptTest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/new_task.py",
+                    "scripts/legacy/public_seed/new_task.py",
                     "Evidence task",
                     "--id",
                     "task-evidence-cli",

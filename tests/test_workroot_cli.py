@@ -23,7 +23,7 @@ class WorkrootCliTest(unittest.TestCase):
 
     def run_cli(self, work: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, "scripts/workroot_cli.py", *args],
+            [sys.executable, "scripts/compat/workroot_cli.py", *args],
             cwd=work,
             text=True,
             capture_output=True,

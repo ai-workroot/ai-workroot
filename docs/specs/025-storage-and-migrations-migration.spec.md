@@ -194,7 +194,7 @@ T3: Consolidate registry locking
 - Verification: concurrency regression tests.
 
 T4: Retire script storage authority
-- Change: Convert tests from `scripts/workroot_sqlite.py` and `scripts/workroot_state.py` to package imports where parity exists.
+- Change: Convert tests from `scripts/legacy/public_seed/workroot_sqlite.py` and `scripts/compat/workroot_state.py` to package imports where parity exists.
 - Files likely affected: `tests/`, `scripts/`.
 - Verification: full unittest suite.
 

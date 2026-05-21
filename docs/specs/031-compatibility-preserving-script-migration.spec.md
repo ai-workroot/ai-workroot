@@ -33,8 +33,8 @@ The 0.9.530 Clean Workroot architecture reset has moved major foundations into `
 
 ### Included
 
-- `scripts/workroot_client.py` compatibility migration.
-- `scripts/workroot_cli.py` compatibility migration.
+- Public Seed client compatibility migration.
+- Compatibility CLI wrapper migration.
 - Small legacy helper script migration.
 - Legacy operation manifest migration.
 - Package release validation migration where safe.
@@ -63,9 +63,9 @@ The 0.9.530 Clean Workroot architecture reset has moved major foundations into `
 
 FR-001: Remaining script-owned behavior must move into package modules under `src/ai_workroot/`.
 
-FR-002: `scripts/workroot_client.py` must remain import-compatible for Part 1.
+FR-002: The Public Seed client compatibility wrapper must remain import-compatible for Part 1.
 
-FR-003: `scripts/workroot_cli.py` must remain callable for Part 1.
+FR-003: The compatibility CLI wrapper must remain callable for Part 1.
 
 FR-004: Clean commands invoked through script compatibility must delegate to package Clean Workroot behavior.
 
@@ -80,6 +80,8 @@ FR-008: `src/ai_workroot/core/` must not own legacy command recipes after the mi
 FR-009: Package tests must become authoritative for migrated behavior.
 
 FR-010: Wrapper tests must prove old script paths still work.
+
+FR-011: Package code under `src/ai_workroot/` must not execute `scripts/` paths. Compatibility wrappers may call package modules, but package modules must not call wrappers.
 
 ### Non-functional Requirements
 
@@ -147,19 +149,19 @@ src/ai_workroot/cli/legacy_seed.py
 src/ai_workroot/runtime/release_validation.py
 ```
 
-Script compatibility files remain:
+Script compatibility files remain under support subdirectories:
 
 ```text
-scripts/workroot_client.py
-scripts/workroot_cli.py
-scripts/new_task.py
-scripts/list_tasks.py
-scripts/setup_workroot.py
-scripts/update_usage_direction.py
-scripts/upgrade_workroot.py
-scripts/add_registry_row.py
-scripts/rebuild_sqlite.py
-scripts/validate_kernel.py
+scripts/compat/workroot_cli.py
+scripts/compat/validate_kernel.py
+scripts/legacy/public_seed/workroot_client.py
+scripts/legacy/public_seed/new_task.py
+scripts/legacy/public_seed/list_tasks.py
+scripts/legacy/public_seed/setup_workroot.py
+scripts/legacy/public_seed/update_usage_direction.py
+scripts/legacy/public_seed/upgrade_workroot.py
+scripts/legacy/public_seed/add_registry_row.py
+scripts/legacy/public_seed/rebuild_sqlite.py
 ```
 
 Historical snapshots live in:
@@ -175,16 +177,16 @@ No migration step may write managed Workroot state into a user-selected director
 Part 1 preserves:
 
 ```text
-python scripts/workroot_cli.py <clean-command>
-python scripts/workroot_cli.py <legacy-command>
-python scripts/new_task.py ...
-python scripts/list_tasks.py ...
-python scripts/setup_workroot.py ...
-python scripts/update_usage_direction.py ...
-python scripts/upgrade_workroot.py ...
-python scripts/add_registry_row.py ...
-python scripts/rebuild_sqlite.py
-python scripts/validate_kernel.py --release
+python scripts/compat/workroot_cli.py <clean-command>
+python -m ai_workroot legacy <legacy-command>
+python scripts/legacy/public_seed/new_task.py ...
+python scripts/legacy/public_seed/list_tasks.py ...
+python scripts/legacy/public_seed/setup_workroot.py ...
+python scripts/legacy/public_seed/update_usage_direction.py ...
+python scripts/legacy/public_seed/upgrade_workroot.py ...
+python scripts/legacy/public_seed/add_registry_row.py ...
+python scripts/legacy/public_seed/rebuild_sqlite.py
+python scripts/compat/validate_kernel.py --release
 ```
 
 Clean package CLI remains:
@@ -221,17 +223,17 @@ Compatibility is a hard requirement for the package-ownership phase. Removal is 
 ## Acceptance Criteria
 
 AC-001:
-Given a test imports `scripts/workroot_client.py`
+Given a test imports the Public Seed client compatibility wrapper
 When it accesses legacy public names such as `WorkrootClient`, `now_utc`, and `slugify`
 Then the import still succeeds through a wrapper.
 
 AC-002:
-Given a user invokes `python scripts/workroot_cli.py init`
+Given a user invokes the compatibility CLI wrapper with `init`
 When the command runs with a temporary `AI_WORKROOT_HOME`
 Then it delegates to package Clean Workroot init behavior.
 
 AC-003:
-Given a user invokes a legacy hidden command through `scripts/workroot_cli.py`
+Given a user invokes a legacy hidden command through `workroot legacy ...`
 When the command is still within Part 1 compatibility scope
 Then the command remains available and is tested as legacy behavior.
 
@@ -261,15 +263,16 @@ Then package tests, legacy compatibility tests, wrapper tests, compile checks, r
 
 - Package import tests for `ai_workroot.runtime.legacy_seed`.
 - Legacy helper tests converted to package imports.
-- Wrapper re-export tests for `scripts/workroot_client.py`.
+- Wrapper re-export tests for the Public Seed client compatibility wrapper.
+- Runtime boundary tests that prove package code does not execute `scripts/` paths.
 - Import-boundary tests that keep Clean Workroot modules separate from legacy seed modules.
 
 ### Integration Tests
 
 - Legacy `WorkrootClient` task/run/action/artifact/checkpoint/invalidation/mind/session/batch behavior through package module.
 - Script wrapper invocation for each small helper.
-- Legacy CLI command invocation through `scripts/workroot_cli.py`.
-- Clean CLI delegation through `scripts/workroot_cli.py`.
+- Legacy CLI command invocation through `workroot legacy ...`.
+- Clean CLI delegation through the compatibility CLI wrapper.
 
 ### Manual Verification
 
@@ -311,12 +314,12 @@ T2: Add legacy seed package shell
 
 T3: Move neutral helpers from `workroot_client.py`
 - Change: Move dataclasses, time helpers, slug helpers, registry helpers, and filesystem helpers into package modules.
-- Files likely affected: `src/ai_workroot/runtime/legacy_seed/models.py`, `time.py`, `registries.py`, `filesystem.py`, `scripts/workroot_client.py`.
+- Files likely affected: `src/ai_workroot/runtime/legacy_seed/models.py`, `time.py`, `registries.py`, `filesystem.py`, Public Seed client compatibility wrapper.
 - Verification: `tests/test_registry_store.py` and `tests/test_workroot_client.py`.
 
 T4: Move `WorkrootClient`
 - Change: Move the legacy `WorkrootClient` facade into `ai_workroot.runtime.legacy_seed.client`; keep script re-export compatibility.
-- Files likely affected: `src/ai_workroot/runtime/legacy_seed/client.py`, `scripts/workroot_client.py`, tests.
+- Files likely affected: `src/ai_workroot/runtime/legacy_seed/client.py`, Public Seed client compatibility wrapper, tests.
 - Verification: legacy client and CLI tests pass.
 
 T5: Move small helper scripts
@@ -325,8 +328,8 @@ T5: Move small helper scripts
 - Verification: targeted helper tests plus wrapper invocation tests.
 
 T6: Move legacy CLI parser/dispatch
-- Change: Move legacy command parsing and dispatch into `src/ai_workroot/cli/legacy_seed.py`; keep `scripts/workroot_cli.py` wrapper.
-- Files likely affected: `src/ai_workroot/cli/legacy_seed.py`, `scripts/workroot_cli.py`.
+- Change: Move legacy command parsing and dispatch into `src/ai_workroot/cli/legacy_seed.py`; keep the compatibility CLI wrapper.
+- Files likely affected: `src/ai_workroot/cli/legacy_seed.py`, compatibility CLI wrapper.
 - Verification: CLI tests, command discovery tests, package help tests.
 
 T7: Move legacy operation manifest out of core
@@ -335,8 +338,8 @@ T7: Move legacy operation manifest out of core
 - Verification: architecture contract and CLI discovery tests.
 
 T8: Move release validation authority
-- Change: Move package-owned release validation logic into `runtime/release_validation.py`; keep `scripts/validate_kernel.py` callable.
-- Files likely affected: `src/ai_workroot/runtime/release_validation.py`, `scripts/validate_kernel.py`.
+- Change: Move package-owned release validation logic into `runtime/release_validation.py`; keep `scripts/compat/validate_kernel.py` callable.
+- Files likely affected: `src/ai_workroot/runtime/release_validation.py`, `scripts/compat/validate_kernel.py`.
 - Verification: release gate tests, public seed surface tests, release doctor.
 
 T9: Archive script snapshots

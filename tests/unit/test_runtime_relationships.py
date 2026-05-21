@@ -71,6 +71,42 @@ class RuntimeRelationshipsTest(unittest.TestCase):
         self.assertIn(("relationship-network", "relationship-edge-changed:edge-1"), invalidations)
         self.assertIn(("relationship-network", "relationship-evidence-changed:evidence-1"), invalidations)
 
+    def test_create_node_accepts_explicit_canonical_target(self) -> None:
+        conn = self.open_db()
+
+        node = create_relationship_node(
+            conn,
+            node_id="graph-asset-node-1",
+            workroot_id="wr_demo",
+            node_type="asset",
+            title="Asset node",
+            target_type="asset",
+            target_id="asset-1",
+        )
+
+        row = conn.execute(
+            """
+            SELECT node_type, title, target_type, target_id
+            FROM relationship_nodes
+            WHERE workroot_id = 'wr_demo' AND node_id = 'graph-asset-node-1'
+            """
+        ).fetchone()
+        self.assertEqual(node.target_type, "asset")
+        self.assertEqual(node.target_id, "asset-1")
+        self.assertEqual(row, ("asset", "Asset node", "asset", "asset-1"))
+
+    def test_create_node_rejects_partial_canonical_target(self) -> None:
+        conn = self.open_db()
+
+        with self.assertRaises(ValueError):
+            create_relationship_node(
+                conn,
+                node_id="graph-asset-node-1",
+                workroot_id="wr_demo",
+                node_type="asset",
+                target_type="asset",
+            )
+
     def test_create_relationship_edge_rejects_missing_nodes(self) -> None:
         conn = self.open_db()
 

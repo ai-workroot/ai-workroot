@@ -25,7 +25,7 @@ def load_client_module() -> ModuleType:
 
 
 def load_script_client_module() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("workroot_client", ROOT / "scripts/workroot_client.py")
+    spec = importlib.util.spec_from_file_location("workroot_client", ROOT / "scripts/legacy/public_seed/workroot_client.py")
     if spec is None or spec.loader is None:
         raise RuntimeError("cannot load workroot_client.py")
     module = importlib.util.module_from_spec(spec)

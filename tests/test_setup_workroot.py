@@ -25,7 +25,7 @@ class SetupWorkrootTest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/setup_workroot.py",
+                    "scripts/legacy/public_seed/setup_workroot.py",
                     "--subject",
                     "This Workroot represents a personal AI Workroot.",
                     "--ai-role",
@@ -60,7 +60,7 @@ class SetupWorkrootTest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/setup_workroot.py",
+                    "scripts/legacy/public_seed/setup_workroot.py",
                     "--subject",
                     "Subject",
                     "--ai-role",

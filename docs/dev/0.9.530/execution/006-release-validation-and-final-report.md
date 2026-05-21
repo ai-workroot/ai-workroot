@@ -23,12 +23,12 @@ Include output for:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release  # Phase 0 baseline only unless rewritten
+python3 scripts/compat/validate_kernel.py --release  # Phase 0 baseline only unless rewritten
 git diff --check
 git status --short
 ```
 
-If `scripts/validate_kernel.py` is retired or replaced, provide the replacement command and reason.
+If `scripts/compat/validate_kernel.py` is retired or replaced, provide the replacement command and reason.
 If it is not retired, explain how it was rewritten to validate Clean Workroot instead of only old Public Seed/kernel assumptions.
 
 ## 3. Smoke scenarios

@@ -272,7 +272,9 @@ CREATE TABLE IF NOT EXISTS relationship_nodes (
   node_id TEXT PRIMARY KEY,
   workroot_id TEXT NOT NULL,
   node_type TEXT NOT NULL,
-  title TEXT
+  title TEXT,
+  target_type TEXT,
+  target_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS relationship_edges (
@@ -430,6 +432,8 @@ CREATE INDEX IF NOT EXISTS idx_indexed_files_workroot_source
   ON indexed_files(workroot_id, source_type, source_id);
 CREATE INDEX IF NOT EXISTS idx_relationship_nodes_workroot_type
   ON relationship_nodes(workroot_id, node_type, node_id);
+CREATE INDEX IF NOT EXISTS idx_relationship_nodes_workroot_target
+  ON relationship_nodes(workroot_id, target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_relationship_edges_workroot_nodes
   ON relationship_edges(workroot_id, from_node_id, to_node_id);
 CREATE INDEX IF NOT EXISTS idx_time_events_workroot_subject
@@ -449,6 +453,9 @@ VALUES ('005-active-asset-runtime-fields', datetime('now'));
 
 INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
 VALUES ('006-time-events', datetime('now'));
+
+INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+VALUES ('007-relationship-node-canonical-targets', datetime('now'));
 """
 
 
@@ -460,6 +467,7 @@ def initialize_workroot_sqlite(path: Path) -> None:
         _ensure_indexed_file_source_columns(connection)
         _ensure_active_work_runtime_columns(connection)
         _ensure_active_asset_runtime_columns(connection)
+        _ensure_relationship_node_target_columns(connection)
         connection.executescript(SCHEMA)
 
 
@@ -507,6 +515,13 @@ def _ensure_active_asset_runtime_columns(connection: sqlite3.Connection) -> None
     columns = {row[1] for row in connection.execute("PRAGMA table_info(assets)").fetchall()}
     if "surface_id" not in columns:
         connection.execute("ALTER TABLE assets ADD COLUMN surface_id TEXT")
+
+
+def _ensure_relationship_node_target_columns(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(relationship_nodes)").fetchall()}
+    for name in ("target_type", "target_id"):
+        if name not in columns:
+            connection.execute(f"ALTER TABLE relationship_nodes ADD COLUMN {name} TEXT")
 
 
 def _schema_without_release_indexes() -> str:
@@ -815,7 +830,7 @@ def _leaky_context_recall_hints(
     target_id: str,
     level: str,
 ) -> list[str]:
-    rows = _fetchall_safely(
+    rows = list(_fetchall_safely(
         connection,
         """
         SELECT hint_id, title, summary
@@ -823,7 +838,19 @@ def _leaky_context_recall_hints(
         WHERE workroot_id = ? AND target_type = ? AND target_id = ?
         """,
         (workroot_id, target_type, target_id),
-    )
+    ))
+    if target_type == "context_recall_hint":
+        rows.extend(
+            _fetchall_safely(
+                connection,
+                """
+                SELECT hint_id, title, summary
+                FROM context_recall_hints
+                WHERE workroot_id = ? AND hint_id = ?
+                """,
+                (workroot_id, target_id),
+            )
+        )
     return [
         f"release-derived index safety: context_recall_hints:{row[0]} exposes {level} target {target_type}:{target_id}"
         for row in rows
@@ -899,7 +926,7 @@ def _context_recall_hint_fts_rows(
     target_type: str,
     target_id: str,
 ) -> list[tuple[object, ...]]:
-    return _fetchall_safely(
+    rows = list(_fetchall_safely(
         connection,
         """
         SELECT f.hint_id, f.title, f.summary
@@ -908,7 +935,21 @@ def _context_recall_hint_fts_rows(
         WHERE h.workroot_id = ? AND h.target_type = ? AND h.target_id = ?
         """,
         (workroot_id, target_type, target_id),
-    )
+    ))
+    if target_type == "context_recall_hint":
+        rows.extend(
+            _fetchall_safely(
+                connection,
+                """
+                SELECT f.hint_id, f.title, f.summary
+                FROM context_recall_hints_fts f
+                JOIN context_recall_hints h ON h.hint_id = f.hint_id
+                WHERE h.workroot_id = ? AND h.hint_id = ?
+                """,
+                (workroot_id, target_id),
+            )
+        )
+    return rows
 
 
 def _fetchall_safely(

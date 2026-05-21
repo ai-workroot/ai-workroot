@@ -36,30 +36,30 @@ These files are the active target, but several are still thin compared with lega
 ### Legacy implementation still carrying mature behavior
 
 ```text
-scripts/workroot_client.py        Work/task/run/action/artifact/batch/session/continue behavior
-scripts/workroot_context.py       mature Context Guide selection, budgets, debug trace
-scripts/workroot_sqlite.py        older SQLite schema helper
-scripts/workroot_state.py         older managed state and registry initialization
-scripts/workroot_indexing.py      file chunking and FTS indexing
-scripts/workroot_candidates.py    materialized context candidate provider
-scripts/workroot_doctor.py        old doctor checks
-scripts/workroot_bootstrap.py     old bootstrap-dev implementation
-scripts/workroot_cli.py           old command surface and hidden legacy commands
+src/ai_workroot/runtime/legacy_seed/client.py        Work/task/run/action/artifact/batch/session/continue behavior
+scripts/legacy/public_seed/workroot_context.py       mature Context Guide selection, budgets, debug trace
+scripts/legacy/public_seed/workroot_sqlite.py        older SQLite schema helper
+scripts/compat/workroot_state.py         older managed state and registry initialization
+scripts/legacy/public_seed/workroot_indexing.py      file chunking and FTS indexing
+scripts/legacy/public_seed/workroot_candidates.py    materialized context candidate provider
+scripts/compat/workroot_doctor.py        old doctor checks
+scripts/compat/workroot_bootstrap.py     old bootstrap-dev implementation
+src/ai_workroot/cli/legacy_seed.py       old command surface and hidden legacy commands
 ```
 
 ### Developer and historical helpers
 
 ```text
-scripts/validate_kernel.py
-scripts/add_registry_row.py
-scripts/list_tasks.py
-scripts/new_task.py
-scripts/new_task_smoke.py
-scripts/rebuild_sqlite.py
-scripts/setup_workroot.py
-scripts/update_usage_direction.py
-scripts/upgrade_workroot.py
-scripts/workroot_operation_manifest.py
+scripts/compat/validate_kernel.py
+scripts/legacy/public_seed/add_registry_row.py
+scripts/legacy/public_seed/list_tasks.py
+scripts/legacy/public_seed/new_task.py
+scripts/dev/new_task_smoke.py
+scripts/legacy/public_seed/rebuild_sqlite.py
+scripts/legacy/public_seed/setup_workroot.py
+scripts/legacy/public_seed/update_usage_direction.py
+scripts/legacy/public_seed/upgrade_workroot.py
+scripts/legacy/public_seed/workroot_operation_manifest.py
 ```
 
 These must be moved, wrapped, or labeled based on whether they are developer tools, legacy compatibility, or active package capabilities.
@@ -237,14 +237,14 @@ git diff --check origin/main...HEAD
 Changes:
 
 - split `src/ai_workroot/cli/main.py` into command modules if it grows;
-- make `scripts/workroot_cli.py` delegate Clean commands to package runtime;
+- make `scripts/compat/workroot_cli.py` delegate Clean commands to package runtime;
 - move hidden legacy seed commands under `workroot legacy ...` or preserve only as hidden adapters;
 - keep package help free of Public Seed primary commands.
 
 Acceptance:
 
 - `python -m ai_workroot --help` shows only Clean Workroot primary commands;
-- `scripts/workroot_cli.py init/context/doctor/bootstrap-dev` matches package behavior or delegates to it;
+- `scripts/compat/workroot_cli.py init/context/doctor/bootstrap-dev` matches package behavior or delegates to it;
 - legacy command tests live under `tests/legacy/` or clearly named legacy test files.
 
 ### Phase C: Storage and migrations
@@ -367,10 +367,10 @@ For Part 1, compatibility adapters are mandatory for old script entry points. A 
 
 Examples:
 
-- `scripts/bootstrap-dev.sh` remains a wrapper to `python -m ai_workroot bootstrap-dev`.
-- `scripts/install.sh` remains a wrapper installer, not a full GUI/first-run installer.
-- `scripts/workroot_cli.py init` delegates to `ai_workroot.cli.main`.
-- `scripts/workroot_cli.py legacy task create` may call old compatibility code until `runtime/work.py` reaches parity.
+- `scripts/dev/bootstrap-dev.sh` remains a wrapper to `python -m ai_workroot bootstrap-dev`.
+- `scripts/compat/install.sh` remains a wrapper installer, not a full GUI/first-run installer.
+- compatibility wrapper `init` delegates to `ai_workroot.cli.main`.
+- package legacy command `workroot legacy task create` may call old compatibility code until `runtime/work.py` reaches parity.
 
 ## Test Design
 

@@ -107,7 +107,7 @@ Run:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 git diff --check
 git status --short
 ```

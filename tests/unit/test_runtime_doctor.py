@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.indexing.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
 from ai_workroot.indexing.providers.sqlite_fts import index_file_chunk
 from ai_workroot.runtime.doctor import run_doctor
 from ai_workroot.runtime.init import initialize_workroot
@@ -175,6 +176,49 @@ class RuntimeDoctorTest(unittest.TestCase):
             rendered = result.render_text()
             self.assertIn("release-derived index safety", rendered)
             self.assertIn("indexed_chunks_fts:chunk-leaky", rendered)
+
+    def test_doctor_fails_when_direct_context_recall_hint_target_leaks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(
+                name="Leaky Direct Hint Workroot",
+                directory=user_dir,
+                native_agent_entry=False,
+                ai_workroot_home=home,
+            )
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_recall_hint(
+                    conn,
+                    ContextRecallHint(
+                        hint_id="hint-direct",
+                        workroot_id=workroot_id,
+                        target_type="asset",
+                        target_id="asset-sensitive",
+                        title="Direct leaked hint",
+                        summary="SECRETDIRECTDOCTOR must be detected.",
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO redactions (
+                      redaction_id, workroot_id, target_type, target_id, redacted_fields, redaction_reason
+                    )
+                    VALUES ('redact-direct-hint', ?, 'context_recall_hint', 'hint-direct', 'summary', 'sensitive')
+                    """,
+                    (workroot_id,),
+                )
+                conn.commit()
+
+            result = run_doctor(cwd=user_dir, ai_workroot_home=home)
+
+            self.assertEqual(result.status, "FAIL")
+            rendered = result.render_text()
+            self.assertIn("release-derived index safety", rendered)
+            self.assertIn("context_recall_hints:hint-direct", rendered)
 
 
 if __name__ == "__main__":

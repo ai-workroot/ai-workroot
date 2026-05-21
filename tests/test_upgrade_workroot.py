@@ -60,7 +60,7 @@ class UpgradeWorkrootTest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(ROOT / "scripts/upgrade_workroot.py"),
+                    str(ROOT / "scripts/legacy/public_seed/upgrade_workroot.py"),
                     "--source",
                     str(PUBLIC_SEED),
                     "--target",

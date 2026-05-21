@@ -18,7 +18,7 @@ from ai_workroot.runtime.work import create_checkpoint, create_handoff, create_t
 
 from tests.e2e.harness import CommandResult, REPO_ROOT, env_for, run_cli, validate_user_directory, write_user_files
 from tests.e2e.personas import PERSONAS, Persona
-from tests.e2e.safety import new_default_run_root, prepare_run_root
+from tests.e2e.safety import new_default_run_root, prepare_run_root, require_e2e_opt_in
 from tests.e2e.scenarios import TaskScenario, scenarios_for_persona
 
 
@@ -212,7 +212,7 @@ def _run_persona_longrun(
         )
         commands.extend([context, debug])
         context_commands.extend([context, debug])
-        failures.extend(_validate_context_probe(persona, scenario, context, debug))
+        failures.extend(_validate_context_probe(persona, scenario, context, debug, hard_limit=int(hard_limit)))
         audits.append(_audit_context_probe(persona, scenario, context, debug, hard_limit=int(hard_limit)))
     if sqlite_path.is_file():
         failures.extend(_validate_longrun_sqlite(persona, sqlite_path, task_count=len(scenarios)))
@@ -318,7 +318,14 @@ def _context_probe_scenarios(scenarios: tuple[TaskScenario, ...]) -> tuple[TaskS
     return tuple(deduped)
 
 
-def _validate_context_probe(persona: Persona, scenario: TaskScenario, context: CommandResult, debug: CommandResult) -> list[str]:
+def _validate_context_probe(
+    persona: Persona,
+    scenario: TaskScenario,
+    context: CommandResult,
+    debug: CommandResult,
+    *,
+    hard_limit: int,
+) -> list[str]:
     failures: list[str] = []
     if context.returncode != 0:
         failures.append(f"context failed for {scenario.scenario_id}: {context.stderr or context.stdout}")
@@ -336,6 +343,8 @@ def _validate_context_probe(persona: Persona, scenario: TaskScenario, context: C
             failures.append(f"debug trace missing {expected} for {scenario.scenario_id}")
     if scenario.force_hard_trim and "trimSteps:" not in debug.stdout:
         failures.append(f"hard trim marker missing for {scenario.scenario_id}")
+    if scenario.force_hard_trim and _parse_token_usage(debug.stdout) > hard_limit:
+        failures.append(f"debug token usage exceeds hard limit for {scenario.scenario_id}: {hard_limit}")
     if scenario.protection in {"redacted", "deleted"} and (
         "E2E_LONGRUN_REDACTED" in context.stdout or "E2E_LONGRUN_DELETED" in context.stdout
     ):
@@ -347,12 +356,15 @@ def _validate_context_probe(persona: Persona, scenario: TaskScenario, context: C
 
 def _audit_context_probe(persona: Persona, scenario: TaskScenario, context: CommandResult, debug: CommandResult, *, hard_limit: int) -> dict[str, object]:
     token_usage = _parse_token_usage(context.stdout)
+    debug_token_usage = _parse_token_usage(debug.stdout)
     return {
         "persona": persona.slug,
         "scenario": scenario.scenario_id,
         "query": scenario.query,
         "tokenUsage": token_usage,
+        "debugTokenUsage": debug_token_usage,
         "hardTokenLimit": hard_limit,
+        "debugTokenWithinHardLimit": debug_token_usage <= hard_limit,
         "selectedCount": context.stdout.count("\n- "),
         "hasDebugTrace": "## Debug Trace" in debug.stdout,
         "hasCandidateSources": "candidateSources:" in debug.stdout,
@@ -439,6 +451,7 @@ def _summarize_context_audit(level: int, persona_results: tuple[PersonaLongrunRe
         "hardTrimChecks": sum(1 for audit in audits if audit["hardTrim"]),
         "zeroTokenUsageCount": sum(1 for value in token_values if value <= 0),
         "protectedLeakCount": sum(1 for audit in audits if audit["protectedLeak"]),
+        "debugTokenOverHardLimitCount": sum(1 for audit in audits if not audit["debugTokenWithinHardLimit"]),
         "maxTokenUsage": max(token_values, default=0),
         "audits": audits,
     }
@@ -475,6 +488,7 @@ def _render_summary(level: int, run_root: Path, ai_workroot_home: Path, persona_
         f"HardTrimChecks: {audit_summary['hardTrimChecks']}",
         f"ZeroTokenUsageCount: {audit_summary['zeroTokenUsageCount']}",
         f"ProtectedLeakCount: {audit_summary['protectedLeakCount']}",
+        f"DebugTokenOverHardLimitCount: {audit_summary['debugTokenOverHardLimitCount']}",
         f"MaxTokenUsage: {audit_summary['maxTokenUsage']}",
         "",
         "## Personas",
@@ -507,6 +521,8 @@ def _read_failures(path: Path) -> list[dict[str, object]]:
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
 
 def main() -> int:
+    if not require_e2e_opt_in():
+        return 2
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-root")
     parser.add_argument("--level", type=int, choices=(3, 4), default=3)

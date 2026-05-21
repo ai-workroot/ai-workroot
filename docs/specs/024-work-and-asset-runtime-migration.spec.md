@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-`scripts/workroot_client.py` contains mature legacy capabilities for tasks, runs, actions, artifacts, retrieval cards, checkpoints, invalidations, session summaries, continuation, and batch rollback. These capabilities must not be lost, but active Clean Workroot runtime behavior belongs in `src/ai_workroot/`.
+`ai_workroot.runtime.legacy_seed.client` preserves mature legacy capabilities for tasks, runs, actions, artifacts, retrieval cards, checkpoints, invalidations, session summaries, continuation, and batch rollback. These capabilities must not be lost, but active Clean Workroot runtime behavior belongs in `src/ai_workroot/`.
 
 ## Goals
 
@@ -172,7 +172,7 @@ AC-004: Given legacy task tests, when package equivalents pass, then legacy test
 
 ## Migration / Rollback
 
-Migrate one capability group at a time. Keep `scripts/workroot_client.py` unchanged until package tests exist. Rollback by disabling package command exposure while preserving legacy adapter.
+Migrate one capability group at a time. Keep the Public Seed client compatibility wrapper callable until package tests exist. Rollback by disabling package command exposure while preserving legacy adapter.
 
 ## Observability / Debugging
 
@@ -202,12 +202,12 @@ T4: Preserve batch rollback
 
 T5: Isolate legacy client
 - Change: Move old command tests to legacy or make script delegate where parity exists.
-- Files likely affected: `scripts/workroot_client.py`, `tests/legacy/`.
+- Files likely affected: `src/ai_workroot/runtime/legacy_seed/client.py`, Public Seed compatibility wrapper, `tests/legacy/`.
 - Verification: full unittest suite.
 
 ## Risks
 
-- Hidden behavior in `workroot_client.py` is missed.
+- Hidden behavior in the legacy Workroot client is missed.
 - Asset mapping drops provenance or visibility.
 - Batch rollback semantics regress during migration.
 

@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-0.9.530 needs a package-owned release validation path. `scripts/validate_kernel.py` remains useful as a historical baseline, but it cannot be the final authority for Clean Workroot release readiness. The project also needs a repeatable checkbot command for branch checkpoints without tagging or releasing.
+0.9.530 needs a package-owned release validation path. `scripts/compat/validate_kernel.py` remains useful as a historical baseline, but it cannot be the final authority for Clean Workroot release readiness. The project also needs a repeatable checkbot command for branch checkpoints without tagging or releasing.
 
 ## Goals
 
@@ -121,7 +121,7 @@ Smoke tests must not inspect or mutate real `AI_WORKROOT_HOME`. Output must not 
 
 ### Compatibility
 
-`scripts/validate_kernel.py --release` may remain in checkbot as baseline until package release doctor fully supersedes it.
+`scripts/compat/validate_kernel.py --release` may remain in checkbot as baseline until package release doctor fully supersedes it.
 
 ## Acceptance Criteria
 

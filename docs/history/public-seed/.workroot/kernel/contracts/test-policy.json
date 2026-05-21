@@ -6,12 +6,12 @@
   "owner": "kernel",
   "updated_at": "2026-05-15T00:00:00Z",
   "required_test_commands": [
-    "python3 -m py_compile scripts/*.py",
+    "python3 -m py_compile $(find scripts -name '*.py')",
     "python3 -m unittest discover tests",
-    "python3 scripts/validate_kernel.py",
-    "python3 scripts/validate_kernel.py --release",
-    "python3 scripts/new_task_smoke.py",
-    "python3 scripts/setup_workroot.py --help",
+    "python3 scripts/compat/validate_kernel.py",
+    "python3 scripts/compat/validate_kernel.py --release",
+    "python3 scripts/dev/new_task_smoke.py",
+    "python3 scripts/legacy/public_seed/setup_workroot.py --help",
     "git diff --check"
   ],
   "release_blocks_on": [

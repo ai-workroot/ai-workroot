@@ -21,11 +21,11 @@ This resolves the current tension between two valid goals:
 
 The package-ownership phase must preserve these compatibility surfaces:
 
-- `scripts/workroot_cli.py` remains callable.
-- `scripts/workroot_cli.py init/list/status/context/doctor/bootstrap-dev` continues to delegate to the active package Clean Workroot CLI/runtime.
+- `scripts/compat/workroot_cli.py` remains callable.
+- `scripts/compat/workroot_cli.py init/list/status/context/doctor/bootstrap-dev` continues to delegate to the active package Clean Workroot CLI/runtime.
 - Hidden legacy Public Seed commands such as `task`, `run`, `action`, `artifact`, `retrieval-card`, `checkpoint`, `invalidation`, `mind`, `session`, `continue`, and `batch` continue to work for compatibility.
 - Small helper scripts remain callable: `new_task.py`, `list_tasks.py`, `setup_workroot.py`, `update_usage_direction.py`, `upgrade_workroot.py`, `add_registry_row.py`, and `rebuild_sqlite.py`.
-- `scripts/validate_kernel.py` remains callable for historical/release checks while package-owned validation becomes the primary architecture target.
+- `scripts/compat/validate_kernel.py` remains callable for historical/release checks while package-owned validation becomes the primary architecture target.
 - Tests that intentionally verify legacy compatibility may continue to import script wrappers, but production tests should move to package imports where behavior has been migrated.
 - Archiving under `docs/history/0.9.530/scripts/` means preserving a historical snapshot. It does not mean removing the callable script wrapper in Part 1.
 
@@ -79,17 +79,17 @@ The `legacy_seed` name is intentional. It preserves old Public Seed capabilities
 
 | Area | Part 1 package owner | Compatibility surface |
 |---|---|---|
-| Task/run/action/artifact/checkpoint/invalidation/mind/session/batch behavior | `ai_workroot.runtime.legacy_seed.client` plus focused helper modules | `scripts/workroot_client.py`, hidden legacy CLI |
-| Legacy CLI parser and command dispatch | `ai_workroot.cli.legacy_seed` | `scripts/workroot_cli.py` |
-| New task helper | `ai_workroot.runtime.legacy_seed.task_creation` | `scripts/new_task.py` |
-| Task listing helper | `ai_workroot.runtime.legacy_seed.task_listing` | `scripts/list_tasks.py` |
-| Guided setup helper | `ai_workroot.runtime.legacy_seed.setup` | `scripts/setup_workroot.py` |
-| Usage-direction helper | `ai_workroot.runtime.legacy_seed.profile` | `scripts/update_usage_direction.py` |
-| Public Seed upgrade helper | `ai_workroot.runtime.legacy_seed.upgrade` | `scripts/upgrade_workroot.py` |
-| Registry row helper | `ai_workroot.runtime.legacy_seed.registry_tools` | `scripts/add_registry_row.py` |
-| Legacy SQLite rebuild helper | `ai_workroot.runtime.legacy_seed.sqlite_rebuild` | `scripts/rebuild_sqlite.py` |
+| Task/run/action/artifact/checkpoint/invalidation/mind/session/batch behavior | `ai_workroot.runtime.legacy_seed.client` plus focused helper modules | Public Seed quarantine wrapper and hidden legacy CLI |
+| Legacy CLI parser and command dispatch | `ai_workroot.cli.legacy_seed` | compatibility CLI wrapper |
+| New task helper | `ai_workroot.runtime.legacy_seed.task_creation` | `scripts/legacy/public_seed/new_task.py` |
+| Task listing helper | `ai_workroot.runtime.legacy_seed.task_listing` | `scripts/legacy/public_seed/list_tasks.py` |
+| Guided setup helper | `ai_workroot.runtime.legacy_seed.setup` | `scripts/legacy/public_seed/setup_workroot.py` |
+| Usage-direction helper | `ai_workroot.runtime.legacy_seed.profile` | `scripts/legacy/public_seed/update_usage_direction.py` |
+| Public Seed upgrade helper | `ai_workroot.runtime.legacy_seed.upgrade` | `scripts/legacy/public_seed/upgrade_workroot.py` |
+| Registry row helper | `ai_workroot.runtime.legacy_seed.registry_tools` | `scripts/legacy/public_seed/add_registry_row.py` |
+| Legacy SQLite rebuild helper | `ai_workroot.runtime.legacy_seed.sqlite_rebuild` | `scripts/legacy/public_seed/rebuild_sqlite.py` |
 | Operation manifest/recipes | `ai_workroot.runtime.legacy_seed.operation_manifest` | package manifest API, legacy references |
-| Release/kernel validation | `ai_workroot.runtime.release_validation` where safe | `scripts/validate_kernel.py` |
+| Release/kernel validation | `ai_workroot.runtime.release_validation` where safe | `scripts/compat/validate_kernel.py` |
 
 `src/ai_workroot/core/extensions.py` should retain stable capability concepts only. Legacy operation recipes that still mention script commands belong in `runtime/legacy_seed/operation_manifest.py`, not in core.
 
@@ -115,7 +115,7 @@ Validation:
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 python3 -m py_compile $(find src scripts -name "*.py")
 PYTHONPATH=src python3 -m ai_workroot doctor --release
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 scripts/dev/validate-release.sh
 git diff --check origin/main...HEAD
 rg -n "from scripts|import scripts|scripts\\." tests src docs
@@ -143,7 +143,7 @@ python3 -m py_compile $(find src scripts -name "*.py")
 
 ### Phase 2: Move Neutral Primitives and Registry Helpers
 
-Move low-risk definitions from `scripts/workroot_client.py` first:
+Move low-risk definitions into `ai_workroot.runtime.legacy_seed.client` first:
 
 - `CreatedTask`;
 - `ProcessRecord`;
@@ -167,7 +167,7 @@ python3 -m py_compile $(find src scripts -name "*.py")
 
 Move the complete legacy `WorkrootClient` into `ai_workroot.runtime.legacy_seed.client` in the first pass. Do not rewrite the internal behavior while moving it. Behavior refactoring can happen after package ownership and compatibility tests are stable.
 
-`scripts/workroot_client.py` becomes a thin re-export wrapper:
+The Public Seed client compatibility file becomes a thin re-export wrapper:
 
 ```python
 from ai_workroot.runtime.legacy_seed.client import *
@@ -207,7 +207,7 @@ python3 -m py_compile $(find src scripts -name "*.py")
 
 ### Phase 5: Move Legacy CLI Parser and Dispatch
 
-Move the hidden legacy parser/dispatch path from `scripts/workroot_cli.py` into `ai_workroot.cli.legacy_seed`.
+Move the hidden legacy parser/dispatch path into `ai_workroot.cli.legacy_seed`.
 
 Keep these rules:
 
@@ -237,13 +237,13 @@ PYTHONPATH=src python3 -m unittest tests/test_workroot_cli_discovery.py tests/te
 
 ### Phase 7: Move Package Release Validation Authority
 
-Move release-surface logic that belongs to active package health checks into `ai_workroot.runtime.release_validation`. Keep `scripts/validate_kernel.py` as a wrapper/dev compatibility entry point.
+Move release-surface logic that belongs to active package health checks into `ai_workroot.runtime.release_validation`. Keep `scripts/compat/validate_kernel.py` as a wrapper/dev compatibility entry point.
 
 Validation:
 
 ```bash
 PYTHONPATH=src python3 -m ai_workroot doctor --release
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 PYTHONPATH=src python3 -m unittest tests/test_0529_release_gates.py tests/test_public_seed_surface.py tests/smoke/test_clean_release_validator.py -v
 ```
 
@@ -283,7 +283,7 @@ Validation:
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 python3 -m py_compile $(find src scripts -name "*.py")
 PYTHONPATH=src python3 -m ai_workroot doctor --release
-python3 scripts/validate_kernel.py --release
+python3 scripts/compat/validate_kernel.py --release
 scripts/dev/validate-release.sh
 git diff --check origin/main...HEAD
 ```

@@ -63,9 +63,9 @@ class ArchitectureContractsTest(unittest.TestCase):
     def test_agent_fast_start_prefers_operation_manifest_over_source_code(self) -> None:
         text = read(".workroot/kernel/boot/agent-fast-start.md")
         self.assertIn("operation manifest", text)
-        self.assertIn("scripts/workroot_cli.py manifest --format json", text)
-        self.assertIn("scripts/workroot_cli.py recipe batch-12-tasks --format json", text)
-        self.assertIn("Do not read `scripts/workroot_client.py`", text)
+        self.assertIn("workroot legacy manifest --format json", text)
+        self.assertIn("workroot legacy recipe batch-12-tasks --format json", text)
+        self.assertIn("Do not read implementation source modules", text)
 
     def test_part2_temporal_and_global_index_boundaries_are_documented(self) -> None:
         retrieval = read("docs/specs/009-retrieval-index-control.spec.md")

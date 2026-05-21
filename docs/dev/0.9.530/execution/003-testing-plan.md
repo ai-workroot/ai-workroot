@@ -156,7 +156,7 @@ Smoke scripts should cover:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/validate_kernel.py --release  # baseline only until replaced or rewritten
+python3 scripts/compat/validate_kernel.py --release  # baseline only until replaced or rewritten
 git diff --check
 git status --short
 ```

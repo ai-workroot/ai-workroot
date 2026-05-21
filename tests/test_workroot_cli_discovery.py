@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import unittest
@@ -11,7 +12,7 @@ from ai_workroot.runtime.legacy_seed import operation_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "scripts/workroot_cli.py"
+CLI = ROOT / "scripts/compat/workroot_cli.py"
 
 
 def run_cli(*args: str) -> str:
@@ -23,6 +24,32 @@ def run_cli(*args: str) -> str:
         capture_output=True,
     )
     return result.stdout
+
+
+def run_cli_without_pythonpath(*args: str) -> subprocess.CompletedProcess[str]:
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    return subprocess.run(
+        [sys.executable, str(CLI), *args],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def run_package_cli(*args: str) -> subprocess.CompletedProcess[str]:
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(ROOT / "src")
+    return subprocess.run(
+        [sys.executable, "-m", "ai_workroot", *args],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 class WorkrootCliDiscoveryTest(unittest.TestCase):
@@ -67,6 +94,49 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         for legacy in ("task", "run", "action", "artifact", "retrieval-card", "checkpoint", "invalidation", "mind", "session", "continue", "batch"):
             self.assertNotIn(legacy, out)
 
+    def test_package_default_help_hides_legacy_namespace(self) -> None:
+        out = run_package_cli("--help")
+
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("init", out.stdout)
+        self.assertIn("context", out.stdout)
+        self.assertIn("doctor", out.stdout)
+        self.assertNotIn("legacy", out.stdout)
+        self.assertNotIn("==SUPPRESS==", out.stdout)
+
+    def test_compat_clean_commands_work_without_pythonpath(self) -> None:
+        init_help = run_cli_without_pythonpath("init", "--help")
+        release_doctor = run_cli_without_pythonpath("doctor", "--release")
+
+        self.assertEqual(init_help.returncode, 0, init_help.stderr)
+        self.assertIn("usage: workroot init", init_help.stdout)
+        self.assertIn("--directory", init_help.stdout)
+        self.assertEqual(release_doctor.returncode, 0, release_doctor.stderr)
+        self.assertIn("AI Workroot release doctor: PASS", release_doctor.stdout)
+
+    def test_package_cli_exposes_hidden_legacy_command_surface(self) -> None:
+        manifest = run_package_cli("legacy", "manifest", "--format", "json")
+        recipe = run_package_cli("legacy", "recipe", "task-l2-evidence")
+
+        self.assertEqual(manifest.returncode, 0, manifest.stderr)
+        self.assertEqual(recipe.returncode, 0, recipe.stderr)
+        data = json.loads(manifest.stdout)
+        self.assertEqual(data["manifest_id"], "agent-operation-manifest")
+        self.assertIn("workroot legacy batch apply --file plan.json", data["batch"]["command"])
+        self.assertIn("workroot legacy task create", recipe.stdout)
+        self.assertNotIn("scripts/compat/workroot_cli.py", manifest.stdout)
+        self.assertNotIn("scripts/compat/workroot_cli.py", recipe.stdout)
+
+    def test_package_legacy_help_delegates_to_legacy_parser(self) -> None:
+        help_result = run_package_cli("legacy", "--help")
+
+        self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        self.assertIn("quickstart", help_result.stdout)
+        self.assertIn("manifest", help_result.stdout)
+        self.assertIn("recipe", help_result.stdout)
+        self.assertIn("legacy public-seed", help_result.stdout)
+        self.assertNotIn("legacy_args", help_result.stdout)
+
     def test_operation_manifest_marks_legacy_seed_commands(self) -> None:
         manifest = json.loads(run_cli("manifest", "--format", "json"))
 
@@ -78,7 +148,8 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
     def test_manifest_json_exposes_agent_operation_contract(self) -> None:
         manifest = json.loads(run_cli("manifest", "--format", "json"))
         self.assertEqual(manifest["manifest_id"], "agent-operation-manifest")
-        self.assertIn("scripts/workroot_client.py", manifest["normal_mode"]["do_not_read"])
+        self.assertIn("implementation source modules", manifest["normal_mode"]["do_not_read"])
+        self.assertIn("historical execution plans", manifest["normal_mode"]["do_not_read"])
         self.assertIn("task.create", manifest["batch_operations"])
         self.assertIn("run.add", manifest["batch_operations"])
         self.assertIn("mind.add", manifest["batch_operations"])

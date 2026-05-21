@@ -6,10 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
+from ai_workroot.cli.main import main as package_main
 from ai_workroot.runtime.legacy_seed.operation_manifest import manifest as operation_manifest
 from ai_workroot.runtime.legacy_seed.operation_manifest import recipe as operation_recipe
 from ai_workroot.runtime.legacy_seed.operation_manifest import schema as operation_schema
@@ -28,6 +28,7 @@ from ai_workroot.runtime.legacy_seed.client import (
     WorkrootClient,
     now_utc,
 )
+from ai_workroot.runtime.legacy_seed.kernel_validation import main as kernel_validation_main
 from ai_workroot.runtime.paths import resolve_ai_workroot_home
 
 
@@ -36,21 +37,7 @@ CLEAN_PACKAGE_IF_REGISTERED_COMMANDS = {"context", "doctor"}
 
 
 def run_package_cli(args: list[str]) -> int:
-    root = Path(__file__).resolve().parents[1]
-    src = root / "src"
-    existing_pythonpath = os.environ.get("PYTHONPATH")
-    pythonpath = str(src) if not existing_pythonpath else os.pathsep.join((str(src), existing_pythonpath))
-    env = {**os.environ, "PYTHONPATH": pythonpath}
-    result = subprocess.run(
-        [sys.executable, "-m", "ai_workroot", *args],
-        text=True,
-        capture_output=True,
-        check=False,
-        env=env,
-    )
-    print(result.stdout, end="")
-    print(result.stderr, end="", file=sys.stderr)
-    return result.returncode
+    return package_main(args)
 
 
 def should_run_package_cli(args: list[str]) -> bool:
@@ -109,7 +96,10 @@ def _package_registry_can_resolve(cwd: Path) -> bool:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description="AI Workroot legacy public-seed compatibility commands.",
+        epilog="These commands are legacy public-seed compatibility surfaces. Clean Workroot users should use init, context, status, list, doctor, and bootstrap-dev.",
+    )
     visible_resources = (
         "quickstart",
         "init",
@@ -350,12 +340,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
-    if should_run_package_cli(sys.argv[1:]):
-        raise SystemExit(run_package_cli(sys.argv[1:]))
+def main(argv: list[str] | None = None) -> None:
+    raw_args = list(sys.argv[1:] if argv is None else argv)
+    if should_run_package_cli(raw_args):
+        raise SystemExit(run_package_cli(raw_args))
 
     parser = build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(raw_args)
     client = WorkrootClient()
 
     if args.resource == "quickstart":
@@ -363,17 +354,17 @@ def main() -> None:
         print("workroot init --name <name> --directory <directory> --no-native-agent-entry")
         print("workroot context --agent codex --cwd <directory>")
         print("workroot doctor --cwd <directory>")
-        print("scripts/install.sh is a CLI wrapper installer; it does not run first-use setup.")
+        print("The install scripts are CLI wrapper installers; they do not run first-use setup.")
         print("")
         print("legacy public-seed agent-operation commands:")
         print("task, run, action, artifact, retrieval-card, checkpoint, invalidation, mind, session, continue, and batch remain available for the file-first seed.")
         print("")
         print("For normal agent operations, read manifest first:")
-        print("python3 scripts/workroot_cli.py manifest --format json")
+        print("workroot legacy manifest --format json")
         print("Use JSON schema for exact fields:")
-        print("python3 scripts/workroot_cli.py schema --format json")
+        print("workroot legacy schema --format json")
         print("Use a directly usable batch example:")
-        print("python3 scripts/workroot_cli.py recipe batch-12-tasks --format json")
+        print("workroot legacy recipe batch-12-tasks --format json")
         print("Use session summarize --from-registry --recent N to summarize selected registry tasks without a long task id list.")
         print("Use task complete for common task finalization.")
         print("Use schema to inspect enum and path rules.")
@@ -421,9 +412,9 @@ def main() -> None:
             print(json.dumps(data, ensure_ascii=False, indent=2))
         else:
             print("Agent Operation Manifest")
-            print("Use: python3 scripts/workroot_cli.py manifest --format json")
-            print("Normal mode: do not read scripts/workroot_client.py unless debugging or changing Workroot itself.")
-            print("Batch command: python3 scripts/workroot_cli.py batch apply --file plan.json")
+            print("Use: workroot legacy manifest --format json")
+            print("Normal mode: do not read implementation source modules unless debugging legacy Public Seed compatibility.")
+            print("Batch command: workroot legacy batch apply --file plan.json")
         return
 
     if args.resource == "schema":
@@ -447,14 +438,14 @@ def main() -> None:
             print(json.dumps(operation_recipe(args.name), ensure_ascii=False, indent=2))
             return
         if args.name == "task-l2-evidence":
-            print("python3 scripts/workroot_cli.py task create \"Evidence task\" --process-level L2 --id TASK")
-            print("python3 scripts/workroot_cli.py task complete --process-level L2 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md --checkpoint")
+            print("workroot legacy task create \"Evidence task\" --process-level L2 --id TASK")
+            print("workroot legacy task complete --process-level L2 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md --checkpoint")
         elif args.name == "task-l1-report":
-            print("python3 scripts/workroot_cli.py task create \"Report task\" --process-level L1 --id TASK")
-            print("python3 scripts/workroot_cli.py task complete --process-level L1 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md")
+            print("workroot legacy task create \"Report task\" --process-level L1 --id TASK")
+            print("workroot legacy task complete --process-level L1 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md")
         else:
-            print("python3 scripts/workroot_cli.py task create \"Simple task\" --process-level L0 --id TASK")
-            print("python3 scripts/workroot_cli.py task complete --process-level L0 --task-id TASK --report-path space/work/reports/report.md --report-content-file report.md")
+            print("workroot legacy task create \"Simple task\" --process-level L0 --id TASK")
+            print("workroot legacy task complete --process-level L0 --task-id TASK --report-path space/work/reports/report.md")
         return
 
     if args.resource == "doctor":
@@ -464,19 +455,10 @@ def main() -> None:
             args.format == "text"
             and args.cwd == "."
             and resolve_state_record(home, cwd) is None
-            and (cwd / "scripts/validate_kernel.py").exists()
+            and (cwd / "docs/history/public-seed").exists()
         )
         if should_run_kernel_doctor:
-            result = subprocess.run(
-                [sys.executable, "scripts/validate_kernel.py"],
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            print(result.stdout, end="")
-            if result.returncode:
-                print(result.stderr, end="", file=sys.stderr)
-                raise SystemExit(result.returncode)
+            raise SystemExit(kernel_validation_main([]))
             return
         result = run_doctor(home, cwd=cwd)
         if args.format == "json":

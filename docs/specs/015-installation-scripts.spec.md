@@ -43,7 +43,7 @@ PowerShell script under `install/windows/install.ps1`.
 
 ## Acceptance
 
-- old `scripts/install.sh` and `scripts/install.ps1` are wrappers or moved.
+- old `scripts/compat/install.sh` and `scripts/compat/install.ps1` are wrappers or moved.
 - docs point to new install paths.
 - shell parse passes for unix installer.
 - PowerShell parse/documented validation included where possible.

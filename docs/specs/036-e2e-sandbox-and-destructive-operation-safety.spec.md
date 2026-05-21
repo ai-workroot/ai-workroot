@@ -233,6 +233,14 @@ classify_shell_command(command: Sequence[str] | str) -> CommandSafetyDecision
 
 E2E CLI commands must pass paths through argv or environment variables that are already exported. They must not rely on same-line temporary assignments referenced in the same shell command.
 
+All E2E suites are opt-in only and must be launched through the explicit runner:
+
+```bash
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite safety
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite persona-smoke
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite longrun
+```
+
 Bad:
 
 ```bash
@@ -243,13 +251,13 @@ Good:
 
 ```bash
 export RUN_ROOT="$HOME/tmp/ai-workroot-e2e-sandboxes/run-20260521-153000-a1b2c3"
-python3 -m tests.e2e.longrun --run-root "$RUN_ROOT"
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite longrun
 ```
 
 Better:
 
 ```bash
-python3 -m tests.e2e.longrun --sandbox-base "$HOME/tmp/ai-workroot-e2e-sandboxes"
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite safety --suite persona-smoke
 ```
 
 ### Runtime Behavior
@@ -399,7 +407,7 @@ T2: Migrate deterministic E2E harnesses
 
 T3: Add command safety classification
 - Change: Add command classifier and reject dangerous shell patterns.
-- Files likely affected: `tests/e2e/safety.py`, `tests/e2e/test_safety.py`
+- Files likely affected: `tests/e2e/safety.py`, `tests/e2e/safety_cases.py`, `tests/e2e/runner.py`
 - Verification: Destructive and same-line variable commands are rejected.
 
 T4: Add artifact safety reporting

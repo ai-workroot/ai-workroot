@@ -156,7 +156,7 @@ Root `AGENTS.md`, root `CLAUDE.md`, `space/`, and `.workroot/` are not active tr
 
 Public Seed is historical. Its preserved files live under `docs/history/public-seed/` for compatibility review and old capability tests.
 
-`src/ai_workroot/` is the active package direction for 0.9.530. Some older capability implementations still live under `scripts/` as compatibility tooling from the Public Seed era; they remain testable while behavior is migrated behind the new Core / Contracts / Runtime / Storage / Indexing / Agent / CLI boundaries.
+`src/ai_workroot/` is the active product implementation direction for 0.9.530. The `scripts/` tree is support-only: `scripts/dev/` holds developer and release helpers, `scripts/compat/` holds short compatibility wrappers, and `scripts/legacy/public_seed/` quarantines old Public Seed entry points. New Clean Workroot behavior belongs in the package, not in `scripts/`.
 
 The core principle should remain stable: the user's continuity should stay inspectable, portable, and owned by the user.
 

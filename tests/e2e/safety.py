@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import sys
 from typing import Sequence
 from uuid import uuid4
 
@@ -18,12 +19,38 @@ from tests.e2e.harness import REPO_ROOT
 SANDBOX_SENTINEL = ".ai-workroot-e2e-sandbox"
 OWNED_SENTINEL = ".ai-workroot-owned"
 OWNED_CHILD_DIRS = ("ai-workroot-home", "home", "user-dirs", "reports", "transcripts")
+E2E_OPT_IN_ENV = "AI_WORKROOT_RUN_E2E"
+E2E_OPT_IN_VALUE = "1"
+E2E_OPT_IN_MESSAGE = (
+    "E2E tests are opt-in only. Set AI_WORKROOT_RUN_E2E=1 and run "
+    "python3 -m tests.e2e.runner --suite <suite>."
+)
 
 
 @dataclass(frozen=True)
 class CommandSafetyDecision:
     classification: str
     reason: str
+
+
+def e2e_opt_in_enabled() -> bool:
+    return os.environ.get(E2E_OPT_IN_ENV) == E2E_OPT_IN_VALUE
+
+
+def require_e2e_opt_in() -> bool:
+    if e2e_opt_in_enabled():
+        return True
+    print(E2E_OPT_IN_MESSAGE, file=sys.stderr)
+    return False
+
+
+def ensure_not_real_repo_cwd_for_live_e2e(cwd: str | Path, *, source_repo: Path = REPO_ROOT) -> None:
+    resolved = Path(cwd).expanduser().resolve()
+    repo = source_repo.resolve()
+    if resolved == repo:
+        raise ValueError(f"live-agent E2E must not run from the real repository checkout: {repo}")
+    if repo in resolved.parents:
+        raise ValueError(f"live-agent E2E must not run inside the real repository checkout: {resolved}")
 
 
 def default_sandbox_base() -> Path:

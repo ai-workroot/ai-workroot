@@ -16,17 +16,29 @@ class RelationshipSignal:
     reason: str = "relationship-edge"
 
 
-def upsert_relationship_node(conn: sqlite3.Connection, node_id: str, workroot_id: str, node_type: str, title: str) -> None:
+def upsert_relationship_node(
+    conn: sqlite3.Connection,
+    node_id: str,
+    workroot_id: str,
+    node_type: str,
+    title: str,
+    *,
+    target_type: str = "",
+    target_id: str = "",
+) -> None:
+    _validate_node_target(target_type, target_id)
     conn.execute(
         """
-        INSERT INTO relationship_nodes (node_id, workroot_id, node_type, title)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO relationship_nodes (node_id, workroot_id, node_type, title, target_type, target_id)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(node_id) DO UPDATE SET
           workroot_id=excluded.workroot_id,
           node_type=excluded.node_type,
-          title=excluded.title
+          title=excluded.title,
+          target_type=excluded.target_type,
+          target_id=excluded.target_id
         """,
-        (node_id, workroot_id, node_type, title),
+        (node_id, workroot_id, node_type, title, target_type or None, target_id or None),
     )
     conn.commit()
 
@@ -94,3 +106,8 @@ def relationship_signals_for_sources(
         )
         for row in rows
     ]
+
+
+def _validate_node_target(target_type: str, target_id: str) -> None:
+    if bool(target_type) != bool(target_id):
+        raise ValueError("relationship node canonical target requires both target_type and target_id")

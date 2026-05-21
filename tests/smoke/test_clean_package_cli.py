@@ -284,7 +284,7 @@ class CleanPackageCliSmokeTest(unittest.TestCase):
             self.assertTrue(wrapper.is_file())
             text = wrapper.read_text(encoding="utf-8")
             self.assertIn("python3 -m ai_workroot", text)
-            self.assertNotIn("scripts/workroot_cli.py", text)
+            self.assertNotIn("scripts/compat/workroot_cli.py", text)
 
 
 if __name__ == "__main__":

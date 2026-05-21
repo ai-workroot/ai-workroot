@@ -32,8 +32,8 @@ Install scripts and developer scripts currently live under generic `scripts/`. T
 
 - `install/unix/install.sh`.
 - `install/windows/install.ps1`.
-- `scripts/install.sh` and `scripts/install.ps1` wrappers.
-- `scripts/bootstrap-dev.sh` and `scripts/bootstrap-dev.ps1` wrappers.
+- `scripts/compat/install.sh` and `scripts/compat/install.ps1` wrappers.
+- `scripts/dev/bootstrap-dev.sh` and `scripts/dev/bootstrap-dev.ps1` wrappers.
 - Developer validation utilities under `scripts/dev/`.
 
 ### Excluded
@@ -84,10 +84,10 @@ Compatibility wrapper: script retained for old paths but delegating to the activ
 ```text
 install/unix/install.sh
 install/windows/install.ps1
-scripts/install.sh
-scripts/install.ps1
-scripts/bootstrap-dev.sh
-scripts/bootstrap-dev.ps1
+scripts/compat/install.sh
+scripts/compat/install.ps1
+scripts/dev/bootstrap-dev.sh
+scripts/dev/bootstrap-dev.ps1
 scripts/dev/validate-release.sh
 ```
 
@@ -119,7 +119,7 @@ Old script paths may remain as wrappers with warnings or docs links.
 
 ## Acceptance Criteria
 
-AC-001: Given `bash -n scripts/install.sh`, when it runs, then syntax passes.
+AC-001: Given `bash -n scripts/compat/install.sh`, when it runs, then syntax passes.
 
 AC-002: Given temp install dir, when install script runs twice, then the second run succeeds without changing user config.
 
@@ -156,12 +156,12 @@ Scripts print invoked package command and target install path in verbose/help mo
 
 T1: Add install directory scripts
 - Change: Move or copy wrapper installer logic into `install/unix` and `install/windows`.
-- Files likely affected: `install/`, `scripts/install.*`.
+- Files likely affected: `install/`, `scripts/compat/install.*`.
 - Verification: syntax and temp install smoke.
 
 T2: Thin old wrappers
 - Change: Make old install/bootstrap script paths delegate and document compatibility.
-- Files likely affected: `scripts/install.sh`, `scripts/install.ps1`, `scripts/bootstrap-dev.*`.
+- Files likely affected: `scripts/compat/install.sh`, `scripts/compat/install.ps1`, `scripts/dev/bootstrap-dev.*`.
 - Verification: wrapper smoke tests.
 
 T3: Move developer utilities

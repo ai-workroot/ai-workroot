@@ -19,8 +19,8 @@
 | `AGENTS.md` | Remove from tracked root | `templates/native-agent-entry/AGENTS.md.template` |
 | `CLAUDE.md` | Remove from tracked root | `templates/native-agent-entry/CLAUDE.md.template` |
 | `.idea/` | Remove from Git | none |
-| `scripts/install.sh` | Move/wrap | `install/unix/install.sh` |
-| `scripts/install.ps1` | Move/wrap | `install/windows/install.ps1` |
+| `scripts/compat/install.sh` | Move/wrap | `install/unix/install.sh` |
+| `scripts/compat/install.ps1` | Move/wrap | `install/windows/install.ps1` |
 | product logic in `scripts/*.py` | Migrate | `src/ai_workroot/*` |
 | dev helper scripts | Move | `scripts/dev/` |
 

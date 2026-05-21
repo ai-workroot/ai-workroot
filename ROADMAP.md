@@ -21,11 +21,12 @@ Within each priority level, the order in the table is the default execution orde
 |---:|---|---|---|
 | 1 | Keep Clean Mode strict | Engineering | User-selected directories stay clean by default; managed state stays under `AI_WORKROOT_HOME`. |
 | 2 | Stabilize the package structure | Engineering | Keep `Core / Contracts / Runtime / Storage / Indexing / Agent / CLI` import boundaries enforced by tests. |
-| 3 | Finish bootstrap-dev dogfood | Engineering | Source repo dogfood uses `workroot.project.json`, ignored Native Agent Entry files, and `.ai-workroot-local/` without commits, tags, or pushes. |
-| 4 | Preserve legacy capabilities safely | Compatibility | Old Public Seed capabilities remain testable through history/fixtures, not active root layout. |
-| 5 | Harden Context Control | Product / Engineering | Keep local retrieval explainable, bounded, configurable, and free of mandatory vector, remote embedding, or remote LLM dependencies. |
-| 6 | Complete release validation | Engineering | Release gates include unit, integration, smoke, negative, Clean Workroot doctor, legacy compatibility, and text audits. |
-| 7 | Dogfood AI Workroot daily | Product | Use Clean Workroot flows to manage the AI Workroot project itself and real personal work. |
+| 3 | Keep scripts closed over support roles | Engineering | `scripts/dev`, `scripts/compat`, and `scripts/legacy/public_seed` are support/quarantine surfaces; active product logic stays in `src/ai_workroot`. |
+| 4 | Finish bootstrap-dev dogfood | Engineering | Source repo dogfood uses `workroot.project.json`, ignored Native Agent Entry files, and `.ai-workroot-local/` without commits, tags, or pushes. |
+| 5 | Preserve legacy capabilities safely | Compatibility | Old Public Seed capabilities remain testable through history/fixtures and `scripts/legacy/public_seed`, not active root layout. |
+| 6 | Harden Context Control | Product / Engineering | Keep local retrieval explainable, bounded, configurable, and free of mandatory vector, remote embedding, or remote LLM dependencies. |
+| 7 | Complete release validation | Engineering | Release gates include unit, integration, smoke, negative, Clean Workroot doctor, legacy compatibility, and text audits. |
+| 8 | Dogfood AI Workroot daily | Product | Use Clean Workroot flows to manage the AI Workroot project itself and real personal work. |
 
 ---
 

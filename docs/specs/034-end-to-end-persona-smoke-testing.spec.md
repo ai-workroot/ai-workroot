@@ -139,9 +139,11 @@ Programmatic API:
 CLI:
 
 ```bash
-python3 -m tests.e2e.longrun --run-root <path> --level 3
-python3 -m tests.e2e.longrun --run-root <path> --level 4
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite persona-smoke
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite longrun
 ```
+
+E2E suites are opt-in only. Default unit, integration, smoke, and release validation commands must not run E2E, longrun, or live-agent tests.
 
 ### Runtime Behavior
 
@@ -189,8 +191,9 @@ Then it refuses to run.
 
 ### Integration Tests
 
-- `tests/e2e/test_persona_smoke.py`
-- `tests/e2e/test_longrun.py`
+- `tests/e2e/persona_smoke_cases.py`
+- `tests/e2e/longrun_cases.py`
+- `tests/e2e/runner.py`
 
 ### Manual Verification
 
@@ -225,13 +228,13 @@ T3: Add shared harness
 
 T4: Add Level 2 smoke
 - Change: Implement five-persona smoke and report.
-- Files likely affected: `tests/e2e/persona_smoke.py`, `tests/e2e/test_persona_smoke.py`
-- Verification: `python3 -m unittest tests.e2e.test_persona_smoke -v`
+- Files likely affected: `tests/e2e/persona_smoke.py`, `tests/e2e/persona_smoke_cases.py`, `tests/e2e/runner.py`
+- Verification: `AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite persona-smoke`
 
 T5: Add Level 3/4 longrun
 - Change: Implement longrun seeding, probes, audits, and CLI.
-- Files likely affected: `tests/e2e/longrun.py`, `tests/e2e/test_longrun.py`
-- Verification: `python3 -m unittest tests.e2e.test_longrun -v`
+- Files likely affected: `tests/e2e/longrun.py`, `tests/e2e/longrun_cases.py`, `tests/e2e/runner.py`
+- Verification: `AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite longrun`
 
 ## Risks
 

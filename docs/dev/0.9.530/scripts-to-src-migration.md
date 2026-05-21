@@ -2,68 +2,73 @@
 
 ## Status
 
-0.9.530 is an architecture alignment checkpoint, not the final scripts-to-source migration.
+0.9.530 scripts closure is complete for the active Clean Workroot product path.
 
-The final migration has two explicitly named phases:
+Active Clean Workroot product logic lives under `src/ai_workroot/`. The
+`scripts/` tree is now a support surface only:
 
-- The package-ownership phase completes package ownership while preserving existing script and legacy CLI compatibility.
-- The Compatibility Removal phase removes or narrows compatibility in a later branch/version after separate approval.
+- `scripts/dev/`: developer, release validation, review export, and smoke helpers.
+- `scripts/compat/`: short compatibility wrappers that delegate to package modules.
+- `scripts/legacy/public_seed/`: quarantined Public Seed compatibility entry points.
 
-Clean Workroot active runtime should move toward `src/ai_workroot/` as the product implementation. The `scripts/` directory is being narrowed to wrappers, development tools, validation tools, and legacy Public Seed compatibility. Legacy capability must remain preserved until it is explicitly mapped, tested, and replaced.
+This is not Compatibility Removal. Old Public Seed capability remains callable
+where compatibility tests require it, but it is no longer presented as the
+active Clean Workroot product implementation layer.
 
-The full completion design for the remaining migration is now split into:
-
-- `scripts-to-src-migration-architecture.md`
-- `scripts-to-src-migration-detailed-design.md`
-- `docs/specs/023-active-package-cli-and-legacy-isolation.spec.md`
-- `docs/specs/024-work-and-asset-runtime-migration.spec.md`
-- `docs/specs/025-storage-and-migrations-migration.spec.md`
-- `docs/specs/026-retrieval-indexing-and-context-control-migration.spec.md`
-- `docs/specs/027-release-relationship-and-safety-migration.spec.md`
-- `docs/specs/028-system-health-validation-and-checkbot.spec.md`
-- `docs/specs/029-install-dev-scripts-and-wrappers.spec.md`
-- `docs/specs/030-test-suite-and-public-seed-quarantine.spec.md`
+For example, active Context Control is implemented in
+`src/ai_workroot/runtime/context.py`; the legacy Context Guide wrapper is
+quarantined under `scripts/legacy/public_seed/workroot_context.py`.
 
 ## Migration Rules
 
-- Clean user-facing commands should be available through `python -m ai_workroot` and the installed `workroot` wrapper.
-- `scripts/bootstrap-dev.sh` and `scripts/install.sh` are wrappers and may remain.
-- Public Seed and historical tools must be labeled as legacy where they are not part of Clean Workroot active architecture.
-- Do not remove legacy task/run/action/session/handoff capabilities until replacement modules and tests exist.
-- Do not remove old script compatibility in Part 1; convert scripts to wrappers or compatibility adapters instead.
-- Archiving script implementations under `docs/history/0.9.530/scripts/` preserves snapshots only. It does not remove the callable script wrapper in Part 1.
-- Do not reintroduce root `space/`, root `.workroot/`, root tracked `AGENTS.md`, or root tracked `CLAUDE.md` as active architecture.
+- Clean user-facing commands should use `python -m ai_workroot` or the installed `workroot` console script.
+- Compatibility callers may use `scripts/compat/*` wrappers.
+- Public Seed compatibility callers may use `scripts/legacy/public_seed/*`.
+- New Clean Workroot product behavior must not be added under `scripts/`.
+- Legacy capability must not be hard-deleted until a separate Compatibility Removal phase is approved.
+- `scripts/` root must not contain Python implementation files.
 
 ## File Matrix
 
-| Script | Current role | Target module or disposition | Status | Risk | Current tests | Migration priority |
+| current path | current role | target location | status | core product logic remains in scripts | tests covering it | removal risk |
 |---|---|---|---|---|---|---|
-| `scripts/add_registry_row.py` | Historical registry maintenance helper | Legacy Public Seed support or `src/ai_workroot/storage/` maintenance command | Legacy retained | Could mutate old registry layout if used as Clean path | Legacy kernel/release tests | P2 |
-| `scripts/list_tasks.py` | Historical task listing helper | Legacy command under future `workroot legacy task list` or retired after Work module migration | Legacy retained; active Work runtime started | Old task registry semantics may confuse Clean Workroot users | Legacy task tests; `tests/unit/test_runtime_work.py` | P1 |
-| `scripts/new_task.py` | Historical task creation helper | Minimal Work service now exists under `src/ai_workroot/runtime/work.py`; legacy helper remains compatibility-scoped | Legacy retained; active path started | Creates Public Seed task files, not Clean Workroot state | Legacy public-seed tests; `tests/unit/test_runtime_work.py` | P1 |
-| `scripts/new_task_smoke.py` | Historical smoke helper | Move under `tests/fixtures` or retire after test split | Deferred | Test-like helper can be mistaken for active product code | Release surface audit | P2 |
-| `scripts/rebuild_sqlite.py` | Legacy public-seed SQLite rebuild tool | Historical compatibility only | Legacy labeled | Must not be documented as Clean Workroot setup | 0.9.529 release gates | P2 |
-| `scripts/setup_workroot.py` | Historical setup helper | Superseded by `ai_workroot.runtime.init` for Clean Workroot | Legacy retained | May create old layout if used directly | Legacy tests | P2 |
-| `scripts/update_usage_direction.py` | Historical profile helper | Future Agent/User preference runtime service | Legacy retained | Writes Public Seed profile files | Legacy profile tests | P2 |
-| `scripts/upgrade_workroot.py` | Historical upgrade helper | Future migration adapter if still needed | Deferred | Could imply Public Seed active migration path | Legacy tests | P3 |
-| `scripts/validate_kernel.py` | Release validation and historical contract checks | Keep as release/dev validation tool | Active dev tool | Must distinguish historical checks from Clean Workroot release gates | `tests/test_0529_release_gates.py`, smoke validator | P1 |
-| `scripts/workroot_agent_entry.py` | 0.9.529 native entry implementation | Superseded by `src/ai_workroot/agent/native_entry.py` | Legacy retained | Duplicate behavior can drift | Native Agent Entry tests | P1 |
-| `scripts/workroot_bootstrap.py` | 0.9.529 bootstrap implementation | Superseded by `src/ai_workroot/runtime/bootstrap.py`; keep only for legacy CLI compatibility | Legacy retained | Old Public Seed repo identity checks must not be Clean path | Bootstrap-dev tests use package and wrapper path | P1 |
-| `scripts/workroot_candidates.py` | 0.9.529 context candidate provider | Superseded by `src/ai_workroot/indexing/providers/candidate_provider.py` | Partial migration | Old and new candidate semantics can diverge | Context tests | P1 |
-| `scripts/workroot_cli.py` | Legacy CLI with hidden Public Seed commands and some clean commands | Clean commands should delegate to `ai_workroot.cli.main`; legacy commands move under future `workroot legacy` | Partial migration | Users may invoke old clean flow directly | CLI and bootstrap compatibility tests | P0 |
-| `scripts/workroot_client.py` | Mature Public Seed task/run/action/artifact client | Minimal Work/Asset/Release/Relationship services now exist under `src/ai_workroot/runtime/`; legacy client remains compatibility-scoped | Active path started; compatibility retained | Highest legacy capability loss risk until legacy CLI surfaces are fully mapped | Legacy client tests; runtime service tests | P0 |
-| `scripts/workroot_context.py` | Mature 0.9.529 Context Guide | Partially superseded by `src/ai_workroot/runtime/context.py`; ContextRecallHint materialization now active | Partial migration | Context behavior regression risk | Context, indexing, ContextRecallHint, release-filter tests | P0 |
-| `scripts/workroot_doctor.py` | 0.9.529 doctor | Superseded by `src/ai_workroot/runtime/doctor.py`; keep as legacy compatibility until script CLI migration | Partial migration | Old doctor checks may imply old architecture | Doctor tests | P1 |
-| `scripts/workroot_indexing.py` | 0.9.529 FTS/indexing | Partially superseded by `src/ai_workroot/indexing/providers/sqlite_fts.py`, `context_recall_hint_provider.py`, and `global_indexes.py` | Partial migration | Duplicate FTS/index schemas must stay explicitly scoped | Indexing, ContextRecallHint, global index tests | P1 |
-| `scripts/workroot_migrations.py` | 0.9.529 migrations | Future `src/ai_workroot/storage/migrations.py` | Deferred | Old migration assumptions may not fit Clean schema | Migration tests | P2 |
-| `scripts/workroot_operation_manifest.py` | Legacy operation manifest/recipes | Preserve as legacy capability registry input or move to contracts later | Deferred | Operation recipes still reference old script commands | Architecture contract tests | P2 |
-| `scripts/workroot_paths.py` | 0.9.529 path/state resolution | Superseded by `src/ai_workroot/runtime/bootstrap.py`, `runtime/environment.py`, and `runtime/registry.py` | Partial migration | Path rules must stay Clean Mode compatible | Init/bootstrap tests | P1 |
-| `scripts/workroot_sqlite.py` | 0.9.529 SQLite schema | Superseded by `src/ai_workroot/storage/sqlite.py`; retain for legacy tests | Partial migration | Old schema includes historical `knowledge_items` table | SQLite/indexing tests | P1 |
-| `scripts/workroot_state.py` | 0.9.529 managed state registry | Superseded by `src/ai_workroot/runtime/environment.py` and `storage/jsonl_registry.py` | Partial migration | Registry concurrency and duplicate handling must stay protected | Registry/bootstrap tests | P1 |
+| `scripts/README.md` | scripts directory contract | `scripts/README.md` | dev-helper | no | `tests/test_public_seed_surface.py` | low |
+| `scripts/compat/README.md` | compat wrapper contract | `scripts/compat/README.md` | wrapper | no | `tests/test_public_seed_surface.py` | low |
+| `scripts/compat/install.ps1` | Windows install compatibility wrapper | `install/windows/install.ps1` | wrapper | no | `tests/test_0529_release_gates.py`, syntax where available | medium on Windows |
+| `scripts/compat/install.sh` | Unix install compatibility wrapper | `install/unix/install.sh` | wrapper | no | `tests/test_0529_release_gates.py`, `scripts/dev/validate-release.sh` | low |
+| `scripts/compat/validate_kernel.py` | historical/release validation wrapper | `src/ai_workroot/runtime/legacy_seed/kernel_validation.py` | wrapper | no | `tests/test_public_seed_surface.py`, `tests/test_kernel_contracts.py`, `tests/test_0529_release_gates.py` | medium; release baseline depends on it |
+| `scripts/compat/workroot_agent_entry.py` | Native Agent Entry compatibility wrapper | `src/ai_workroot/agent/native_entry.py` | wrapper | no | `tests/test_workroot_agent_entry.py` | low |
+| `scripts/compat/workroot_bootstrap.py` | bootstrap compatibility wrapper | `src/ai_workroot/runtime/bootstrap.py` | wrapper | no | `tests/test_workroot_bootstrap_dev.py`, `tests/integration/test_agent_bootstrap.py` | low |
+| `scripts/compat/workroot_cli.py` | legacy CLI compatibility wrapper | `src/ai_workroot/cli/legacy_seed.py` and `src/ai_workroot/cli/main.py` | wrapper | no | `tests/test_workroot_cli.py`, `tests/test_workroot_cli_discovery.py`, `tests/test_workroot_init_cli.py` | high; many legacy tests invoke it |
+| `scripts/compat/workroot_doctor.py` | legacy doctor compatibility wrapper | `src/ai_workroot/runtime/legacy_doctor.py` and `src/ai_workroot/runtime/doctor.py` | wrapper | no | `tests/test_workroot_doctor_0529.py`, `tests/unit/test_runtime_doctor.py` | medium |
+| `scripts/compat/workroot_migrations.py` | migration compatibility wrapper | `src/ai_workroot/storage/migrations.py` | wrapper | no | `tests/test_workroot_migrations.py` | medium |
+| `scripts/compat/workroot_paths.py` | path compatibility wrapper | `src/ai_workroot/runtime/paths.py` | wrapper | no | `tests/test_workroot_paths.py`, init tests | low |
+| `scripts/compat/workroot_state.py` | managed state compatibility wrapper | `src/ai_workroot/runtime/state.py` | wrapper | no | `tests/test_workroot_state.py`, bootstrap/init tests | medium |
+| `scripts/dev/README.md` | developer helper contract | `scripts/dev/README.md` | dev-helper | no | `tests/test_public_seed_surface.py` | low |
+| `scripts/dev/bootstrap-dev.ps1` | developer bootstrap wrapper | `src/ai_workroot/runtime/bootstrap.py` | dev-helper | no | syntax where available; bootstrap smoke | medium on Windows |
+| `scripts/dev/bootstrap-dev.sh` | developer bootstrap wrapper | `src/ai_workroot/runtime/bootstrap.py` | dev-helper | no | `tests/integration/test_agent_bootstrap.py`, smoke tests | low |
+| `scripts/dev/export-review-zip.sh` | review export helper | `scripts/dev/export-review-zip.sh` | dev-helper | no | `tests/smoke/test_clean_release_validator.py` | low |
+| `scripts/dev/new_task_smoke.py` | legacy multilingual smoke helper | `src/ai_workroot/runtime/legacy_seed/task_creation.py` | dev-helper | no | `tests/test_new_task.py` | low |
+| `scripts/dev/validate-release.sh` | release validation helper | package doctor, compile checks, shell syntax checks | release validation helper | no | `tests/smoke/test_clean_release_validator.py` | medium |
+| `scripts/legacy/README.md` | legacy area contract | `scripts/legacy/README.md` | legacy-quarantine | no | `tests/test_public_seed_surface.py` | low |
+| `scripts/legacy/public_seed/README.md` | Public Seed quarantine contract | `scripts/legacy/public_seed/README.md` | legacy-quarantine | no | `tests/test_public_seed_surface.py` | low |
+| `scripts/legacy/public_seed/add_registry_row.py` | legacy registry row maintenance wrapper | `src/ai_workroot/runtime/legacy_seed/registry_tools.py` | legacy-quarantine | no | `tests/test_add_registry_row.py` | medium |
+| `scripts/legacy/public_seed/list_tasks.py` | legacy task listing wrapper | `src/ai_workroot/runtime/legacy_seed/task_listing.py` | legacy-quarantine | no | `tests/test_list_tasks.py` | medium |
+| `scripts/legacy/public_seed/new_task.py` | legacy task creation wrapper | `src/ai_workroot/runtime/legacy_seed/task_creation.py` | legacy-quarantine | no | `tests/test_new_task.py` | medium |
+| `scripts/legacy/public_seed/rebuild_sqlite.py` | legacy Public Seed SQLite rebuild wrapper | `src/ai_workroot/runtime/legacy_seed/sqlite_rebuild.py` | legacy-quarantine | no | `tests/test_0529_release_gates.py` | medium |
+| `scripts/legacy/public_seed/setup_workroot.py` | legacy guided setup wrapper | `src/ai_workroot/runtime/legacy_seed/setup.py` | legacy-quarantine | no | `tests/test_setup_workroot.py` | medium |
+| `scripts/legacy/public_seed/update_usage_direction.py` | legacy profile update wrapper | `src/ai_workroot/runtime/legacy_seed/profile.py` | legacy-quarantine | no | `tests/test_update_usage_direction.py` | medium |
+| `scripts/legacy/public_seed/upgrade_workroot.py` | legacy Public Seed upgrade wrapper | `src/ai_workroot/runtime/legacy_seed/upgrade.py` | legacy-quarantine | no | `tests/test_upgrade_workroot.py` | high for old fixtures |
+| `scripts/legacy/public_seed/workroot_candidates.py` | legacy candidate compatibility wrapper | `src/ai_workroot/indexing/legacy_candidates.py` | legacy-quarantine | no | `tests/test_workroot_candidates.py` | medium |
+| `scripts/legacy/public_seed/workroot_client.py` | legacy Workroot client compatibility wrapper | `src/ai_workroot/runtime/legacy_seed/client.py` | legacy-quarantine | no | `tests/test_workroot_client.py`, legacy CLI tests | high; mature legacy capability |
+| `scripts/legacy/public_seed/workroot_context.py` | legacy Context Guide compatibility wrapper | `src/ai_workroot/runtime/legacy_context.py` | legacy-quarantine | no | `tests/test_workroot_context.py`, `tests/test_workroot_debug_trace.py` | high; mature legacy context behavior |
+| `scripts/legacy/public_seed/workroot_indexing.py` | legacy FTS compatibility wrapper | `src/ai_workroot/indexing/legacy_fts.py` | legacy-quarantine | no | `tests/test_workroot_indexing.py` | medium |
+| `scripts/legacy/public_seed/workroot_operation_manifest.py` | legacy operation manifest wrapper | `src/ai_workroot/runtime/legacy_seed/operation_manifest.py` | legacy-quarantine | no | `tests/test_workroot_cli_discovery.py`, architecture contract tests | medium |
+| `scripts/legacy/public_seed/workroot_sqlite.py` | legacy SQLite compatibility wrapper | `src/ai_workroot/storage/legacy_sqlite.py` | legacy-quarantine | no | `tests/test_workroot_sqlite.py` | medium |
 
 ## Current Clean Path
 
-The current Clean Workroot path is:
+The active Clean Workroot path is:
 
 ```text
 python -m ai_workroot init
@@ -74,12 +79,13 @@ python -m ai_workroot doctor
 python -m ai_workroot bootstrap-dev
 ```
 
-The installed `workroot` wrapper points to the same package entry point.
+The installed `workroot` wrapper points to `ai_workroot.cli.main:main`.
 
-## Deferred Work
+## Remaining Compatibility Boundary
 
-- Continue moving mature Work/Asset/operation logic from `scripts/workroot_client.py` into `src/ai_workroot/`; minimal active runtime services now exist, but legacy CLI parity is not complete.
-- Convert `scripts/workroot_cli.py` clean commands into thin package delegation or isolate legacy commands under `legacy`.
-- Split the old Context Guide into Context Control, Retrieval & Index Control, and trace persistence modules.
-- Keep unit, integration, smoke, negative, legacy compatibility, and release validation discoverable through the default test command.
-- Add a clean review/export packaging command that excludes ignored local state.
+The compatibility layer remains intentionally available:
+
+- `scripts/compat/workroot_cli.py` keeps old direct script invocation working.
+- `scripts/legacy/public_seed/*` keeps old Public Seed helpers callable.
+- Compatibility Removal is a separate future phase and must have its own Spec,
+  tests, and review.
