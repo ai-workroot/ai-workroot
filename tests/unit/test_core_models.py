@@ -5,7 +5,8 @@ import unittest
 from ai_workroot.core.assets import Asset, AssetPublication, AssetSurface
 from ai_workroot.core.common import SourceRef
 from ai_workroot.core.context import ContextBudget
-from ai_workroot.core.extensions import manifest, recipe, schema
+from ai_workroot.core.extensions import Capability
+from ai_workroot.runtime.legacy_seed.operation_manifest import manifest, recipe, schema
 from ai_workroot.core.relationships import RelationshipEdge, RelationshipEvidence
 from ai_workroot.core.release import DeletionRecord, Redaction, ReleaseTargetRef, Tombstone
 from ai_workroot.core.retrieval import IndexManifest
@@ -158,6 +159,15 @@ class CoreModelsTest(unittest.TestCase):
         self.assertIn("batch_operations", payload)
         self.assertIn("artifact.add", payload["batch_operations"])
         self.assertEqual(batch_recipe["format"], "batch-json")
+
+    def test_core_extensions_keeps_stable_capability_concept_only(self) -> None:
+        import ai_workroot.core.extensions as extensions
+
+        capability = Capability(capability_id="cap_demo", name="Demo")
+
+        self.assertEqual(capability.status, "reserved")
+        self.assertFalse(hasattr(extensions, "manifest"))
+        self.assertFalse(hasattr(extensions, "BATCH_OPERATIONS"))
 
 
 if __name__ == "__main__":

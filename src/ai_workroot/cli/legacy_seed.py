@@ -10,10 +10,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from ai_workroot.core.extensions import manifest as operation_manifest
-from ai_workroot.core.extensions import recipe as operation_recipe
-from ai_workroot.core.extensions import schema as operation_schema
-from ai_workroot.core.extensions import recipes as operation_recipes
+from ai_workroot.runtime.legacy_seed.operation_manifest import manifest as operation_manifest
+from ai_workroot.runtime.legacy_seed.operation_manifest import recipe as operation_recipe
+from ai_workroot.runtime.legacy_seed.operation_manifest import schema as operation_schema
+from ai_workroot.runtime.legacy_seed.operation_manifest import recipes as operation_recipes
 from ai_workroot.runtime.legacy_context import ContextRequest, build_context_package
 from ai_workroot.runtime.legacy_doctor import render_json as render_doctor_json
 from ai_workroot.runtime.legacy_doctor import render_text as render_doctor_text

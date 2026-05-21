@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from ai_workroot.cli import legacy_seed
+from ai_workroot.runtime.legacy_seed import operation_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,12 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
 
         self.assertTrue(callable(legacy_seed.main))
         self.assertIn("quickstart", parser.format_help())
+
+    def test_operation_manifest_is_loaded_from_legacy_seed_runtime(self) -> None:
+        manifest = operation_manifest.manifest()
+
+        self.assertIn("legacy_mode", manifest)
+        self.assertIn("task", manifest["legacy_mode"]["commands"])
 
     def test_quickstart_mentions_happy_path(self) -> None:
         out = run_cli("quickstart")
