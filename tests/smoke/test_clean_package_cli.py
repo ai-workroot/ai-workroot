@@ -108,10 +108,78 @@ class CleanPackageCliSmokeTest(unittest.TestCase):
             self.assertEqual(config["custom"], "keep-me")
             self.assertEqual(config["kind"], "WorkrootEnvironment")
             self.assertEqual(config["version"], "0.9.530")
+            self.assertEqual(config["summary"]["registeredWorkrootCount"], 2)
+            self.assertEqual(config["summary"]["activeWorkrootCount"], 2)
+            self.assertRegex(config["summary"]["lastRegistryUpdatedAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+            self.assertEqual(config["maintenance"]["status"], "idle")
             self.assertEqual(operator_preferences["customPreference"], "keep-me")
             self.assertEqual(operator_preferences["version"], "0.9.530")
             self.assertEqual(policy_defaults["customPolicy"], "keep-me")
             self.assertEqual(policy_defaults["version"], "0.9.530")
+
+    def test_init_creates_minimal_environment_config_contract_and_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            env = {"AI_WORKROOT_HOME": str(home)}
+
+            result = self.run_cli(env, "init", "--name", "Summary", "--directory", str(base / "project"), "--no-native-agent-entry")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = json.loads((home / "config.json").read_text(encoding="utf-8"))
+            self.assertEqual(config["kind"], "WorkrootEnvironment")
+            self.assertEqual(config["environmentId"], "env_local_default")
+            self.assertEqual(config["mode"], "clean")
+            self.assertRegex(config["createdAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+            self.assertRegex(config["updatedAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+            self.assertEqual(config["summary"]["registeredWorkrootCount"], 1)
+            self.assertEqual(config["summary"]["activeWorkrootCount"], 1)
+            self.assertNotIn("workroots", config)
+            self.assertNotIn("policies", config)
+
+    def test_doctor_records_environment_summary_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            env = {"AI_WORKROOT_HOME": str(home)}
+            init = self.run_cli(env, "init", "--name", "Doctor Summary", "--directory", str(user_dir), "--no-native-agent-entry")
+            self.assertEqual(init.returncode, 0, init.stderr)
+
+            doctor = self.run_cli(env, "doctor", "--cwd", str(user_dir))
+
+            self.assertEqual(doctor.returncode, 0, doctor.stderr)
+            config = json.loads((home / "config.json").read_text(encoding="utf-8"))
+            self.assertEqual(config["summary"]["lastDoctorStatus"], "PASS")
+            self.assertRegex(config["summary"]["lastDoctorRunAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+    def test_doctor_records_summary_in_explicit_environment_home_not_registry_state_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            fake_home = base / "fake-home"
+            user_dir = base / "project"
+            env = {"AI_WORKROOT_HOME": str(home)}
+            init = self.run_cli(env, "init", "--name", "Doctor Home", "--directory", str(user_dir), "--no-native-agent-entry")
+            self.assertEqual(init.returncode, 0, init.stderr)
+            record_path = home / "registry/workroots.jsonl"
+            record = json.loads(record_path.read_text(encoding="utf-8").splitlines()[0])
+            fake_state = fake_home / "workroots" / record["workroot_id"]
+            fake_state.mkdir(parents=True)
+            original_state = Path(record["state_directory"])
+            (fake_state / "workroot.json").write_text(
+                (original_state / "workroot.json").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            record["state_directory"] = str(fake_state)
+            record_path.write_text(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+            doctor = self.run_cli(env, "doctor", "--cwd", str(user_dir))
+
+            self.assertNotEqual(doctor.returncode, 0)
+            real_config = json.loads((home / "config.json").read_text(encoding="utf-8"))
+            self.assertEqual(real_config["summary"]["lastDoctorStatus"], "FAIL")
+            self.assertFalse((fake_home / "config.json").exists())
 
     def test_doctor_reports_missing_sqlite_table_without_repairing_it(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

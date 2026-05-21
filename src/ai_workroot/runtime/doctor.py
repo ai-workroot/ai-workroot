@@ -8,8 +8,10 @@ import ast
 import subprocess
 
 from ai_workroot.agent.native_entry import NativeAgentEntryError, validate_managed_block
+from ai_workroot.runtime.environment import record_environment_doctor_summary
 from ai_workroot.runtime.release_validation import validate_release_surface
 from ai_workroot.runtime.registry import find_workroot_by_cwd
+from ai_workroot.runtime.paths import resolve_ai_workroot_home
 from ai_workroot.storage.sqlite import verify_workroot_sqlite
 
 
@@ -65,6 +67,7 @@ def run_doctor(*, cwd: Path | str = ".", ai_workroot_home: Path | str | None = N
             findings.append(DoctorFinding("PASS", f"{filename} Native Agent Entry is safe"))
 
     status = "PASS" if all(finding.status != "FAIL" for finding in findings) else "FAIL"
+    record_environment_doctor_summary(resolve_ai_workroot_home(ai_workroot_home), status=status)
     return DoctorResult(status, tuple(findings))
 
 

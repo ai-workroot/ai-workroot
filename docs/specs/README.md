@@ -39,6 +39,9 @@ AI Workroot 0.9.530 is a Clean Workroot architecture reset, not a normal bugfix 
 31. `031-compatibility-preserving-script-migration.spec.md`
 32. `032-part2-capability-parity-small-specs.spec.md`
 33. `033-time-and-global-index-parity.spec.md`
+34. `034-end-to-end-persona-smoke-testing.spec.md`
+35. `035-workroot-environment-config-contract.spec.md`
+36. `036-e2e-sandbox-and-destructive-operation-safety.spec.md`
 
 ## Required Companion Docs
 

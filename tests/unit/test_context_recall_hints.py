@@ -9,6 +9,7 @@ from ai_workroot.indexing.providers.candidate_provider import query_context_cand
 from ai_workroot.indexing.providers.context_recall_hint_provider import (
     ContextRecallHint,
     materialize_context_recall_hint,
+    materialize_context_recall_hints,
     query_context_recall_hints,
     upsert_context_recall_hint,
 )
@@ -152,6 +153,28 @@ class ContextRecallHintsTest(unittest.TestCase):
         self.assertEqual(candidates[0].source_id, "hint-release-target")
         self.assertEqual(candidates[0].importance, "critical")
         self.assertIn("candidate-fts-match", candidates[0].reasons)
+
+    def test_materialize_context_recall_hints_falls_back_to_priority_hints_for_weak_query(self) -> None:
+        conn = self.open_db()
+        upsert_context_recall_hint(
+            conn,
+            ContextRecallHint(
+                hint_id="hint-next-step",
+                workroot_id="wr_demo",
+                target_type="task",
+                target_id="task-next",
+                title="Current next step",
+                summary="Continue the highest priority active work when the user asks what to do next.",
+                priority="critical",
+                recall_rule="always",
+            ),
+        )
+
+        materialized = materialize_context_recall_hints(conn, "wr_demo", query="what should I do next")
+        candidates = query_context_candidates(conn, "wr_demo", query="")
+
+        self.assertEqual(materialized, ["hint:hint-next-step"])
+        self.assertEqual(candidates[0].title, "Current next step")
 
 
 if __name__ == "__main__":

@@ -13,6 +13,14 @@ from ai_workroot.runtime.context import ContextRequest, build_context_package
 from ai_workroot.runtime.init import initialize_workroot
 
 
+def _parse_token_usage(output: str) -> int:
+    for line in output.splitlines():
+        if line.startswith("TokenUsage:"):
+            usage = line.split(":", 1)[1].strip().split("/", 1)[0]
+            return int(usage)
+    raise AssertionError("missing TokenUsage line")
+
+
 class IndexingContextControlTest(unittest.TestCase):
     def test_query_fts_and_relationships_influence_selected_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -206,6 +214,52 @@ class IndexingContextControlTest(unittest.TestCase):
             )
 
             self.assertLessEqual(estimate_tokens(package), 60)
+
+    def test_debug_trace_survives_hard_token_trim(self) -> None:
+        from ai_workroot.runtime.context import estimate_tokens
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-debug-trim",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-debug-trim",
+                        "title": "Large context debug trim",
+                        "summary": "large context trim budget " * 300,
+                        "importance": "critical",
+                    },
+                )
+
+            package = build_context_package(
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="large context trim budget",
+                    debug=True,
+                    hard_token_limit=180,
+                    target_tokens=120,
+                ),
+                ai_workroot_home=home,
+            )
+
+            self.assertLessEqual(estimate_tokens(package), 180)
+            self.assertIn("## Debug Trace", package)
+            self.assertIn("candidateSources:", package)
+            self.assertIn("scoring:", package)
+            self.assertIn("timing:", package)
+            self.assertIn("tokenUsage:", package)
+            self.assertIn("trimSteps:", package)
+            reported = _parse_token_usage(package)
+            self.assertGreaterEqual(reported, estimate_tokens(package))
 
     def test_context_recall_hint_affects_active_context_selection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

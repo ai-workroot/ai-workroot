@@ -26,6 +26,7 @@ from ai_workroot.runtime.registry import find_workroot_by_cwd
 
 DEFAULT_TARGET_TOKENS = 1200
 DEFAULT_HARD_TOKEN_LIMIT = 2400
+TOKEN_USAGE_PLACEHOLDER = "__AI_WORKROOT_TOKEN_USAGE__"
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,41 @@ def build_context_package(
     )
     rendered, trim_steps = _enforce_hard_token_limit(rendered, request.hard_token_limit)
     if trim_steps:
+        if request.debug:
+            rendered = _render_compact_debug_package(
+                record=record,
+                request=request,
+                selected=selected,
+                release_report=release_report,
+                fts_release_report=fts_release_report,
+                relationship_release_report=relationship_release_report,
+                fts_error=fts_error,
+                started=started,
+                trim_steps=trim_steps,
+            )
+            rendered, fallback_steps = _enforce_hard_token_limit(rendered, request.hard_token_limit)
+            if fallback_steps and "final-fallback" not in trim_steps:
+                trim_steps.extend(fallback_steps)
+            if fallback_steps and "## Debug Trace" not in rendered:
+                rendered = _minimal_debug_package(record=record, request=request, started=started, trim_steps=trim_steps)
+            rendered = _append_trim_marker(rendered, trim_steps)
+            rendered, _ = _enforce_hard_token_limit(rendered, request.hard_token_limit)
+            if "## Debug Trace" not in rendered:
+                rendered = _minimal_debug_package(record=record, request=request, started=started, trim_steps=trim_steps)
+            if db_path.is_file():
+                with sqlite3.connect(db_path) as conn:
+                    _persist_context_runtime_state(
+                        conn,
+                        workroot_id=record["workrootId"],
+                        request=request,
+                        rendered=rendered,
+                        selected=selected,
+                        release_report=release_report,
+                        fts_release_report=fts_release_report,
+                        relationship_release_report=relationship_release_report,
+                        trim_steps=trim_steps,
+                    )
+            return rendered
         rendered = _render_package(
             record=record,
             request=request,
@@ -337,6 +373,103 @@ def _render_package(
             tombstones = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.tombstones) or "none"
             lines.append(f"relationshipReleaseFilters: dropped={dropped} annotated={tombstones}")
     return "\n".join(lines) + "\n"
+
+
+def _render_compact_debug_package(
+    *,
+    record: dict[str, str],
+    request: ContextRequest,
+    selected: list[CandidateMatch],
+    release_report: ReleaseFilterReport,
+    fts_release_report: FtsReleaseFilterReport,
+    relationship_release_report: RelationshipReleaseFilterReport,
+    fts_error: str | None,
+    started: float,
+    trim_steps: list[str],
+) -> str:
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    selected_titles = "; ".join(candidate.title for candidate in selected[:3]) or "none"
+    lines = [
+        "# AI Workroot Context Package",
+        "",
+        f"Workroot: {record['name']} ({record['workrootId']})",
+        f"Agent: {request.agent}",
+        f"Mode: {request.mode}",
+        "Confidence: 0.70" if selected else "Confidence: 0.30",
+        f"LatencyMs: {latency_ms}",
+        f"TokenUsage: {TOKEN_USAGE_PLACEHOLDER}/{request.hard_token_limit}",
+    ]
+    if request.query:
+        lines.append(f"Query: {request.query}")
+    lines.extend(
+        [
+            "",
+            "## Selected Context",
+            f"- {selected_titles}",
+            "",
+            "## Debug Trace",
+            "candidateSources: context-candidates, indexed-chunks, relationship-network",
+            f"filters: safety=default droppedSafetyPolicies={','.join(sorted({'never-auto', 'needs-confirmation', 'sensitive'}))}",
+            "scoring: importance + candidate-fts-match + file-fts-match + relationship-edge",
+            f"timing: totalMs={latency_ms}",
+            f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
+            f"trimSteps: {', '.join(trim_steps)}",
+        ]
+    )
+    if fts_error:
+        lines.append(f"ftsFallback: {fts_error}")
+    if release_report.dropped or release_report.tombstone_source_ids:
+        dropped = ", ".join(f"{candidate_id}:{reason}" for candidate_id, reason in release_report.dropped) or "none"
+        annotations = ", ".join(sorted(release_report.tombstone_source_ids)) or "none"
+        lines.append(f"releaseFilters: dropped={dropped} annotated={annotations}")
+    if fts_release_report.dropped or fts_release_report.tombstones:
+        dropped = ", ".join(f"{chunk_id}:{reason}" for chunk_id, reason in fts_release_report.dropped) or "none"
+        tombstones = ", ".join(f"{chunk_id}:{reason}" for chunk_id, reason in fts_release_report.tombstones) or "none"
+        lines.append(f"ftsReleaseFilters: dropped={dropped} annotated={tombstones}")
+    if relationship_release_report.dropped or relationship_release_report.tombstones:
+        dropped = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.dropped) or "none"
+        tombstones = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.tombstones) or "none"
+        lines.append(f"relationshipReleaseFilters: dropped={dropped} annotated={tombstones}")
+    return _finalize_rendered_token_usage("\n".join(lines) + "\n")
+
+
+def _minimal_debug_package(
+    *,
+    record: dict[str, str],
+    request: ContextRequest,
+    started: float,
+    trim_steps: list[str],
+) -> str:
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    lines = [
+        "# AI Workroot Context Package",
+        f"Workroot: {record['name']} ({record['workrootId']})",
+        f"Agent: {request.agent}",
+        f"Mode: {request.mode}",
+        "Confidence: 0.30",
+        f"LatencyMs: {latency_ms}",
+        f"TokenUsage: {TOKEN_USAGE_PLACEHOLDER}/{request.hard_token_limit}",
+        "## Debug Trace",
+        "candidateSources: context-candidates,indexed-chunks,relationship-network",
+        "filters: safety=default",
+        "scoring: compact-debug-hard-trim",
+        f"timing: totalMs={latency_ms}",
+        f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
+        f"trimSteps: {', '.join(trim_steps)}",
+    ]
+    return _finalize_rendered_token_usage("\n".join(lines) + "\n")
+
+
+def _finalize_rendered_token_usage(rendered: str) -> str:
+    token_usage = 1
+    finalized = rendered
+    for _ in range(3):
+        finalized = rendered.replace(TOKEN_USAGE_PLACEHOLDER, str(token_usage))
+        next_usage = estimate_tokens(finalized)
+        if next_usage == token_usage:
+            return finalized
+        token_usage = next_usage
+    return rendered.replace(TOKEN_USAGE_PLACEHOLDER, str(max(token_usage, estimate_tokens(finalized))))
 
 
 def _enforce_hard_token_limit(rendered: str, hard_token_limit: int) -> tuple[str, list[str]]:

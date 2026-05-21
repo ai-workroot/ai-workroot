@@ -157,9 +157,12 @@ def materialize_context_recall_hints(
     query: str = "",
     limit: int = 50,
 ) -> list[str]:
+    hints = query_context_recall_hints(conn, workroot_id, query=query, limit=limit)
+    if query.strip() and not hints:
+        hints = query_context_recall_hints(conn, workroot_id, query="", limit=min(limit, 10))
     return [
         materialize_context_recall_hint(conn, hint)
-        for hint in query_context_recall_hints(conn, workroot_id, query=query, limit=limit)
+        for hint in hints
     ]
 
 
