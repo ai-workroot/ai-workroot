@@ -1,56 +1,109 @@
 # Architecture Map
 
-AI Workroot separates user work, kernel law, extensions, runtime state, indexes, and handoff so that AI work can continue across agents, models, tools, operating systems, and time.
+AI Workroot separates user assets, WorkrootEnvironment management, runtime orchestration, storage, indexing, agent entry, and release controls so AI work can continue across agents, models, tools, operating systems, and time.
 
-The public architecture is:
+The active architecture is Clean Workroot:
 
 ```text
-space/       user-visible space
-.workroot/   kernel, extensions, and rebuildable runtime state
+user-selected directory   user assets, optional authorized Native Agent Entry
+AI_WORKROOT_HOME          WorkrootEnvironment and managed state
+src/ai_workroot/          Core / Contracts / Runtime / Storage / Indexing / Agent / CLI
 ```
+
+Public Seed is historical and lives under `docs/history/public-seed/` only.
 
 ## Core Product Flow
 
 ```mermaid
 flowchart LR
   User[person] --> Agent[AI agent]
-  Agent --> Profile[space/profile<br/>subject identity]
-  Agent --> Work[space/work<br/>visible results]
-  Agent --> RuntimeWork[.workroot/runtime/work<br/>internal task state]
-  Agent --> Mind[space/mind<br/>memory, knowledge, principles, decisions]
-  RuntimeWork --> Index[.workroot/runtime/index<br/>registries and links]
-  Mind --> Index
-  Work --> Index
-  Index --> Context[.workroot/runtime/context<br/>current state and handoff]
+  Agent --> Entry[Native Agent Entry<br/>authorized launcher files]
+  Agent --> CLI[workroot CLI]
+  CLI --> Runtime[Runtime orchestration]
+  Runtime --> Env[WorkrootEnvironment<br/>AI_WORKROOT_HOME]
+  Env --> WR[Per-Workroot managed state]
+  UserDir[User-selected directory<br/>user assets] --> Runtime
+  WR --> Context[Context Control<br/>Context Package]
+  WR --> Release[Release Control]
+  WR --> Rel[Relationship Network]
+  WR --> Retrieval[Retrieval & Index Control]
+  Retrieval --> Context
+  Rel --> Context
+  Release --> Context
   Context --> Agent
 ```
 
-## Operating Layers
+## Engineering Layers
 
 ```mermaid
 flowchart TB
-  Human[subject<br/>person] --> Space[space/<br/>owned user space]
-  Space --> Profile[profile<br/>identity and boundaries]
-  Space --> VisibleWork[work<br/>outputs, summaries, reports]
-  Space --> Mind[mind<br/>long-term externalized mind]
-  Space --> Files[files and inbox<br/>source material and capture]
+  CLI[CLI<br/>thin commands] --> Runtime[Runtime<br/>orchestration]
+  Runtime --> Core[Core<br/>domain behavior]
+  Runtime --> Contracts[Contracts<br/>standard library protocols]
+  Storage[Storage<br/>filesystem, JSONL, SQLite, locks] --> Contracts
+  Indexing[Indexing<br/>FTS, candidates, projections, providers] --> Contracts
+  Agent[Agent<br/>Native Agent Entry, templates] --> Contracts
+  Agent --> Runtime
+  Resources[Resources<br/>templates] --> Agent
+```
 
-  Agent[AI agent<br/>product interface] --> Kernel[.workroot/kernel<br/>stable law]
-  Agent --> Ops[Agent Operation Layer<br/>fast-start, CLI, batch, continuation]
-  Kernel --> Boot[boot<br/>small startup context]
-  Kernel --> Product[product<br/>ordinary user behavior]
-  Kernel --> Protocol[protocol<br/>work, memory, release, handoff]
-  Kernel --> Contracts[contracts and schemas<br/>machine-readable policy]
-  Kernel --> Interfaces[interfaces<br/>extension boundaries]
+The historical Agent Operation Layer is preserved as compatibility capability. Clean Workroot maps it into the CLI, Runtime, Work, Context Control, and Agent Interface layers instead of requiring active Public Seed root files.
 
-  Ops --> Boot
-  Ops --> Registries
-  Ops --> Runtime
-  Interfaces --> Extensions[.workroot/extensions<br/>replaceable capabilities]
-  Extensions --> Runtime[.workroot/runtime<br/>generated state]
-  Runtime --> Context[context<br/>current and handoff]
-  Runtime --> Registries[index<br/>registries and relationships]
-  Runtime --> Stores[data, cache, logs<br/>rebuildable accelerators]
+## Domain Concepts
+
+```mermaid
+flowchart LR
+  WM[Workroot Management<br/>WorkrootEnvironment] --> Work[Work]
+  Work --> Asset[Asset]
+  Work --> RN[Relationship Network]
+  Asset --> RC[Release Control]
+  RN --> RIC[Retrieval & Index Control]
+  Asset --> RIC
+  Work --> RIC
+  RC --> CC[Context Control]
+  RIC --> CC
+  RN --> CC
+  CC --> AI[Agent Interface]
+  WM --> Health[System Health]
+  Extensions[Extensions] --> RIC
+```
+
+## Managed State Layout
+
+```mermaid
+flowchart TB
+  Home[AI_WORKROOT_HOME] --> Registry[registry]
+  Home --> GlobalIndex[global-index<br/>management read models]
+  Home --> GlobalCache[global-cache<br/>derived cache]
+  Home --> Workroots[workroots]
+  Workroots --> One[wr_xxx]
+  One --> Charter[charter]
+  One --> Tasks[tasks]
+  One --> Assets[assets]
+  One --> Release[release]
+  One --> Relationships[relationships]
+  One --> Indexes[indexes]
+  One --> Context[context]
+  One --> Diagnostics[diagnostics]
+  One --> Cache[cache]
+```
+
+## Context Loading
+
+```mermaid
+flowchart LR
+  Req[ContextRequest] --> Rules[Required rules<br/>agent, mode, budget]
+  Req --> Candidates[Materialized Context Candidates]
+  Req --> FTS[SQLite FTS]
+  Req --> Rel[Relationship one-hop signals]
+  Req --> Recent[recent and high-importance items]
+  Rules --> Select[merge, score, filter, trim]
+  Candidates --> Select
+  FTS --> Select
+  Rel --> Select
+  Recent --> Select
+  Select --> Package[ContextPackage]
+  Select --> Trace[ContextTrace]
 ```
 
 ## Daily Loop
@@ -66,35 +119,8 @@ flowchart LR
   Handoff --> Orient
 ```
 
-## Context Loading
-
-```mermaid
-flowchart LR
-  L0[L0 boot<br/>AGENTS, START_HERE, boot] --> L1[L1 active<br/>profile, current, handoff]
-  L1 --> L2[L2 indexes<br/>registries and links]
-  L2 --> L3[L3 focused docs<br/>protocol, product, contracts]
-  L3 --> L4[L4 extensions<br/>only when relevant]
-  L4 --> L5[L5 deep history<br/>explicit reason only]
-```
-
-## Storage Principle
-
-```mermaid
-flowchart LR
-  Source[files<br/>source of truth] --> Registries[CSV registries<br/>portable indexes]
-  Source --> Contracts[JSON contracts<br/>validated policy]
-  Registries --> SQLite[SQLite<br/>lookup accelerator]
-  Registries --> DuckDB[DuckDB<br/>analytical accelerator]
-  Registries --> Vector[vector index<br/>semantic accelerator]
-  Registries --> Graph[graph index<br/>relationship accelerator]
-  SQLite --> Rebuild[rebuildable]
-  DuckDB --> Rebuild
-  Vector --> Rebuild
-  Graph --> Rebuild
-```
-
 ## Rule
 
 Ordinary users should not need this map before they get value.
 
-Agents and contributors use the map to keep the product simple, the kernel strict, context small, generated stores rebuildable, and future continuation reliable.
+Agents and contributors use the map to keep user directories clean, managed state explicit, context explainable, release controls enforceable, and legacy Public Seed material safely historical.

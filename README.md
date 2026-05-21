@@ -43,15 +43,15 @@ AI agents are replaceable collaborators.
 
 In practical terms, AI Workroot gives agents a shared, user-owned foundation for:
 
-- context
-- task state
-- decisions
-- artifacts
-- handoff
-- memory
-- knowledge
-- invalidation
-- release and intentional forgetting
+- Workroot Management
+- Work
+- Assets
+- Release Control
+- Relationship Network
+- Retrieval & Index Control
+- Context Control
+- Agent Interface
+- System Health
 
 The folders, registries, schemas, and validation scripts are implementation details. They exist to make continuity reliable, portable, and inspectable.
 
@@ -91,7 +91,7 @@ The best relationship is complementary:
 
 AI Workroot is designed for individuals first.
 
-Its current shape is a private, user-owned foundation for one person's long-term work with AI: personal context, files, tasks, decisions, knowledge, handoff, memory, and intentional forgetting.
+Its current shape is a private, user-owned foundation for one person's long-term work with AI: Work records, Assets, Release Control, Relationship Network, Retrieval & Index Control, Context Control, Agent Interface, and System Health.
 
 The heart of this project is one person with many unfinished things, many tools, changing contexts, and a real need to continue.
 
@@ -115,11 +115,11 @@ AI Workroot can still connect with agents, models, clients, services, indexes, a
 
 Everything else is a visitor.
 
-## Memory, Release, And Continuity
+## Release Control And Continuity
 
 AI Workroot is not only about remembering more.
 
-Memory is one part of continuity, but human life is not only memory accumulation. People also forget, release, quiet, archive, redact, and move forward.
+Continuity is not only accumulation. People also forget, release, quiet, archive, redact, and move forward.
 
 AI Workroot should help preserve what matters without forcing every old event, obsolete belief, mistake, or painful context back into every future session.
 
@@ -131,24 +131,32 @@ The goal is not to turn a person into a permanent machine-readable profile.
 
 The goal is to help a person continue without losing the freedom to change.
 
-## Current Public Seed
+## Current Architecture
 
-AI Workroot is currently an early public seed for a personal, local-first Workroot.
+AI Workroot is currently in the 0.9.530 Clean Workroot architecture reset.
 
-The current seed is file-first. Markdown, JSON, CSV, and user-owned source files remain the durable substrate.
+Clean Workroot means the user-selected directory is treated as user asset space. AI Workroot does not create managed runtime folders, indexes, logs, control files, or context stores inside that directory by default.
 
-Databases, vector indexes, graph stores, and local caches can be useful accelerators, but they should not become the canonical truth by default.
+Managed state belongs under `AI_WORKROOT_HOME` by default, represented by `WorkrootEnvironment`. Per-Workroot SQLite, context packages, indexes, diagnostics, handoffs, release records, Relationship Network projections, and cache files live there unless the user explicitly chooses another mode.
 
-The current public seed uses this implementation shape:
+The active source implementation is organized as:
 
 ```text
-space/       user-owned space
-.workroot/   kernel, runtime, indexes, and protocol state
+src/ai_workroot/
+  core/
+  contracts/
+  runtime/
+  storage/
+  indexing/
+  agent/
+  cli/
 ```
 
-This layout is the current transparent seed architecture, not a promise that every future Workroot implementation will look exactly the same.
+Root `AGENTS.md`, root `CLAUDE.md`, `space/`, and `.workroot/` are not active tracked architecture. Native Agent Entry files may be generated locally only with explicit authorization, and bootstrap-dev keeps local staging under ignored `.ai-workroot-local/`.
 
-Future clients may support cleaner user-facing directories, managed storage modes, richer local services, or larger architectural changes.
+Public Seed is historical. Its preserved files live under `docs/history/public-seed/` for compatibility review and old capability tests.
+
+`src/ai_workroot/` is the active product implementation direction for 0.9.530. The `scripts/` tree is support-only: `scripts/dev/` holds developer and release helpers, `scripts/compat/` holds short compatibility wrappers, and `scripts/legacy/public_seed/` quarantines old Public Seed entry points. New Clean Workroot behavior belongs in the package, not in `scripts/`.
 
 The core principle should remain stable: the user's continuity should stay inspectable, portable, and owned by the user.
 
@@ -156,6 +164,7 @@ For the full current architecture, see:
 
 - [Workroot System Design](docs/workroot-system-design.md)
 - [Architecture Map](docs/architecture-map.md)
+- [0.9.530 Release Notes](docs/releases/0.9.530.md)
 
 ## Start Here
 

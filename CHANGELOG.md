@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.530 - 2026-05-20
+
+- Reset the active architecture to Clean Workroot.
+- Added the package structure under `src/ai_workroot/` with Core / Contracts / Runtime / Storage / Indexing / Agent / CLI boundaries.
+- Added managed Workroot environment state under `AI_WORKROOT_HOME`.
+- Added bootstrap-dev dogfood support using `workroot.project.json`, ignored Native Agent Entry files, and local `.ai-workroot-local/` staging.
+- Added Release Control, Relationship Network, Retrieval & Index Control, Context Control, System Health, and extension boundary models.
+- Quarantined the old Public Seed root layout into `docs/history/public-seed/`.
+- Preserved legacy Public Seed capability tests through explicit historical fixtures.
+
+## 0.9.529 - 2026-05-20
+
+- Added the Clean Native Context Foundation: Clean Mode init, managed state outside user directories, SQLite context candidates, local FTS retrieval, Context Guide output, debug traces, doctor checks, Native Agent Entry, and developer bootstrap.
+- Hardened context selection so query, FTS, relationship signals, safety policy, and token budgets affect selected context.
+- Kept vector databases, remote embedding, and remote LLM calls out of the P0 context hot path.
+
 ## 0.9.528 - 2026-05-15
 
 - Rewrote the README around the expert-facing value proposition: context sovereignty, work lifecycle, cross-agent continuation, layered memory, and deliberate forgetting.

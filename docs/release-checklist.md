@@ -34,8 +34,8 @@ vX.Y.Z
 - `START_HERE_FOR_HUMANS.md` gives a clear first message.
 - `docs/user-sop.md` provides a practical operating manual without adding demo data to the core template.
 - `docs/product-experience.md` defines first run, intent routing, continue, and save-what-matters behavior.
-- `docs/workroot-system-design.md` documents the user-space/kernel-space architecture.
-- `docs/kernel-implementation-specification.md` defines the kernel versioning, contracts, schemas, validation behavior, tests, and release gates for implementation.
+- `docs/workroot-system-design.md` documents the Clean Workroot architecture.
+- `docs/kernel-implementation-specification.md` defines Clean Workroot implementation requirements, validation behavior, tests, and release gates.
 - `docs/user-interaction-contract.md` defines the ordinary-user interaction contract.
 - `docs/architecture-map.md` provides a visual explanation of the protocol.
 - `docs/daily-loop.md` explains the everyday operating rhythm.
@@ -48,9 +48,9 @@ vX.Y.Z
 - Users can ask what tasks have been done before and receive a local task summary.
 - Agents respond in the user's latest language unless the user explicitly requests another language.
 - A new user can start from the README without reading architecture documents first.
-- The public seed uses the `space/ + .workroot/` architecture.
+- Public Seed is historical; active release root does not track `space/`, `.workroot/`, root `AGENTS.md`, or root `CLAUDE.md`.
 - Root-level paths outside the public seed surface are absent.
-- Ordinary user docs describe `space/` as the visible user-owned space and do not instruct users to manage `.workroot/`.
+- Ordinary user docs describe clean user-selected directories and do not instruct users to manage internal state.
 
 ## Global Readiness
 
@@ -68,7 +68,7 @@ vX.Y.Z
 - Released, tombstone, redacted, and deleted material is not part of default retrieval.
 - Durable lessons can survive even when painful source context is released.
 - Tombstone remains a first-class kernel term and is not collapsed into generic archive semantics.
-- Agent-specific memory does not replace Workroot files.
+- Agent-specific private recall does not replace Workroot-managed state and Assets.
 - Core registries are not weakened to fit a role-specific workflow.
 - Capability-specific registries are documented by the owning capability.
 - Extensions follow `docs/extension-contract.md`.
@@ -79,41 +79,51 @@ vX.Y.Z
 Run:
 
 ```bash
-python3 -m py_compile scripts/*.py
-python3 -m unittest discover tests
-python3 scripts/validate_kernel.py
-python3 scripts/validate_kernel.py --release
-python3 scripts/new_task_smoke.py
-python3 scripts/setup_workroot.py --help
+python3 -m py_compile $(find src scripts -name "*.py")
+python3 -m unittest discover -s tests -v
+python3 scripts/compat/validate_kernel.py
+python3 scripts/compat/validate_kernel.py --release
+python3 scripts/dev/new_task_smoke.py
+python3 scripts/legacy/public_seed/setup_workroot.py --help
 git diff --check
 ```
 
-Windows PowerShell parse validation is pending unless a Windows CI job or local `pwsh` check parses `scripts/install.ps1` and `scripts/bootstrap-dev.ps1`.
+Default release validation does not run E2E, longrun, or live-agent tests.
+Run E2E only when explicitly requested:
+
+```bash
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite safety
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite persona-smoke
+AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite longrun
+```
+
+Windows PowerShell parse validation is pending unless a Windows CI job or local `pwsh` check parses `scripts/compat/install.ps1` and `scripts/dev/bootstrap-dev.ps1`.
 
 The final status should contain only intentional release changes.
 
-## 0.9.529 Clean Native Context Gates
+## 0.9.530 Clean Workroot Gates
 
 - Clean Mode init creates no managed folders or control files inside the user-selected directory by default.
 - Native Agent Entry files are created or modified only after explicit authorization.
 - Managed state, indexes, context packages, handoffs, runtime data, logs, and debug traces live outside the user-selected directory by default.
-- SQLite graph, candidate, and FTS tables are present in managed state.
-- Context Guide runs locally, prints a Markdown Context Package, and does not require remote calls.
-- Context Guide treats 1 second as the normal hot-path target, not a hard accuracy limit.
-- Context Guide reads latency and token budgets from runtime hints or built-in defaults.
-- Context Guide token usage estimates the full Context Package, not only selected candidates.
-- Context Guide uses query, candidate FTS, file FTS, and related one-hop graph signals to influence selection or scoring.
+- SQLite Relationship Network, candidate, and FTS tables are present in managed state.
+- Context Control runs locally, prints a Markdown Context Package, and does not require remote calls.
+- Context Control treats 1 second as the normal hot-path target, not a hard accuracy limit.
+- Context Control reads latency and token budgets from runtime hints or built-in defaults.
+- Context Control token usage estimates the full Context Package, not only selected candidates.
+- Context Control uses query, candidate FTS, file FTS, and related one-hop Relationship Network signals to influence selection or scoring.
 - Standard Mode is the default; Quality Mode is local and bounded; Deep Mode requires explicit request.
 - If Quality Mode only expands candidate budget, debug trace labels it as `quality-budget-expansion`.
 - Context Package includes mode, confidence, latency, token usage, fallback status, and low-confidence reasons when applicable.
 - Codex, Claude, and default agent token budgets are represented and bounded.
 - `AGENTS.md` and `CLAUDE.md` remain short launcher files and do not embed full Context Packages.
-- Follow-up: split `scripts/workroot_context.py` budget, token, render, and trace logic into smaller modules on a separate refactor branch.
+- Follow-up: split `scripts/legacy/public_seed/workroot_context.py` budget, token, render, and trace logic into smaller modules on a separate refactor branch.
 - Debug trace records resolution, mode, confidence, challengers, selected and dropped candidates, FTS matches, token budget, and timing.
 - P0 retrieval does not require a vector database or remote embedding provider.
 - `bootstrap-dev` creates no commits, tags, releases, or pushes automatically.
 - `bootstrap-dev` initializes SQLite and supports `context` and `doctor` immediately after bootstrap.
 - Install scripts are documented as CLI wrapper installers unless full first-run setup is implemented.
 - Legacy public-seed commands are clearly marked apart from the Clean Mode user path.
+- `scripts/` root contains no Python product implementation files; support scripts live under `scripts/dev`, `scripts/compat`, or `scripts/legacy/public_seed`.
 - `.ai-workroot-local/` is ignored and must not appear in release artifacts.
 - Release validation rejects generated caches, SQLite stores, debug traces, local metadata, and private residue.

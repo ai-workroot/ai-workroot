@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.workroot_agent_entry import (
+from ai_workroot.agent.native_entry import (
     NativeAgentEntryError,
     apply_managed_block,
     codex_block,
@@ -16,11 +16,11 @@ class WorkrootAgentEntryTest(unittest.TestCase):
     def test_codex_block_uses_relative_context_command(self) -> None:
         block = codex_block()
         self.assertIn("workroot context --agent codex --cwd .", block)
-        self.assertIn("workroot doctor", block)
-        self.assertIn("If the context command fails", block)
+        self.assertIn("<!-- AI_WORKROOT_BEGIN -->", block)
+        self.assertIn("<!-- AI_WORKROOT_END -->", block)
         self.assertNotIn(str(Path.home()), block)
         self.assertNotIn(".ai-workroot/workroots", block)
-        self.assertLess(len(block.encode("utf-8")), 3 * 1024)
+        self.assertLess(len(block.encode("utf-8")), 2 * 1024)
 
     def test_apply_block_preserves_user_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -23,3 +23,6 @@ config/*_servers.json
 *.duckdb
 *.duckdb.wal
 .ai-workroot-local/
+/AGENTS.md
+/CLAUDE.md
+/.ai-workroot-local/

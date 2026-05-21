@@ -1,17 +1,23 @@
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.runtime.legacy_seed import profile
+
+from tests.fixtures.public_seed import copy_repo_with_public_seed
+
 
 class UpdateUsageDirectionTest(unittest.TestCase):
+    def test_package_profile_exports_merge_helpers(self) -> None:
+        self.assertTrue(callable(profile.main))
+        self.assertIn("Usage Direction", profile.build_profile("Direction", "Focus", "", "2026-05-21T00:00:00Z"))
+
     def test_updates_only_profile_file(self) -> None:
-        repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(repo, work, ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache"))
+            copy_repo_with_public_seed(work)
 
             profile = work / "space/profile/profile.md"
             roles = work / "space/profile/roles.md"
@@ -26,7 +32,7 @@ class UpdateUsageDirectionTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    "scripts/update_usage_direction.py",
+                    "scripts/legacy/public_seed/update_usage_direction.py",
                     "--direction",
                     "The user wants CTO-level technical collaboration.",
                     "--focus",
@@ -45,10 +51,9 @@ class UpdateUsageDirectionTest(unittest.TestCase):
                 self.assertEqual(content, path.read_text(encoding="utf-8"))
 
     def test_preserves_existing_custom_profile_sections(self) -> None:
-        repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(repo, work, ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache"))
+            copy_repo_with_public_seed(work)
 
             profile = work / "space/profile/profile.md"
             profile.write_text(
@@ -59,7 +64,7 @@ class UpdateUsageDirectionTest(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    "scripts/update_usage_direction.py",
+                    "scripts/legacy/public_seed/update_usage_direction.py",
                     "--direction",
                     "The user wants product leadership collaboration.",
                     "--focus",

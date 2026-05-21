@@ -1,0 +1,6 @@
+{
+  "architecture": "clean-workroot",
+  "bootstrapDevSupported": true,
+  "project": "ai-workroot",
+  "version": "0.9.530"
+}

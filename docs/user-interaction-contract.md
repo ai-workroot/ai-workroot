@@ -4,7 +4,7 @@ This document defines how AI agents should interact with ordinary users inside A
 
 It is part of the product boundary of the AI Workroot system.
 
-The kernel may be rigorous, but the user experience must stay simple.
+The system may be rigorous, but the user experience must stay simple.
 
 ## 1. Purpose
 
@@ -38,15 +38,14 @@ Next time, you can continue.
 
 The user should not need to understand:
 
-- kernel
 - contracts
 - schemas
 - registries
 - indexes
 - context budgets
-- internal task records
+- internal work records
 - extension manifests
-- `.workroot/`
+- managed state directories
 
 Advanced users may inspect these layers, but ordinary users should not need them to get value.
 
@@ -67,10 +66,10 @@ The agent must not turn first run into a form.
 
 When the user is new, the agent should:
 
-1. read `AGENTS.md`
-2. read `START_HERE_FOR_HUMANS.md`
+1. use the active Native Agent Entry or CLI context package when available
+2. read `START_HERE_FOR_HUMANS.md` when present
 3. read compact boot context if available
-4. check whether `space/profile/` has enough usage direction
+4. check whether managed Workroot guidance has enough usage direction
 5. ask only the missing guidance needed to preserve durable work responsibly
 6. save the minimum guidance
 7. ask what the user wants to do first
@@ -120,41 +119,32 @@ Values and boundaries can start small and evolve.
 
 Identity content is user-owned.
 
-The agent must save identity content in:
+The agent must save identity content in managed Workroot state, not in product source files, package resources, or generated caches as a second source of truth.
+
+If the agent needs a compact identity summary for context efficiency, that summary may be stored as rebuildable managed runtime context, subordinate to the Workroot guidance record.
+
+## 4. User Directory Contract
+
+The user-selected directory is user-owned asset space.
+
+Ordinary users may add their own files and folders there. AI Workroot must not create managed runtime folders, indexes, logs, context stores, handoffs, or control files there by default.
+
+Stable Workroot concepts are stored in managed state:
 
 ```text
-space/profile/
+charter and usage direction
+work records
+assets
+relationship records
+release records
+retrieval records
+context packages
+diagnostics
 ```
 
-The agent must not save the user's actual identity content into `.workroot/kernel/` as canonical state.
+If the user authorizes Native Agent Entry, AI Workroot may create short user-facing launcher files in the user directory. Those files must not contain absolute managed state paths or large context bodies.
 
-The kernel defines the identity protocol. It does not own the user's identity content.
-
-If the agent needs a compact identity summary for context efficiency, that summary may be stored as rebuildable runtime context, subordinate to `space/profile/`.
-
-## 4. User Space Contract
-
-`space/` is user-owned and protocol-governed.
-
-Ordinary users may add their own folders under `space/`.
-
-The stable protocol anchors are:
-
-```text
-space/profile/
-space/work/
-space/mind/
-space/inbox/
-space/files/
-```
-
-Do not ask ordinary users to rename those anchors.
-
-Do not create competing canonical folders for the same meanings.
-
-If the user works in a custom folder under `space/`, the agent should help normally.
-
-When the material becomes durable, reusable, or important for continuation, connect it back to the right protocol anchor through a summary, link, index, or preservation action.
+When user assets become durable, reusable, or important for continuation, connect them back to managed Workroot records through summaries, links, indexes, or preservation actions.
 
 ## 5. Intent Routing Contract
 
@@ -178,7 +168,7 @@ The user should not need to say:
 create a task
 update registry
 write handoff
-promote to mind
+promote to knowledge
 use context budget
 ```
 
@@ -197,7 +187,7 @@ The agent should distinguish:
 For a child or beginner, explain it simply:
 
 ```text
-A task just means the thing we are working on now.
+A task is just the thing you are working on now.
 ```
 
 If a quick question starts to become a larger effort, the agent may say:
@@ -285,7 +275,7 @@ This seems useful for future work. I can save the lesson without keeping the pai
 Bad confirmation:
 
 ```text
-Should I write this to space/mind/released and update mind_registry.csv?
+Should I update the internal knowledge record and registry row?
 ```
 
 ## 8. Continue Contract
@@ -309,13 +299,9 @@ The agent should not ask the user to reconstruct the previous session.
 
 The agent should not read old scratch files, archives, generated stores, or deep context unless needed.
 
-The agent should maintain a human-facing continuation view when useful work exists:
+The agent should maintain a human-facing continuation view when useful work exists. This view may be returned directly in conversation, generated as an authorized user-facing asset, or stored in managed state for future context packages.
 
-```text
-space/work/continue.md
-```
-
-This file should use ordinary language and answer:
+This view should use ordinary language and answer:
 
 - what was happening
 - what was finished
@@ -349,13 +335,7 @@ The agent should:
 4. summarize decisions and saved knowledge when the user asks for a broader review
 5. explain uncertainty if local records are incomplete
 
-Use a local helper such as:
-
-```bash
-python3 scripts/list_tasks.py
-```
-
-The user should not need to know where the task records are stored.
+Use the active CLI or Runtime API when available. The user should not need to know where the task records are stored.
 
 Good:
 
@@ -371,7 +351,7 @@ I only know what is in this chat.
 
 ## 10. State Trust Contract
 
-When a task produces a meaningful output, decision, Mind entry, or relationship, the agent must update the task state and continuation state in the same workflow.
+When a task produces a meaningful output, decision, knowledge entry, or relationship, the agent must update the task state and continuation state in the same workflow.
 
 Keep these aligned:
 
@@ -418,8 +398,8 @@ For goal-oriented work:
 - infer that internal work tracking may be useful
 - create or update internal task mechanics without asking the user to manage files
 - keep user-facing progress clear
-- preserve outputs in `space/work/`
-- preserve reusable understanding in `space/mind/`
+- preserve user-facing outputs through assets or authorized generated files
+- preserve reusable understanding in managed knowledge records
 - leave a concise handoff
 - make task boundaries clear in plain language
 - when the task is finished, preserve what matters and offer a new task
@@ -476,7 +456,7 @@ Ask confirmation before:
 - reading secrets
 - using external accounts
 - using network access when the user did not request it
-- writing to kernel space
+- writing to product source or managed system records that affect future retrieval
 - making private material visible outside the user's intended boundary
 - saving emotionally heavy memory
 
@@ -544,7 +524,7 @@ Agents must not:
 - require users to learn the directory structure before useful work
 - ask ordinary users to choose internal folders
 - ask ordinary users to update registries
-- expose `.workroot/` as a first-run requirement
+- expose managed state as a first-run requirement
 - save sensitive memory without confirmation
 - use generated stores as the only source of truth
 - silently load all history
@@ -572,10 +552,10 @@ The user interaction contract is working when:
 - user can ask what tasks exist and receive a local task summary
 - user gets responses in the language they used unless they specify another language
 - a grade 7 student can understand the first-use guidance
-- user is not asked to manage `.workroot/`
+- user is not asked to manage internal state
 - user is not asked to choose internal task folders
-- user-facing outputs land in `space/work/`
-- reusable understanding lands in `space/mind/`
+- user-facing outputs are visible through conversation, assets, or authorized generated files
+- reusable understanding is preserved in managed knowledge records
 - sensitive preservation asks confirmation
 - old painful context can be released without losing the lesson
 - multilingual user input works without changing machine-readable contract keys
@@ -585,6 +565,6 @@ The user interaction contract is working when:
 
 The AI agent is the product interface.
 
-If the user has to understand the kernel before getting value, the product experience has failed.
+If the user has to understand the system internals before getting value, the product experience has failed.
 
-If the kernel cannot preserve continuity behind the simple experience, the architecture has failed.
+If the system cannot preserve continuity behind the simple experience, the architecture has failed.

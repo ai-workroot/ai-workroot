@@ -5,10 +5,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_SEED = ROOT / "docs/history/public-seed"
 
 
 def read(rel: str) -> str:
-    return (ROOT / rel).read_text(encoding="utf-8")
+    path = PUBLIC_SEED / rel if rel.startswith((".workroot/", "AGENTS.md", "CLAUDE.md", "space/")) else ROOT / rel
+    return path.read_text(encoding="utf-8")
 
 
 class ArchitectureContractsTest(unittest.TestCase):
@@ -50,7 +52,7 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("Invalidation", text)
 
     def test_agent_operation_spec_documents_batch_rollback_journal(self) -> None:
-        text = read("docs/specs/2026-05-15-agent-operation-layer.md")
+        text = read("docs/history/0.9.529/specs/2026-05-15-agent-operation-layer.md")
         self.assertIn(".workroot/runtime/transactions/", text)
         self.assertIn("rolled_back", text)
         self.assertIn(".workroot/runtime/index", text)
@@ -61,9 +63,22 @@ class ArchitectureContractsTest(unittest.TestCase):
     def test_agent_fast_start_prefers_operation_manifest_over_source_code(self) -> None:
         text = read(".workroot/kernel/boot/agent-fast-start.md")
         self.assertIn("operation manifest", text)
-        self.assertIn("scripts/workroot_cli.py manifest --format json", text)
-        self.assertIn("scripts/workroot_cli.py recipe batch-12-tasks --format json", text)
-        self.assertIn("Do not read `scripts/workroot_client.py`", text)
+        self.assertIn("workroot legacy manifest --format json", text)
+        self.assertIn("workroot legacy recipe batch-12-tasks --format json", text)
+        self.assertIn("Do not read implementation source modules", text)
+
+    def test_part2_temporal_and_global_index_boundaries_are_documented(self) -> None:
+        retrieval = read("docs/specs/009-retrieval-index-control.spec.md")
+        release = read("docs/specs/007-release-control.spec.md")
+        parity = read("docs/specs/033-time-and-global-index-parity.spec.md")
+        matrix = read("docs/dev/0.9.530/matrix/legacy-capability-preservation-matrix.md")
+
+        for phrase in ("TimeEvent", "TimeRange", "TemporalScope", "GlobalTimeIndex", "WorkrootTimeIndex"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, retrieval + release + parity + matrix)
+        self.assertIn("GlobalTaskIndex", retrieval + parity + matrix)
+        self.assertIn("GlobalAssetIndex", retrieval + parity + matrix)
+        self.assertIn("time_events", matrix)
 
 
 if __name__ == "__main__":

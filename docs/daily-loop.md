@@ -21,13 +21,15 @@ Ask:
 - Is there an active task or handoff?
 - What matters most in this moment?
 
-Use:
+Use the smallest available managed context:
 
-- `space/profile/`
-- `.workroot/runtime/context/current.md`
-- `.workroot/runtime/context/handoff.md`
-- `space/work/continue.md`
-- relevant registry rows
+- Workroot charter and usage direction
+- current work summary
+- current handoff
+- human-facing continuation summary
+- relevant relationship and retrieval records
+
+Do not scan all user assets or generated stores just to start.
 
 ## 2. Choose
 
@@ -65,7 +67,7 @@ When something matters, write it into the Workroot.
 
 Preserve:
 
-- task state
+- work state
 - decisions
 - outputs
 - useful evidence
@@ -76,17 +78,17 @@ Do not leave durable context only in chat.
 
 ## 5. Promote
 
-Turn useful results into durable Mind entries when they should help future work.
+Turn useful results into durable records when they should help future work.
 
 Promote:
 
-- experience into `space/mind/memory/`
-- reusable understanding into `space/mind/knowledge/`
-- operating commitments into `space/mind/principles/`
-- important choices into `space/mind/decisions/`
-- repeated signals into `space/mind/patterns/`
-- deeper reviews into `space/mind/reflections/`
-- obsolete beliefs into `space/mind/invalidated/`
+- experience into memory records
+- reusable understanding into knowledge records
+- operating commitments into principle records
+- important choices into decision records
+- repeated signals into pattern records
+- deeper reviews into reflection records
+- obsolete beliefs into invalidation records
 
 Promotion is how work becomes growth.
 
@@ -110,13 +112,13 @@ Before ending a session, leave a small continuation path.
 
 Update:
 
-- active task `brief.md`
-- active task `todo.md`
-- active task `decisions.md`
-- active task `handoff.md`
-- `.workroot/runtime/context/handoff.md`
-- `space/work/continue.md`
-- relevant registries
+- active work brief
+- active work todo
+- active work decisions
+- active work handoff
+- managed current context
+- managed continuation summary
+- relevant relationship, asset, release, and retrieval records
 
 The next agent should not need to reconstruct state from chat history.
 
@@ -125,21 +127,21 @@ The user-facing continuation should stay in plain language. Keep registry detail
 When resuming a complex task, prefer this retrieval order:
 
 ```text
-current context -> handoff -> task registry row -> task brief -> task handoff -> task index -> latest checkpoint -> latest valid run -> retrieval cards
+current context -> handoff -> work record -> work brief -> work handoff -> work index -> latest checkpoint -> latest valid run -> retrieval candidates
 ```
 
 ## Meaning And Execution
 
 AI Workroot separates meaning from execution, then reconnects them through reflection and promotion.
 
-- `space/profile/` answers: who is this for?
-- `space/mind/principles/` answers: what should guide choices?
-- `.workroot/runtime/work/` answers: what are we doing now?
-- `space/work/` answers: what should the user see?
-- `space/mind/decisions/` answers: what did we choose and why?
-- `space/mind/reflections/` answers: what does this experience mean?
-- `space/mind/knowledge/` answers: what can be reused later?
-- `space/mind/released/` answers: what no longer needs active recall?
+- Workroot charter answers: who is this for?
+- principles answer: what should guide choices?
+- work records answer: what are we doing now?
+- continuation summaries answer: what should the user see?
+- decisions answer: what did we choose and why?
+- reflections answer: what does this experience mean?
+- knowledge records answer: what can be reused later?
+- release records answer: what no longer needs active recall?
 
 This separation matters because doing the wrong thing efficiently is still wrong.
 

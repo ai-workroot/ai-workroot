@@ -7,27 +7,30 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from scripts.validate_kernel import validate_0529_specs, validate_release_surface
+from ai_workroot.runtime.release_validation import validate_release_surface
+from ai_workroot.runtime.legacy_seed.kernel_validation import validate_0529_specs
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_SEED = ROOT / "docs/history/public-seed"
 
 
 class ReleaseGates0529Test(unittest.TestCase):
     def test_install_and_bootstrap_scripts_exist(self) -> None:
         expected = [
-            ROOT / "scripts/install.sh",
-            ROOT / "scripts/install.ps1",
-            ROOT / "scripts/bootstrap-dev.sh",
-            ROOT / "scripts/bootstrap-dev.ps1",
+            ROOT / "scripts/compat/install.sh",
+            ROOT / "scripts/compat/install.ps1",
+            ROOT / "scripts/dev/bootstrap-dev.sh",
+            ROOT / "scripts/dev/bootstrap-dev.ps1",
         ]
 
         for path in expected:
             self.assertTrue(path.exists(), f"missing script: {path}")
 
     def test_kernel_required_test_commands_reference_existing_scripts(self) -> None:
-        contract = ast.literal_eval((ROOT / ".workroot/kernel/contracts/test-policy.json").read_text(encoding="utf-8"))
+        contract = ast.literal_eval((PUBLIC_SEED / ".workroot/kernel/contracts/test-policy.json").read_text(encoding="utf-8"))
 
         for command in contract["required_test_commands"]:
             parts = command.split()
@@ -44,7 +47,7 @@ class ReleaseGates0529Test(unittest.TestCase):
             env = {**os.environ, "AI_WORKROOT_INSTALL_DIR": str(install_dir)}
 
             help_result = subprocess.run(
-                [str(ROOT / "scripts/install.sh"), "--help"],
+                [str(ROOT / "scripts/compat/install.sh"), "--help"],
                 cwd=ROOT,
                 env=env,
                 text=True,
@@ -52,7 +55,7 @@ class ReleaseGates0529Test(unittest.TestCase):
                 check=False,
             )
             dry_run_result = subprocess.run(
-                [str(ROOT / "scripts/install.sh"), "--dry-run"],
+                [str(ROOT / "scripts/compat/install.sh"), "--dry-run"],
                 cwd=ROOT,
                 env=env,
                 text=True,
@@ -75,16 +78,16 @@ class ReleaseGates0529Test(unittest.TestCase):
         checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
 
         self.assertIn("Windows PowerShell parse validation is pending", checklist)
-        self.assertIn("scripts/install.ps1", checklist)
-        self.assertIn("scripts/bootstrap-dev.ps1", checklist)
+        self.assertIn("scripts/compat/install.ps1", checklist)
+        self.assertIn("scripts/dev/bootstrap-dev.ps1", checklist)
 
     def test_rebuild_sqlite_is_marked_as_legacy_seed_tooling(self) -> None:
-        script = (ROOT / "scripts/rebuild_sqlite.py").read_text(encoding="utf-8")
+        script = (ROOT / "scripts/legacy/public_seed/rebuild_sqlite.py").read_text(encoding="utf-8")
         instantiate = (ROOT / "docs/instantiate-workroot.md").read_text(encoding="utf-8")
 
         self.assertIn("Legacy public-seed SQLite rebuild tool", script)
         self.assertIn("legacy public seed", instantiate)
-        self.assertNotIn("Clean Mode users should run `python3 scripts/rebuild_sqlite.py`", instantiate)
+        self.assertNotIn("Clean Mode users should run `python3 scripts/legacy/public_seed/rebuild_sqlite.py`", instantiate)
 
     def test_release_notes_include_known_limitations(self) -> None:
         release_notes = (ROOT / "docs/releases/0.9.529.md").read_text(encoding="utf-8")
@@ -93,7 +96,7 @@ class ReleaseGates0529Test(unittest.TestCase):
             "Windows PowerShell parse validation is pending",
             "install.sh is a CLI wrapper installer",
             "Quality Mode is currently labeled as quality-budget-expansion",
-            "scripts/rebuild_sqlite.py remains legacy public-seed tooling",
+            "scripts/legacy/public_seed/rebuild_sqlite.py remains legacy public-seed tooling",
         ):
             self.assertIn(text, release_notes)
 
@@ -110,9 +113,11 @@ class ReleaseGates0529Test(unittest.TestCase):
         validate_0529_specs(ROOT, errors)
 
         self.assertEqual(errors, [])
-        spec = (ROOT / "docs/specs/015-context-guide-modes-budgets-and-confidence.spec.md").read_text(encoding="utf-8")
+        spec = (ROOT / "docs/history/0.9.529/specs/015-context-guide-modes-budgets-and-confidence.spec.md").read_text(
+            encoding="utf-8"
+        )
         checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
-        context_source = (ROOT / "scripts/workroot_context.py").read_text(encoding="utf-8")
+        context_source = (ROOT / "src/ai_workroot/runtime/legacy_context.py").read_text(encoding="utf-8")
 
         self.assertIn("runtime-hints.json", spec)
         self.assertIn("Deep Mode requires explicit request", checklist)
@@ -163,6 +168,27 @@ class ReleaseGates0529Test(unittest.TestCase):
 
             self.assertEqual(errors, [])
 
+    def test_release_validation_uses_git_file_lists_not_per_path_ignore_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+            (root / ".gitignore").write_text("__pycache__/\n.idea/\n", encoding="utf-8")
+            (root / "README.md").write_text("release surface\n", encoding="utf-8")
+            subprocess.run(["git", "add", ".gitignore", "README.md"], cwd=root, check=True, capture_output=True)
+            for index in range(50):
+                path = root / "__pycache__" / f"ignored-{index}.pyc"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"ignored")
+            errors: list[str] = []
+
+            with patch(
+                "ai_workroot.runtime.release_validation.is_git_ignored",
+                side_effect=AssertionError("per-path check-ignore used"),
+            ):
+                validate_release_surface(root, errors)
+
+            self.assertEqual(errors, [])
+
     def test_release_validation_rejects_unignored_local_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -180,16 +206,15 @@ class ReleaseGates0529Test(unittest.TestCase):
 
     def test_p0_code_paths_do_not_require_vector_or_remote_embeddings(self) -> None:
         p0_files = [
-            "scripts/workroot_bootstrap.py",
-            "scripts/workroot_candidates.py",
-            "scripts/workroot_cli.py",
-            "scripts/workroot_context.py",
-            "scripts/workroot_doctor.py",
-            "scripts/workroot_indexing.py",
-            "scripts/workroot_migrations.py",
-            "scripts/workroot_paths.py",
-            "scripts/workroot_sqlite.py",
-            "scripts/workroot_state.py",
+            "src/ai_workroot/runtime/bootstrap.py",
+            "src/ai_workroot/runtime/context.py",
+            "src/ai_workroot/runtime/doctor.py",
+            "src/ai_workroot/runtime/init.py",
+            "src/ai_workroot/runtime/paths.py",
+            "src/ai_workroot/runtime/state.py",
+            "src/ai_workroot/storage/sqlite.py",
+            "src/ai_workroot/indexing/providers/sqlite_fts.py",
+            "src/ai_workroot/cli/main.py",
         ]
         forbidden_import_roots = {"openai", "requests", "httpx", "chromadb", "faiss"}
         forbidden_calls = {"Embedding", "embeddings"}

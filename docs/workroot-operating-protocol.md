@@ -1,6 +1,6 @@
 # Workroot Operating Protocol
 
-This is the core operating protocol for AI agents working inside AI Workroot.
+This is the core operating protocol for AI agents working with AI Workroot.
 
 It is the foundational protocol of the project. Domain skills, tool skills, MCP integrations, and agent-specific plugins must work inside this protocol.
 
@@ -10,111 +10,62 @@ For ordinary user experience, also follow:
 - `docs/user-interaction-contract.md`
 - `docs/kernel-implementation-specification.md`
 
-The public seed uses the Workroot system architecture:
+## Active Architecture
+
+The active architecture is Clean Workroot:
 
 ```text
-space/       user-visible space
-.workroot/   kernel, extensions, and rebuildable runtime state
+user-selected directory   user assets and optional authorized Native Agent Entry
+AI_WORKROOT_HOME          WorkrootEnvironment and managed state
+src/ai_workroot/          Core / Contracts / Runtime / Storage / Indexing / Agent / CLI
 ```
 
-## Space Boundary Rule
+Public Seed is historical. Legacy material may appear under `docs/history/public-seed/` or in compatibility fixtures, but agents must not treat root `space/`, root `.workroot/`, root `AGENTS.md`, or root `CLAUDE.md` as active architecture requirements.
 
-`space/` is user-owned and protocol-governed.
+## 1. Clean Boundary Rule
 
-The user owns the durable content. The kernel owns the rules. Runtime owns rebuildable derived state.
+The user-selected directory is user-owned asset space.
 
-Protocol anchors under `space/` must keep stable names and meanings:
+AI Workroot must not create managed runtime folders, indexes, logs, context packages, handoffs, kernel files, or control files inside that directory by default.
 
-```text
-space/profile/
-space/work/
-space/mind/
-space/inbox/
-space/files/
-```
+Native Agent Entry files are the normal exception, and only after explicit authorization or bootstrap-dev dogfood behavior.
 
-Users may add other folders under `space/` for their own work.
+Managed state belongs under `AI_WORKROOT_HOME` by default.
 
-Agents should not treat those folders as errors.
-When their content should become durable identity, work, knowledge, memory, source material,
-or continuation context, agents should connect it back to the protocol anchors through links,
-summaries, indexes, or preservation actions.
-
-Agents must not create competing canonical folders for the same meanings.
-
-## 0. Progressive Subject Anchor
+## 2. Progressive Workroot Charter
 
 AI Workroot should let a user start useful work first.
-Before preserving formal durable work, it must know enough about who or what it serves
-to avoid saving meaningless or misdirected context.
 
-The user may rename the outer folder to make the Workroot feel personal.
-Agents should not ask ordinary users to rename internal protocol folders such as `space`,
-`.workroot`, or `docs`.
+Before preserving formal durable work, the Workroot should know enough about what it serves:
 
-Before creating formal internal work records or promoting durable knowledge, confirm that `space/profile/`
-defines a sufficient subject anchor.
-In the current product direction, this should normally be:
+- purpose
+- AI role
+- work direction
+- values and boundaries
+- user preferences
 
-- a person
+In Clean Workroot this belongs in the per-Workroot managed charter/state, not in a required root `space/profile/` folder.
 
-The protocol still has room for future team, role, project, or organization subject boundaries, but those are not the default public positioning.
+If guidance is blank or generic, ask only the smallest useful question, then continue doing the work.
 
-If profile guidance is blank or still generic, guide the user progressively:
+## 3. Startup
 
-1. What should this Workroot help with?
-2. What role should the AI play?
-3. What direction, work, or life area should it support?
-4. What values, boundaries, or preferences should it respect?
+For a normal agent entry, use the Native Agent Entry file when present. It should stay short and direct the agent to request the current Context Package, for example:
 
-Write the result into `space/profile/` as appropriate.
-
-The guidance can be small at first.
-It can be broad or specialized.
-It should evolve over time, but durable preservation should not happen without a subject.
-
-If guidance is not clear enough, ask only the missing question needed to avoid preserving durable work
-without a subject, write the answer into `space/profile/`, then continue.
-
-Identity content belongs to `space/profile/`.
-
-The kernel defines identity rules, startup checks, and the identity gate as internal preservation rules.
-It must not store the user's actual identity content as canonical kernel state.
-
-Runtime may keep compact identity summaries for context efficiency, but those summaries are rebuildable and subordinate to `space/profile/`.
-
-## 1. Startup
-
-Every agent should start with:
-
-1. `AGENTS.md`
-2. `START_HERE_FOR_HUMANS.md`
-3. `.workroot/kernel/boot/boot.md` when available
-4. `.workroot/kernel/boot/read-order.json` when available
-5. `docs/user-interaction-contract.md`
-
-If continuing active work, read concise continuation context:
-
-1. `.workroot/runtime/context/current.md`
-2. `.workroot/runtime/context/handoff.md`
-3. relevant rows from `.workroot/runtime/index/`
-
-Do not start by reading long historical logs.
-
-Follow `.workroot/kernel/contracts/context-policy.json` and `docs/scaling-and-longevity.md` when choosing what enters context.
-
-Use `docs/daily-loop.md` as the practical operating rhythm:
-
-```text
-orient -> choose -> work -> preserve -> promote -> release -> handoff
+```bash
+workroot context --agent codex --cwd .
 ```
 
-## 2. Classify The Work
+The Context Package is the current startup surface. It should include mode, confidence, latency, token usage, selected candidates, relevant state, and guardrails.
+
+Do not load deep history by default. Do not scan all files by default. Use `workroot context --debug` when a task needs explainability.
+
+## 4. Classify The Work
 
 Classify the user's request into the lightest suitable path:
 
 - quick question
-- capture or inbox item
+- capture
 - goal-oriented work
 - recurring work
 - larger project
@@ -125,41 +76,25 @@ Classify the user's request into the lightest suitable path:
 - release or forgetting
 - capability or workflow design
 
-If the user is just exploring, keep it lightweight.
+If the user is exploring, keep it lightweight.
 
-If the work has a goal, expected result, or future value, create or update the appropriate internal work record behind the scenes.
+If the work has a goal, expected result, or future value, create or update the appropriate managed Work record behind the scenes.
 
-Do not ask ordinary users to manually create folders, choose task types, edit indexes, or decide where internal records go. Infer the right structure from intent and keep the user focused on the work.
+Do not ask ordinary users to manually create folders, choose task types, edit indexes, or decide where internal records go.
 
-Use the intent routing table in `docs/user-interaction-contract.md` for ordinary user requests.
+## 5. Work Records
 
-## 3. Work With The User
+Formal work is represented by Work concepts:
 
-The user should not need to understand the full architecture.
-
-Guide them with simple language:
-
-- "This can stay as a quick answer."
-- "This has enough shape to track; I will keep it organized for you."
-- "This result may be useful later; I can preserve it."
-- "This looks reusable; I will save it for future work."
-- "The lesson is preserved; this painful context can be released from active recall if you choose."
-- "Release does not erase responsibility; it keeps the lesson while letting the raw pain become quiet."
-- "If you want, we can keep only a small tombstone: a quiet marker for remembrance, without carrying the full pain forward."
-
-Avoid exposing internal mechanics unless the user asks.
-
-For first run, continuation, and "save what matters" behavior, follow `docs/user-interaction-contract.md`.
-
-## 4. Maintain Internal Work State
-
-For formal work, internal task records live under:
-
-```text
-.workroot/runtime/work/tasks/<task-id>/
-```
-
-Task status lives in `task.json` and `.workroot/runtime/index/task_registry.csv`, not in directory names.
+- Task
+- L0 / L1 / L2 process levels
+- AgentRun
+- WorkAction
+- WorkCheckpoint
+- RetrievalCard
+- InvalidationRecord
+- Handoff
+- OperationTransaction
 
 Use the lightest process level that preserves continuity:
 
@@ -167,135 +102,90 @@ Use the lightest process level that preserves continuity:
 - `L1`: process records with plans, runs, retrieval cards, and checkpoints
 - `L2`: evidence records with actions, recipes, validation, and invalidations
 
-Older Workroots may contain `.workroot/runtime/work/active/` or `closed/`. Agents may read those legacy paths, but new tasks use `tasks/<task-id>/`.
+Legacy Public Seed task files may remain readable in compatibility tests and historical fixtures. New Clean Workroot behavior should use managed state and runtime APIs.
 
-Common internal files:
+## 6. Promote What Matters
 
-```text
-task.json
-task.md
-brief.md
-decisions.md
-todo.md
-scratch.md
-index.md
-outputs/
-archive/
-handoff.md
-```
+After work produces value, decide whether the result should become:
 
-Keep `brief.md` current.
+- Asset
+- decision
+- reusable knowledge Asset
+- principle
+- pattern
+- reflection
+- handoff
+- invalidation
+- release marker through Release Control
+- tombstone, redaction, or deletion record when appropriate
 
-Keep `todo.md` limited to remaining work.
+Ask confirmation before preserving sensitive, private, emotionally heavy, or externally visible material.
 
-Do not make long scratch history a startup requirement.
+## 7. Retrieval And Index Discipline
 
-Use `handoff.md` for task-level continuation context.
+Important objects should be findable without full-directory scans.
 
-Before closing a task, compress the task into a small effective record: final `brief.md`, decisions, outputs, related links, promoted Mind entries, and a short handoff. Move noisy process material out of default context.
+Use Retrieval & Index Control for:
 
-User-facing outputs, summaries, and reports belong in:
+- materialized context candidates
+- SQLite FTS
+- file metadata
+- relationship-backed signals
+- recent activity
+- explicit project files
+- git state when available
 
-```text
-space/work/
-```
+Vector databases, remote embeddings, and remote LLM calls are not required for P0 context generation.
 
-## 5. Promote What Matters
+Debug traces should explain candidate sources, filters, scores, timing, token budgets, selected context, and dropped candidates.
 
-After work produces value, decide what to do:
+## 8. Preserve Relationships
 
-| Output type | Destination |
-| --- | --- |
-| user-facing task result | `space/work/` |
-| internal task state | `.workroot/runtime/work/` |
-| meaningful experience | `space/mind/memory/` |
-| reusable understanding | `space/mind/knowledge/` |
-| operating principle | `space/mind/principles/` |
-| important choice | `space/mind/decisions/` |
-| repeated pattern | `space/mind/patterns/` |
-| reflection | `space/mind/reflections/` |
-| wrong or obsolete belief | `space/mind/invalidated/` |
-| past context the user chooses not to actively carry forward | `space/mind/released/` |
-| external source | `space/files/` |
-| repeatable workflow | `.workroot/extensions/capabilities/` |
+Important objects should be connected through Relationship Network:
 
-Ask confirmation before preserving sensitive, private, emotionally heavy, or team-visible material.
+- task to asset
+- task to decision
+- asset to source
+- decision to evidence
+- knowledge Asset to originating work
+- invalidation to replacement
+- handoff to current work
 
-## 6. Update Indexes
+Relationship Network is the business domain. Graph is only technical implementation language.
 
-Important objects should be findable without full-text search.
+## 9. Release Control
 
-Maintain registries under:
+Release Control manages active, quiet, archived, tombstone, redacted, and deleted recall states.
 
-```text
-.workroot/runtime/index/
-```
+Rules:
 
-Core registries should cover:
+- Preserve useful lessons before release when possible.
+- Tombstone is a first-class entity, not `TombstoneMarker`.
+- Redacted, deleted, and safety-sensitive content must not enter ordinary context.
+- Deletion requires explicit user choice and should retain only minimal audit information.
+- Release Control overlays recallable objects without mutating their factual identity.
 
-- task registry
-- run registry
-- action registry
-- artifact registry
-- decision registry
-- retrieval card registry
-- checkpoint registry
-- invalidation registry
-- mind registry
-- link registry
-
-The public seed can use Markdown, JSON, and CSV.
-
-Future local databases or vector/graph indexes are accelerators only.
-
-Core registries should stay stable and role-independent. Domain capabilities may add their own registries, but those registries belong to the capability and should not redefine the core protocol.
-
-Role, domain, tool, runtime, database, and index extensions should follow `docs/extension-contract.md`.
-
-When using SQLite, rebuild it from CSV registries when tooling is available.
-
-Use validation scripts when available to check registry paths, work records, relationships, contracts, and generated store integrity.
-
-For released context, default to `quiet` unless the user explicitly chooses archival, tombstone, redaction, or deletion. Deletion must be explicit and should not leave a detailed hidden archive.
-
-For long-lived entries, maintain lifecycle metadata when available: status, temperature, confidence, last used date, review date, and replacement links.
-
-## 7. Preserve Relationships
-
-Important files should link to related objects:
-
-- source work
-- source memory
-- source artifact
-- related decision
-- related principle
-- related capability
-- invalidated or replacement record
-
-The Workroot should become a knowledge network over time.
-
-## 8. Handoff
+## 10. Handoff
 
 Before ending a long session or when context may be lost:
 
-1. update active work `brief.md`
-2. update `decisions.md`
-3. update `todo.md`
-4. write or update active work `handoff.md`
-5. write or update `.workroot/runtime/context/handoff.md`
-6. update relevant registries
+1. update relevant Work state
+2. preserve useful Assets or decisions
+3. update Relationship Network links
+4. write or update a Handoff record
+5. ensure Context Control can recover the next step
 
 The next agent should not need to reconstruct state from chat history.
 
-## 9. Respect Portability
+## 11. Respect Portability
 
 Never trap durable context in one agent's private memory.
 
-If something matters, write it into the Workroot.
+If something matters, write it into the Workroot through the appropriate managed state, Asset, Relationship Network, Release Control, or authorized user-visible publication path.
 
 Agents can change. Models can change. The Workroot remains.
 
-## 10. Respect The Human
+## 12. Respect The Human
 
 AI Workroot is not a productivity whip.
 

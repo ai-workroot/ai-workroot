@@ -4,14 +4,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.workroot_indexing import (
+from ai_workroot.indexing.legacy_fts import (
     chunk_markdown,
     chunk_plain_text,
     index_text_file,
     is_binary_file,
     search_fts,
 )
-from scripts.workroot_sqlite import initialize_workroot_sqlite, open_sqlite
+from ai_workroot.storage.legacy_sqlite import initialize_workroot_sqlite, open_sqlite
 
 
 class WorkrootIndexingTest(unittest.TestCase):

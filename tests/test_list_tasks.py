@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+from ai_workroot.runtime.legacy_seed import task_listing
+
+from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,25 +38,27 @@ def task_registry_row(
 
 
 class ListTasksScriptTest(unittest.TestCase):
+    def test_package_task_listing_exports_main(self) -> None:
+        self.assertTrue(callable(task_listing.main))
+
     def test_empty_seed_outputs_no_tasks(self) -> None:
-        result = subprocess.run(
-            [sys.executable, "scripts/list_tasks.py"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "No tasks found.\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "workroot"
+            copy_repo_with_public_seed(work)
+            result = subprocess.run(
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
+                cwd=work,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "No tasks found.\n")
 
     def test_lists_tasks_in_updated_order(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
                 TASK_REGISTRY_HEADER
@@ -73,7 +78,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py", "--format", "json"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py", "--format", "json"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -86,11 +91,7 @@ class ListTasksScriptTest(unittest.TestCase):
     def test_filters_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             registry = work / ".workroot/runtime/index/task_registry.csv"
             registry.write_text(
                 TASK_REGISTRY_HEADER
@@ -109,7 +110,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py", "--status", "closed", "--format", "json"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py", "--status", "closed", "--format", "json"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -123,11 +124,7 @@ class ListTasksScriptTest(unittest.TestCase):
     def test_markdown_output_hides_internal_handoff_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             task_dir = work / ".workroot/runtime/work/tasks/task-study"
             task_dir.mkdir(parents=True)
             (task_dir / "handoff.md").write_text(
@@ -146,7 +143,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -161,11 +158,7 @@ class ListTasksScriptTest(unittest.TestCase):
     def test_reads_next_actions_heading(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             task_dir = work / ".workroot/runtime/work/tasks/task-next-actions"
             task_dir.mkdir(parents=True)
             (task_dir / "handoff.md").write_text(
@@ -184,7 +177,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -196,11 +189,7 @@ class ListTasksScriptTest(unittest.TestCase):
     def test_reads_continue_heading(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             task_dir = work / ".workroot/runtime/work/tasks/task-continue"
             task_dir.mkdir(parents=True)
             (task_dir / "handoff.md").write_text(
@@ -219,7 +208,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -231,11 +220,7 @@ class ListTasksScriptTest(unittest.TestCase):
     def test_lists_legacy_active_path_rows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             task_dir = work / ".workroot/runtime/work/active/task-legacy"
             task_dir.mkdir(parents=True)
             (task_dir / "handoff.md").write_text(
@@ -249,7 +234,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,
@@ -261,11 +246,7 @@ class ListTasksScriptTest(unittest.TestCase):
     def test_uses_source_path_when_handoff_column_is_empty(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             task_dir = work / ".workroot/runtime/work/tasks/task-fallback"
             task_dir.mkdir(parents=True)
             (task_dir / "handoff.md").write_text(
@@ -279,7 +260,7 @@ class ListTasksScriptTest(unittest.TestCase):
                 encoding="utf-8",
             )
             result = subprocess.run(
-                [sys.executable, "scripts/list_tasks.py"],
+                [sys.executable, "scripts/legacy/public_seed/list_tasks.py"],
                 cwd=work,
                 text=True,
                 capture_output=True,

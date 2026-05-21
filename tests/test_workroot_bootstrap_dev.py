@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class WorkrootBootstrapDevTest(unittest.TestCase):
     def run_cli(self, cwd: Path, env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, str(cwd / "scripts/workroot_cli.py"), *args],
+            [sys.executable, str(cwd / "scripts/compat/workroot_cli.py"), *args],
             cwd=cwd,
             env={**os.environ, **env},
             text=True,
@@ -25,20 +26,16 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
         )
 
     def copy_repo(self, dst: Path) -> None:
-        shutil.copytree(
-            ROOT,
-            dst,
-            ignore=shutil.ignore_patterns(".git", ".idea", "__pycache__", "*.pyc"),
-        )
+        copy_repo_with_public_seed(dst, include_agent_entries=True)
 
     def test_bootstrap_dev_dry_run_rejects_non_workroot_repo(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo"
             self.copy_repo(repo)
-            (repo / "PROJECT_BRIEF.md").unlink()
+            (repo / "workroot.project.json").unlink()
             result = self.run_cli(repo, {"AI_WORKROOT_HOME": str(Path(tmp) / "home")}, "bootstrap-dev", "--dry-run")
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("AI Workroot repository", result.stderr)
+            self.assertIn("workroot.project.json", result.stderr)
 
     def test_bootstrap_dev_dry_run_accepts_repo_without_writes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -49,6 +46,20 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
             self.assertIn("bootstrap-dev preflight ok", result.stdout)
             self.assertFalse((repo / ".ai-workroot-local").exists())
 
+    def test_repo_fixture_copy_excludes_ignored_local_runtime_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            local = ROOT / ".ai-workroot-local"
+            marker = local / "test-fixture-marker.tmp"
+            local.mkdir(exist_ok=True)
+            marker.write_text("local runtime metadata must not enter fixture copies\n", encoding="utf-8")
+            try:
+                repo = Path(tmp) / "repo"
+                self.copy_repo(repo)
+
+                self.assertFalse((repo / ".ai-workroot-local").exists())
+            finally:
+                marker.unlink(missing_ok=True)
+
     def test_bootstrap_dev_initializes_context_and_doctor_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo"
@@ -58,7 +69,7 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
 
             bootstrap = self.run_cli(repo, env, "bootstrap-dev")
             self.assertEqual(bootstrap.returncode, 0, bootstrap.stderr)
-            self.assertTrue((home / "workroots/wr_repo/cache/workroot.sqlite").exists())
+            self.assertTrue((home / "workroots/wr_ai_workroot/cache/workroot.sqlite").exists())
 
             context = self.run_cli(repo, env, "context", "--agent", "codex", "--cwd", str(repo))
             self.assertEqual(context.returncode, 0, context.stderr)
@@ -80,8 +91,8 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
 
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertEqual(second.returncode, 0, second.stderr)
-            self.assertIn("bootstrap-dev initialized wr_repo", first.stdout)
-            self.assertIn("bootstrap-dev reused wr_repo", second.stdout)
+            self.assertIn("bootstrap-dev initialized wr_ai_workroot", first.stdout)
+            self.assertIn("bootstrap-dev reused wr_ai_workroot", second.stdout)
 
     def test_bootstrap_dev_reuses_existing_state_for_same_repo(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -98,7 +109,7 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
             records_path = home / "registry/workroots.jsonl"
             records = [line for line in records_path.read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(records), 1)
-            self.assertTrue((home / "workroots/wr_repo/cache/workroot.sqlite").exists())
+            self.assertTrue((home / "workroots/wr_ai_workroot/cache/workroot.sqlite").exists())
             self.assertTrue((repo / ".ai-workroot-local/context-packages").is_dir())
             self.assertIn(".ai-workroot-local/", (repo / ".gitignore").read_text(encoding="utf-8").splitlines())
 
@@ -136,8 +147,8 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
             records_path = home / "registry/workroots.jsonl"
             records = [line for line in records_path.read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(records), 1)
-            self.assertTrue(any("bootstrap-dev initialized wr_repo" in result.stdout for result in results))
-            self.assertTrue(any("bootstrap-dev reused wr_repo" in result.stdout for result in results))
+            self.assertTrue(any("bootstrap-dev initialized wr_ai_workroot" in result.stdout for result in results))
+            self.assertTrue(any("bootstrap-dev reused wr_ai_workroot" in result.stdout for result in results))
 
 
 if __name__ == "__main__":

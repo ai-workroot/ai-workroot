@@ -9,22 +9,22 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from scripts.workroot_candidates import ContextCandidate, upsert_context_candidate
-from scripts.workroot_context import (
+from ai_workroot.indexing.legacy_candidates import ContextCandidate, upsert_context_candidate
+from ai_workroot.runtime.legacy_context import (
     ContextRequest,
     build_candidate_pool,
     build_context_package,
     estimate_context_package_tokens,
     load_context_guide_config,
 )
-from scripts.workroot_indexing import index_text_file
-from scripts.workroot_paths import workroot_sqlite_path
-from scripts.workroot_sqlite import initialize_workroot_sqlite, open_sqlite
-from scripts.workroot_state import initialize_workroot_state, write_json
+from ai_workroot.indexing.legacy_fts import index_text_file
+from ai_workroot.runtime.paths import workroot_sqlite_path
+from ai_workroot.storage.legacy_sqlite import initialize_workroot_sqlite, open_sqlite
+from ai_workroot.runtime.state import initialize_workroot_state, write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "scripts/workroot_cli.py"
+CLI = ROOT / "scripts/compat/workroot_cli.py"
 
 
 class WorkrootContextTest(unittest.TestCase):
@@ -1610,7 +1610,7 @@ class WorkrootContextTest(unittest.TestCase):
 
             raise sqlite3.OperationalError("malformed MATCH expression")
 
-        with patch("scripts.workroot_context.search_fts", side_effect=broken_search):
+        with patch("ai_workroot.runtime.legacy_context.search_fts", side_effect=broken_search):
             package = build_context_package(
                 ContextRequest(
                     home=home,

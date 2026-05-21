@@ -3,18 +3,25 @@ from __future__ import annotations
 import subprocess
 import sys
 import unittest
-import shutil
 import tempfile
 from pathlib import Path
+
+from ai_workroot.runtime.legacy_seed import task_creation
+
+from tests.fixtures.public_seed import copy_repo_with_public_seed
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class NewTaskScriptTest(unittest.TestCase):
+    def test_package_task_creation_exports_legacy_helpers(self) -> None:
+        self.assertTrue(callable(task_creation.main))
+        self.assertEqual(task_creation.slugify("AI Workroot"), "ai-workroot")
+
     def test_multilingual_task_script(self) -> None:
         result = subprocess.run(
-            [sys.executable, "scripts/new_task_smoke.py"],
+            [sys.executable, "scripts/dev/new_task_smoke.py"],
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -25,7 +32,7 @@ class NewTaskScriptTest(unittest.TestCase):
     def test_timezone_offset_is_normalized(self) -> None:
         code = (
             "import importlib.util;"
-            "spec=importlib.util.spec_from_file_location('new_task','scripts/new_task.py');"
+            "spec=importlib.util.spec_from_file_location('new_task','scripts/legacy/public_seed/new_task.py');"
             "m=importlib.util.module_from_spec(spec);"
             "spec.loader.exec_module(m);"
             "print(m.normalize_instant('2026-05-15T08:00:00+08:00'))"
@@ -43,7 +50,7 @@ class NewTaskScriptTest(unittest.TestCase):
     def test_timezone_free_instant_is_rejected(self) -> None:
         code = (
             "import importlib.util;"
-            "spec=importlib.util.spec_from_file_location('new_task','scripts/new_task.py');"
+            "spec=importlib.util.spec_from_file_location('new_task','scripts/legacy/public_seed/new_task.py');"
             "m=importlib.util.module_from_spec(spec);"
             "spec.loader.exec_module(m);"
             "m.normalize_instant('2026-05-15T17:00:00')"
@@ -61,15 +68,11 @@ class NewTaskScriptTest(unittest.TestCase):
     def test_new_task_cli_creates_l1_directories(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/new_task.py",
+                    "scripts/legacy/public_seed/new_task.py",
                     "Process task",
                     "--id",
                     "task-process-cli",
@@ -92,15 +95,11 @@ class NewTaskScriptTest(unittest.TestCase):
     def test_new_task_cli_creates_l2_directories(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/new_task.py",
+                    "scripts/legacy/public_seed/new_task.py",
                     "Evidence task",
                     "--id",
                     "task-evidence-cli",

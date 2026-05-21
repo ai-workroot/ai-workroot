@@ -5,11 +5,23 @@ import sys
 import unittest
 from pathlib import Path
 
-from scripts.validate_kernel import is_git_ignored
+from ai_workroot.runtime.release_validation import is_git_ignored
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_SEED = ROOT / "docs/history/public-seed"
 TEXT_SUFFIXES = {".md", ".json", ".csv", ".py", ".yml", ".yaml", ".txt", ".sql"}
+CURRENT_DOC_ROOTS = (
+    ROOT / "README.md",
+    ROOT / "ROADMAP.md",
+    ROOT / "START_HERE_FOR_HUMANS.md",
+    ROOT / "docs",
+)
+HISTORICAL_DOC_PREFIXES = (
+    ROOT / "docs/history",
+    ROOT / "docs/releases",
+    ROOT / "docs/incidents",
+)
 NOVICE_INTERNAL_TERMS = [
     ".workroot",
     "kernel",
@@ -32,36 +44,37 @@ FORBIDDEN_TEXT_PATTERNS = [
 
 
 class PublicSeedSurfaceTest(unittest.TestCase):
-    def test_public_seed_root_surface(self) -> None:
+    def test_clean_workroot_root_surface(self) -> None:
         allowed = {
             ".github",
             ".gitignore",
-            ".workroot",
-            "AGENTS.md",
             "AUTHOR.md",
             "CHANGELOG.md",
-            "CLAUDE.md",
             "CONTRIBUTING.md",
             "DCO.md",
             "LICENSE",
             "NOTICE",
             "PROJECT_BRIEF.md",
+            "pyproject.toml",
             "README.md",
             "ROADMAP.md",
             "START_HERE_FOR_HUMANS.md",
             "TRADEMARKS.md",
             "assets",
             "docs",
+            "install",
             "scripts",
-            "space",
+            "src",
             "tests",
+            "workroot.project.json",
         }
         present = {path.name for path in ROOT.iterdir() if path.name != ".git" and not is_git_ignored(ROOT, path)}
         self.assertEqual(present - allowed, set())
+        self.assertFalse({"AGENTS.md", "CLAUDE.md", "space", ".workroot"} & present)
 
     def test_release_validation(self) -> None:
         result = subprocess.run(
-            [sys.executable, "scripts/validate_kernel.py", "--release"],
+            [sys.executable, "scripts/compat/validate_kernel.py", "--release"],
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -70,9 +83,9 @@ class PublicSeedSurfaceTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_public_seed_does_not_use_status_task_directories(self) -> None:
-        self.assertFalse((ROOT / ".workroot/runtime/work/active").exists())
-        self.assertFalse((ROOT / ".workroot/runtime/work/closed").exists())
-        self.assertTrue((ROOT / ".workroot/runtime/work/tasks").is_dir())
+        self.assertFalse((PUBLIC_SEED / ".workroot/runtime/work/active").exists())
+        self.assertFalse((PUBLIC_SEED / ".workroot/runtime/work/closed").exists())
+        self.assertTrue((PUBLIC_SEED / ".workroot/runtime/work/tasks").is_dir())
 
     def test_no_stale_public_text_patterns(self) -> None:
         hits: list[str] = []
@@ -87,6 +100,24 @@ class PublicSeedSurfaceTest(unittest.TestCase):
                     hits.append(f"{path.relative_to(ROOT).as_posix()}: {pattern}")
         self.assertEqual(hits, [])
 
+    def test_current_docs_do_not_contain_local_absolute_paths(self) -> None:
+        hits: list[str] = []
+        for path in current_doc_files():
+            text = path.read_text(encoding="utf-8")
+            if "/Users/" in text:
+                hits.append(path.relative_to(ROOT).as_posix())
+
+        self.assertEqual(hits, [])
+
+    def test_current_docs_do_not_present_old_script_paths_as_active_workflow(self) -> None:
+        hits: list[str] = []
+        for path in current_doc_files():
+            text = path.read_text(encoding="utf-8")
+            if "scripts/workroot_" in text or "python3 scripts/workroot_" in text or "python scripts/workroot_" in text:
+                hits.append(path.relative_to(ROOT).as_posix())
+
+        self.assertEqual(hits, [])
+
     def test_start_here_starts_with_one_sentence_path(self) -> None:
         first_sentence = "I want this Workroot to help me with [area]. Please set it up with me, then help me start my first real task."
         text = (ROOT / "START_HERE_FOR_HUMANS.md").read_text(encoding="utf-8")
@@ -99,6 +130,166 @@ class PublicSeedSurfaceTest(unittest.TestCase):
         position = text.find("START_HERE_FOR_HUMANS.md")
         self.assertGreaterEqual(position, 0)
         self.assertLess(position, 1200)
+
+    def test_primary_docs_do_not_present_public_seed_as_current_architecture(self) -> None:
+        forbidden = (
+            "Current Public Seed",
+            "P0 - Stabilize The Public Seed",
+            "The public architecture is:",
+            "The public seed must use the upgraded architecture",
+            "The public layout is:",
+            "current public seed architecture",
+        )
+        for rel in (
+            "README.md",
+            "ROADMAP.md",
+            "docs/architecture.md",
+            "docs/architecture-map.md",
+            "docs/workroot-system-design.md",
+            "docs/kernel-implementation-specification.md",
+        ):
+            with self.subTest(rel=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                for phrase in forbidden:
+                    self.assertNotIn(phrase, text)
+
+    def test_primary_docs_describe_clean_workroot_current_architecture(self) -> None:
+        docs = {
+            "README.md": ("Clean Workroot", "AI_WORKROOT_HOME", "Public Seed is historical"),
+            "ROADMAP.md": ("Clean Workroot", "0.9.530", "Public Seed is historical"),
+            "docs/architecture-map.md": ("Clean Workroot", "WorkrootEnvironment", "Relationship Network"),
+            "docs/workroot-system-design.md": ("Clean Workroot", "AI_WORKROOT_HOME", "Native Agent Entry"),
+            "docs/kernel-implementation-specification.md": ("Clean Workroot", "Core / Contracts / Runtime / Storage / Indexing / Agent / CLI", "Release Control"),
+        }
+        for rel, phrases in docs.items():
+            with self.subTest(rel=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                for phrase in phrases:
+                    self.assertIn(phrase, text)
+
+    def test_scripts_to_src_migration_closure_is_explicit(self) -> None:
+        text = (ROOT / "docs/dev/0.9.530/scripts-to-src-migration.md").read_text(encoding="utf-8")
+        script_rows = [
+            [cell.strip() for cell in row.strip("|").split("|")]
+            for row in text.splitlines()
+            if row.startswith("| `scripts/")
+        ]
+
+        self.assertIn("scripts closure", text)
+        self.assertIn("scripts/compat", text)
+        self.assertIn("scripts/legacy/public_seed", text)
+        self.assertIn("scripts/dev", text)
+        self.assertIn("scripts/legacy/public_seed/workroot_client.py", text)
+        self.assertIn("src/ai_workroot/runtime/context.py", text)
+        self.assertIn("legacy-quarantine", text)
+        self.assertIn("wrapper", text)
+        self.assertIn("dev-helper", text)
+        for cells in script_rows:
+            self.assertGreaterEqual(len(cells), 7, cells)
+            self.assertIn(cells[3], {"migrated", "wrapper", "dev-helper", "legacy-quarantine", "retired", "deferred", "release validation helper"}, cells)
+        documented_scripts = {cells[0].strip("`") for cells in script_rows}
+        actual_scripts = {
+            path.relative_to(ROOT).as_posix()
+            for path in (ROOT / "scripts").rglob("*")
+            if path.is_file()
+        }
+        self.assertEqual(documented_scripts, actual_scripts)
+
+    def test_scripts_root_has_no_python_product_or_compat_files(self) -> None:
+        root_python = sorted(path.name for path in (ROOT / "scripts").glob("*.py"))
+        self.assertEqual(root_python, [])
+
+    def test_scripts_subdirectories_make_roles_explicit(self) -> None:
+        for rel in ("scripts/dev", "scripts/compat", "scripts/legacy/public_seed"):
+            with self.subTest(rel=rel):
+                self.assertTrue((ROOT / rel / "README.md").is_file())
+
+    def test_part2_means_capability_parity_not_compatibility_removal(self) -> None:
+        docs = (
+            "docs/dev/0.9.530/README.md",
+            "docs/dev/0.9.530/final-compatibility-preserving-script-migration-design.md",
+            "docs/dev/0.9.530/scripts-to-src-migration.md",
+            "docs/dev/0.9.530/scripts-to-src-migration-architecture.md",
+            "docs/dev/0.9.530/scripts-to-src-migration-detailed-design.md",
+            "docs/specs/031-compatibility-preserving-script-migration.spec.md",
+            "docs/specs/032-part2-capability-parity-small-specs.spec.md",
+            "docs/specs/033-time-and-global-index-parity.spec.md",
+        )
+        forbidden = (
+            "Part 2 removes",
+            "Part 2 remove",
+            "Part 2 may remove",
+            "Part 2 must have its own branch",
+            "Part 2 is a later branch/version",
+            "future Part 2",
+            "Part 2 path for compatibility removal",
+        )
+        for rel in docs:
+            with self.subTest(rel=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                for phrase in forbidden:
+                    self.assertNotIn(phrase, text)
+        self.assertIn(
+            "Part 2 capability parity",
+            (ROOT / "docs/specs/032-part2-capability-parity-small-specs.spec.md").read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            "Compatibility Removal phase",
+            (ROOT / "docs/specs/031-compatibility-preserving-script-migration.spec.md").read_text(encoding="utf-8"),
+        )
+
+    def test_readme_uses_current_domain_terms_for_formal_foundation(self) -> None:
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        start = text.index("In practical terms, AI Workroot gives agents a shared, user-owned foundation for:")
+        end = text.index("The folders, registries, schemas, and validation scripts are implementation details.")
+        formal_section = text[start:end]
+
+        for phrase in (
+            "Workroot Management",
+            "Work",
+            "Assets",
+            "Release Control",
+            "Relationship Network",
+            "Retrieval & Index Control",
+            "Context Control",
+            "Agent Interface",
+            "System Health",
+        ):
+            self.assertIn(phrase, formal_section)
+        for retired in ("task state", "memory", "Mind", "Context Guide", "Context Gate"):
+            self.assertNotIn(retired, formal_section)
+
+    def test_active_public_docs_do_not_use_public_seed_paths_as_current_workflow(self) -> None:
+        docs = (
+            "docs/product-experience.md",
+            "docs/daily-loop.md",
+            "docs/instantiate-workroot.md",
+            "docs/user-interaction-contract.md",
+            "docs/product-hardening.md",
+            "docs/scaling-and-longevity.md",
+            "docs/extension-contract.md",
+        )
+        forbidden = (
+            "visible user-owned space is `space/`",
+            "system kernel lives under `.workroot/`",
+            "write the minimum guidance into `space/profile/`",
+            "Save the guidance in `space/profile/`",
+            "maintain `space/work/continue.md`",
+            "Human Continuation View\n\nAI Workroot should maintain a user-facing continuation view at:\n\n```text\nspace/work/continue.md",
+            "preserve outputs in `space/work/`",
+            "preserve reusable understanding in `space/mind/`",
+            "user-facing outputs land in `space/work/`",
+            "reusable understanding lands in `space/mind/`",
+            "files under `.workroot/extensions/capabilities/<capability-id>/`",
+            "move durable knowledge out of `space/mind/`",
+            "See `.workroot/kernel/config/`",
+            "Do not rename internal protocol folders such as `space`, `.workroot`, or `docs`.",
+        )
+        for rel in docs:
+            with self.subTest(rel=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                for phrase in forbidden:
+                    self.assertNotIn(phrase, text)
 
     def test_human_entry_does_not_expose_registry_paths(self) -> None:
         for rel in ("README.md", "START_HERE_FOR_HUMANS.md"):
@@ -115,7 +306,7 @@ class PublicSeedSurfaceTest(unittest.TestCase):
 
     def test_user_visible_work_files_do_not_expose_internal_terms(self) -> None:
         hits: list[str] = []
-        for path in (ROOT / "space/work").rglob("*.md"):
+        for path in (PUBLIC_SEED / "space/work").rglob("*.md"):
             text = path.read_text(encoding="utf-8").lower()
             for term in NOVICE_INTERNAL_TERMS:
                 if term in text:
@@ -137,6 +328,30 @@ class PublicSeedSurfaceTest(unittest.TestCase):
         self.assertIn("This task is finished. Save what matters and help me start a new task.", combined)
         self.assertIn("What tasks have I done before?", combined)
         self.assertIn("answer in the language", combined)
+
+
+def current_doc_files() -> list[Path]:
+    files: list[Path] = []
+    for root in CURRENT_DOC_ROOTS:
+        if root.is_file():
+            candidates = [root]
+        else:
+            candidates = [path for path in root.rglob("*") if path.is_file()]
+        for path in candidates:
+            if path.suffix.lower() not in TEXT_SUFFIXES:
+                continue
+            if any(_is_relative_to(path, historical) for historical in HISTORICAL_DOC_PREFIXES):
+                continue
+            files.append(path)
+    return sorted(set(files))
+
+
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
 
 
 if __name__ == "__main__":

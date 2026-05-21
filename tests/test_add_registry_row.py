@@ -1,29 +1,31 @@
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.runtime.legacy_seed import registry_tools
+
+from tests.fixtures.public_seed import copy_repo_with_public_seed
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class AddRegistryRowTest(unittest.TestCase):
+    def test_package_registry_tools_exports_main(self) -> None:
+        self.assertTrue(callable(registry_tools.main))
+
     def test_adds_run_registry_row(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "workroot"
-            shutil.copytree(
-                ROOT,
-                work,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-            )
+            copy_repo_with_public_seed(work)
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/add_registry_row.py",
+                    "scripts/legacy/public_seed/add_registry_row.py",
                     "run",
                     "run_id=run-test",
                     "task_id=task-test",
