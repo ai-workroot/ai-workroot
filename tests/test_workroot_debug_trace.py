@@ -5,12 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.workroot_candidates import ContextCandidate, upsert_context_candidate
-from scripts.workroot_context import ContextRequest, build_context_package, write_debug_trace
-from scripts.workroot_indexing import index_text_file
-from scripts.workroot_paths import workroot_sqlite_path
-from scripts.workroot_sqlite import initialize_workroot_sqlite, open_sqlite
-from scripts.workroot_state import initialize_workroot_state
+from ai_workroot.indexing.legacy_candidates import ContextCandidate, upsert_context_candidate
+from ai_workroot.runtime.legacy_context import ContextRequest, build_context_package, write_debug_trace
+from ai_workroot.indexing.legacy_fts import index_text_file
+from ai_workroot.runtime.paths import workroot_sqlite_path
+from ai_workroot.storage.legacy_sqlite import initialize_workroot_sqlite, open_sqlite
+from ai_workroot.runtime.state import initialize_workroot_state
 
 
 class WorkrootDebugTraceTest(unittest.TestCase):
