@@ -67,6 +67,19 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("scripts/workroot_cli.py recipe batch-12-tasks --format json", text)
         self.assertIn("Do not read `scripts/workroot_client.py`", text)
 
+    def test_part2_temporal_and_global_index_boundaries_are_documented(self) -> None:
+        retrieval = read("docs/specs/009-retrieval-index-control.spec.md")
+        release = read("docs/specs/007-release-control.spec.md")
+        parity = read("docs/specs/033-time-and-global-index-parity.spec.md")
+        matrix = read("docs/dev/0.9.530/matrix/legacy-capability-preservation-matrix.md")
+
+        for phrase in ("TimeEvent", "TimeRange", "TemporalScope", "GlobalTimeIndex", "WorkrootTimeIndex"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, retrieval + release + parity + matrix)
+        self.assertIn("GlobalTaskIndex", retrieval + parity + matrix)
+        self.assertIn("GlobalAssetIndex", retrieval + parity + matrix)
+        self.assertIn("time_events", matrix)
+
 
 if __name__ == "__main__":
     unittest.main()

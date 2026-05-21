@@ -82,9 +82,15 @@ Generic read model row. Specific projections may implement structured entries:
 - `GlobalWorkrootIndexEntry`
 - `GlobalTaskIndexEntry`
 - `GlobalAssetIndexEntry`
+- `GlobalTimeIndexEntry`
+- `WorkrootTimeIndexEntry`
 - `TextChunkEntry`
 - `ContextCandidateEntry`
 - `RelationshipTraversalEntry`
+
+### TimeEvent / TimeRange / TemporalScope
+
+`TimeEvent` is a supporting projection event used for recency, lifecycle, and navigation. `TimeRange` and `TemporalScope` are lightweight value objects reserved for time-windowed retrieval and future release controls. They are not a separate top-level domain and they must not create user-directory files by default.
 
 ### RetrievalRequest / RetrievalResult / RetrievalPlan
 

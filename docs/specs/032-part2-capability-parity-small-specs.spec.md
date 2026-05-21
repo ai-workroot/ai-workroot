@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-The 0.9.530 Clean Workroot domain reset moves the active architecture toward `src/ai_workroot/` while preserving existing user value from the Public Seed era. This Spec exists to prevent capability regression during that migration. It defines small, reversible implementation slices that restore capability parity through active package modules before any compatibility layer is removed.
+The 0.9.530 Clean Workroot domain reset moves the active architecture toward `src/ai_workroot/` while preserving existing user value from the Public Seed era. This Spec defines Part 2 capability parity for that migration. It defines small, reversible implementation slices that restore capability parity through active package modules before any compatibility layer is removed.
 
 Each slice is a small Spec iteration with acceptance criteria, targeted tests, and a rollback path.
 

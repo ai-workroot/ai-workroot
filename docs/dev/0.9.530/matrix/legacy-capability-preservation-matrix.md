@@ -42,7 +42,11 @@ This matrix prevents capability loss during the 0.9.530 reset.
 | globalization policy | Common/time/localization policy | core/common | preserved/deferred | docs mention policy |
 | extension policy | Extensions | core/extensions | preserved/deferred | capability boundary exists |
 | test policy | System Health / release validation | core/health + docs/specs | preserved | validation docs/tests |
-| global-index | Global indexes | indexing/global_indexes | preserved; Workroot index active | global Workroot index test |
+| global-index | Global indexes / GlobalWorkrootIndex | indexing/global_indexes | preserved; Workroot index active | global Workroot index test |
+| global task index | GlobalTaskIndex | indexing/global_indexes | preserved; active path started | global task index test |
+| global asset index | GlobalAssetIndex | indexing/global_indexes | preserved; active path started | global asset index test |
+| global time index | GlobalTimeIndex / WorkrootTimeIndex | indexing/global_indexes + runtime/time | preserved; active path started | `time_events` schema/runtime and global time index tests |
+| time-based recall hints | TimeEvent / TimeRange / TemporalScope | core/common + runtime/time | preserved/deferred | value-object and runtime time event tests |
 | global-cache | Global cache state | storage/indexing | preserved | not knowledge store |
 | `AI_WORKROOT_HOME/config.json` | EnvironmentConfig | core/environment + storage | preserved | Config merge/migration tests |
 | `registry/workroots.jsonl` | WorkrootRegistry / WorkrootRegistration | storage + runtime | preserved | Registry write/read tests |

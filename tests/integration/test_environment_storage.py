@@ -69,6 +69,7 @@ class EnvironmentStorageTest(unittest.TestCase):
                 "schema_migrations",
                 "assets",
                 "asset_surfaces",
+                "time_events",
                 "release_records",
                 "tombstones",
                 "redactions",
@@ -148,6 +149,41 @@ class EnvironmentStorageTest(unittest.TestCase):
             self.assertIn("surface_id", asset_columns)
             self.assertIn("004-active-work-runtime-fields", migrations)
             self.assertIn("005-active-asset-runtime-fields", migrations)
+
+    def test_initialize_workroot_sqlite_creates_time_event_projection_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "workroot.sqlite"
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                time_columns = {row[1] for row in connection.execute("PRAGMA table_info(time_events)").fetchall()}
+                indexes = {
+                    row[1]
+                    for row in connection.execute(
+                        "SELECT type, name FROM sqlite_master WHERE type = 'index'"
+                    )
+                }
+                migrations = {
+                    row[0] for row in connection.execute("SELECT migration_id FROM schema_migrations").fetchall()
+                }
+
+            for column in (
+                "event_id",
+                "workroot_id",
+                "subject_type",
+                "subject_id",
+                "event_type",
+                "occurred_at",
+                "time_range_start",
+                "time_range_end",
+                "source_ref",
+                "created_at",
+            ):
+                with self.subTest(column=column):
+                    self.assertIn(column, time_columns)
+            self.assertIn("idx_time_events_workroot_subject", indexes)
+            self.assertIn("006-time-events", migrations)
 
     def test_initialize_workroot_sqlite_migrates_old_indexed_files_without_source_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

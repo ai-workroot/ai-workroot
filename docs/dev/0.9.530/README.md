@@ -37,11 +37,11 @@ These documents make the remaining migration explicit: active Clean Workroot pro
 
 ## Compatibility Decision
 
-The remaining scripts-to-source migration is a two-part process.
+The remaining scripts-to-source migration has two explicitly named phases.
 
-Part 1 is the current 0.9.530 target: finish package ownership while preserving all existing script and legacy CLI compatibility. Old script files may become wrappers, and historical implementations may be archived under `docs/history/0.9.530/scripts/`, but callable compatibility paths remain.
+The package-ownership phase is the current 0.9.530 target: finish package ownership while preserving all existing script and legacy CLI compatibility. Old script files may become wrappers, and historical implementations may be archived under `docs/history/0.9.530/scripts/`, but callable compatibility paths remain.
 
-Part 2 is a later branch/version: remove or narrow compatibility after Part 1 has been reviewed and explicitly approved. Do not remove compatibility while completing Part 1.
+The Compatibility Removal phase is a later branch/version: remove or narrow compatibility after package ownership has been reviewed and explicitly approved. Do not remove compatibility while completing the current package-ownership phase.
 
 ## Mandatory Execution Correction
 

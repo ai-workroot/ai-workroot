@@ -4,7 +4,7 @@
 
 Draft checkpoint for the next implementation stage on `feat/0.9.530-clean-workroot-domain-reset`.
 
-Compatibility correction: the current implementation stage is Part 1. Part 1 finishes package ownership while preserving existing script and legacy CLI compatibility. Part 2 removes or narrows compatibility later, with a separate branch/version and separate approval.
+Compatibility correction: the current implementation stage is package ownership. This phase finishes package ownership while preserving existing script and legacy CLI compatibility. The Compatibility Removal phase removes or narrows compatibility later, with a separate branch/version and separate approval.
 
 ## Design Principle
 

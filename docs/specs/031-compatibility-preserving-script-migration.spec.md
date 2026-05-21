@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-The 0.9.530 Clean Workroot architecture reset has moved major foundations into `src/ai_workroot/`, but several mature legacy behaviors still live in `scripts/`. The remaining migration must finish the architecture direction without breaking existing local compatibility. The first completed version should make source modules the implementation owner while keeping old script paths callable. A later version can remove compatibility after separate review.
+The 0.9.530 Clean Workroot architecture reset has moved major foundations into `src/ai_workroot/`, but several mature legacy behaviors still live in `scripts/`. The remaining migration must finish the architecture direction without breaking existing local compatibility. The first completed version should make source modules the implementation owner while keeping old script paths callable. A later Compatibility Removal phase can remove compatibility after separate review.
 
 ## Goals
 
@@ -19,7 +19,7 @@ The 0.9.530 Clean Workroot architecture reset has moved major foundations into `
 - Make old Public Seed behavior explicitly legacy and compatibility-scoped.
 - Keep Clean Workroot primary CLI and docs free of Public Seed as active architecture.
 - Archive original script implementations for history after wrapper conversion.
-- Define a separate Part 2 path for compatibility removal.
+- Define a separate Compatibility Removal phase for compatibility removal.
 
 ## Non-goals
 
@@ -99,9 +99,9 @@ NFR-006: Rollback must be possible by reverting the last migration commit becaus
 
 ### Concepts
 
-Part 1: the compatibility-preserving migration. The implementation owner moves into `src/ai_workroot/`; wrappers keep old paths working.
+Package-ownership phase: the compatibility-preserving migration. The implementation owner moves into `src/ai_workroot/`; wrappers keep old paths working.
 
-Part 2: the future compatibility-removal migration. It is a separate branch/version and requires separate approval.
+Compatibility Removal phase: the future compatibility-removal migration. It is a separate branch/version and requires separate approval.
 
 Legacy Seed: the package namespace for old Public Seed behavior preserved for compatibility.
 
@@ -216,7 +216,7 @@ No compatibility wrapper may bypass existing Clean Mode rules for Clean commands
 
 ### Compatibility
 
-Compatibility is a hard requirement for Part 1. Removal is deferred to Part 2.
+Compatibility is a hard requirement for the package-ownership phase. Removal is deferred to the Compatibility Removal phase.
 
 ## Acceptance Criteria
 
@@ -282,7 +282,7 @@ Then package tests, legacy compatibility tests, wrapper tests, compile checks, r
 
 Migrate one capability group per commit. If a phase fails, revert the last commit. Because Part 1 keeps old script paths callable, rollback does not require user-facing command migration.
 
-Do not remove compatibility until Part 2.
+Do not remove compatibility until the Compatibility Removal phase.
 
 ## Observability / Debugging
 
@@ -293,7 +293,7 @@ The final handoff must include:
 - package-owned module list;
 - legacy command compatibility status;
 - validation command outputs;
-- known limitations before Part 2.
+- known limitations before the Compatibility Removal phase.
 
 `doctor --release` and release validation should continue to detect active-root Public Seed regressions.
 
@@ -361,4 +361,4 @@ T10: Final Part 1 validation
 
 None.
 
-Part 1 preserves compatibility. Part 2 removes compatibility only after separate approval.
+The package-ownership phase preserves compatibility. The Compatibility Removal phase removes compatibility only after separate approval.

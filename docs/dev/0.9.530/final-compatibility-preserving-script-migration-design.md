@@ -6,20 +6,20 @@ Draft execution design for `feat/0.9.530-clean-workroot-domain-reset`.
 
 ## Decision Summary
 
-The remaining scripts-to-source migration is split into two explicitly separate parts.
+The remaining scripts-to-source migration has two explicitly named phases.
 
-Part 1 completes the first 0.9.530 architecture implementation while keeping compatibility. All mature behavior that still lives in `scripts/` moves into package-owned modules under `src/ai_workroot/`, but old script entry points, import paths, and legacy command paths continue to work through wrappers or compatibility adapters.
+The package-ownership phase completes the first 0.9.530 architecture implementation while keeping compatibility. All mature behavior that still lives in `scripts/` moves into package-owned modules under `src/ai_workroot/`, but old script entry points, import paths, and legacy command paths continue to work through wrappers or compatibility adapters.
 
-Part 2 is a later branch/version that removes compatibility after Part 1 has shipped, been reviewed, and has a clear removal checklist. Part 2 is not part of the current implementation.
+The Compatibility Removal phase is a later branch/version that removes compatibility after package ownership has shipped, been reviewed, and has a clear removal checklist. The Compatibility Removal phase is not part of the current implementation.
 
 This resolves the current tension between two valid goals:
 
 - the product architecture must stop putting active implementation logic in scripts;
 - the first completed version must not break existing local calls, tests, or legacy Public Seed capabilities.
 
-## Non-Negotiable Compatibility Contract for Part 1
+## Non-Negotiable Compatibility Contract for Package Ownership
 
-Part 1 must preserve these compatibility surfaces:
+The package-ownership phase must preserve these compatibility surfaces:
 
 - `scripts/workroot_cli.py` remains callable.
 - `scripts/workroot_cli.py init/list/status/context/doctor/bootstrap-dev` continues to delegate to the active package Clean Workroot CLI/runtime.
@@ -29,9 +29,9 @@ Part 1 must preserve these compatibility surfaces:
 - Tests that intentionally verify legacy compatibility may continue to import script wrappers, but production tests should move to package imports where behavior has been migrated.
 - Archiving under `docs/history/0.9.530/scripts/` means preserving a historical snapshot. It does not mean removing the callable script wrapper in Part 1.
 
-Part 1 must not remove old capabilities, rename old script paths out from under users, or require callers to switch to new APIs immediately.
+The package-ownership phase must not remove old capabilities, rename old script paths out from under users, or require callers to switch to new APIs immediately.
 
-## Target Architecture for Part 1
+## Target Architecture for Package Ownership
 
 The package becomes the implementation owner. Scripts become compatibility surfaces.
 
@@ -93,7 +93,7 @@ The `legacy_seed` name is intentional. It preserves old Public Seed capabilities
 
 `src/ai_workroot/core/extensions.py` should retain stable capability concepts only. Legacy operation recipes that still mention script commands belong in `runtime/legacy_seed/operation_manifest.py`, not in core.
 
-## Part 1 Migration Phases
+## Package-Ownership Migration Phases
 
 ### Phase 0: Baseline and Audit
 
@@ -264,9 +264,9 @@ git ls-files docs/history/0.9.530/scripts
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-### Phase 9: Final Part 1 Gate
+### Phase 9: Final Package-Ownership Gate
 
-Part 1 is complete only when all of these are true:
+Package ownership is complete only when all of these are true:
 
 - active logic is package-owned;
 - script files are wrappers, developer tools, or explicitly documented compatibility adapters;
@@ -288,11 +288,11 @@ scripts/dev/validate-release.sh
 git diff --check origin/main...HEAD
 ```
 
-## Part 2 Compatibility Removal Plan
+## Compatibility Removal Phase Plan
 
-Part 2 is intentionally not implemented in this branch unless separately approved.
+The Compatibility Removal phase is intentionally not implemented in this branch unless separately approved.
 
-Part 2 may remove or narrow compatibility only after Part 1 is reviewed. Its expected work:
+The Compatibility Removal phase may remove or narrow compatibility only after package ownership is reviewed. Its expected work:
 
 - remove direct script re-export compatibility where no longer needed;
 - require legacy commands to go through a single explicit `workroot legacy ...` namespace or remove them if retired;
@@ -301,14 +301,14 @@ Part 2 may remove or narrow compatibility only after Part 1 is reviewed. Its exp
 - keep historical snapshots under `docs/history/`;
 - add migration notes for users who still call old paths.
 
-Part 2 must have its own branch, Spec, tests, and review.
+The Compatibility Removal phase must have its own branch, Spec, tests, and review.
 
 ## Risks and Mitigations
 
 | Risk | Mitigation |
 |---|---|
 | Capability loss during file movement | Move one capability group at a time; keep wrappers; run targeted legacy tests after each move. |
-| Compatibility accidentally removed in Part 1 | Add wrapper tests for old script paths and legacy CLI commands. |
+| Compatibility accidentally removed in the package-ownership phase | Add wrapper tests for old script paths and legacy CLI commands. |
 | New package modules become a copy of old architecture | Put legacy behavior under `runtime/legacy_seed/`; keep Clean Workroot runtime separate. |
 | Core becomes polluted with legacy recipes | Move operation recipes to `runtime/legacy_seed/operation_manifest.py`; keep core concepts stable. |
 | Massive test movement hides regressions | Convert tests gradually; keep old tests until package tests pass. |
@@ -319,4 +319,4 @@ Part 2 must have its own branch, Spec, tests, and review.
 
 None blocking.
 
-The current decision is explicit: preserve compatibility in Part 1, remove compatibility only in a future Part 2 after separate approval.
+The current decision is explicit: preserve compatibility in the package-ownership phase, remove compatibility only in a future Compatibility Removal phase after separate approval.

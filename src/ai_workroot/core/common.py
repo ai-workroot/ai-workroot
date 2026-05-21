@@ -31,6 +31,26 @@ class PolicyRef:
 
 
 @dataclass(frozen=True)
+class TimeRange:
+    start: str
+    end: str
+
+    def __post_init__(self) -> None:
+        if self.end < self.start:
+            raise ValueError("time range end must be greater than or equal to start")
+
+    def contains(self, instant: str) -> bool:
+        return self.start <= instant <= self.end
+
+
+@dataclass(frozen=True)
+class TemporalScope:
+    scope_type: str
+    scope_id: str
+    time_range: TimeRange
+
+
+@dataclass(frozen=True)
 class DomainEvent:
     event_type: str
     source_ref: SourceRef

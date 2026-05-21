@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from ai_workroot.core.assets import Asset, AssetPublication, AssetSurface
-from ai_workroot.core.common import SourceRef
+from ai_workroot.core.common import SourceRef, TemporalScope, TimeRange
 from ai_workroot.core.context import ContextBudget
 from ai_workroot.core.extensions import Capability
 from ai_workroot.runtime.legacy_seed.operation_manifest import manifest, recipe, schema
@@ -144,6 +144,18 @@ class CoreModelsTest(unittest.TestCase):
         self.assertTrue(budget.requires_trim(121))
         self.assertFalse(budget.requires_trim(120))
         self.assertEqual(budget.final_fallback("x" * 1000), "x" * 120)
+
+    def test_time_range_and_temporal_scope_are_supporting_value_objects(self) -> None:
+        time_range = TimeRange(start="2026-05-21T00:00:00Z", end="2026-05-22T00:00:00Z")
+        scope = TemporalScope(scope_type="task", scope_id="task-1", time_range=time_range)
+
+        self.assertEqual(scope.scope_type, "task")
+        self.assertEqual(scope.time_range.start, "2026-05-21T00:00:00Z")
+        self.assertTrue(time_range.contains("2026-05-21T12:00:00Z"))
+        self.assertFalse(time_range.contains("2026-05-22T12:00:00Z"))
+
+        with self.assertRaises(ValueError):
+            TimeRange(start="2026-05-22T00:00:00Z", end="2026-05-21T00:00:00Z")
 
     def test_operation_manifest_is_package_owned(self) -> None:
         payload = manifest()

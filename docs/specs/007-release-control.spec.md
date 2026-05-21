@@ -117,6 +117,10 @@ created_by
 
 DeletionRecord must not preserve deleted sensitive details.
 
+### TemporalScope
+
+`TemporalScope` is reserved for future time-range release controls. 0.9.530 records the value-object boundary but does not implement bulk release, tombstone, redaction, or deletion over a time range.
+
 ## Default behavior in 0.9.530
 
 - `quiet`: annotate/deprioritize, no hard exclusion.
@@ -143,6 +147,7 @@ Release Control emits `ReleasePropagationEvent` to update:
 - Do not mutate `WorkAction.status` to `tombstone`.
 - Do not convert deletion to Tombstone without user choice.
 - Do not hide deleted/redacted details in derived indexes.
+- Do not implement time-range redaction/deletion without a separate Spec.
 
 ## Acceptance
 

@@ -30,6 +30,7 @@ REQUIRED_TABLES = (
     "context_recall_hints_fts",
     "invalidation_records",
     "handoffs",
+    "time_events",
     "work_events",
     "operation_transactions",
     "relationship_nodes",
@@ -242,6 +243,19 @@ CREATE TABLE IF NOT EXISTS handoffs (
   title TEXT
 );
 
+CREATE TABLE IF NOT EXISTS time_events (
+  event_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  subject_type TEXT NOT NULL,
+  subject_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  occurred_at TEXT NOT NULL,
+  time_range_start TEXT,
+  time_range_end TEXT,
+  source_ref TEXT,
+  created_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS work_events (
   event_id TEXT PRIMARY KEY,
   workroot_id TEXT NOT NULL,
@@ -418,6 +432,8 @@ CREATE INDEX IF NOT EXISTS idx_relationship_nodes_workroot_type
   ON relationship_nodes(workroot_id, node_type, node_id);
 CREATE INDEX IF NOT EXISTS idx_relationship_edges_workroot_nodes
   ON relationship_edges(workroot_id, from_node_id, to_node_id);
+CREATE INDEX IF NOT EXISTS idx_time_events_workroot_subject
+  ON time_events(workroot_id, subject_type, subject_id, occurred_at);
 
 INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
 VALUES ('002-release-target-resolution-indexes', datetime('now'));
@@ -430,6 +446,9 @@ VALUES ('004-active-work-runtime-fields', datetime('now'));
 
 INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
 VALUES ('005-active-asset-runtime-fields', datetime('now'));
+
+INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+VALUES ('006-time-events', datetime('now'));
 """
 
 

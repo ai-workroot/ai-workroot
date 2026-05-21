@@ -140,6 +140,11 @@ class PublicSeedSurfaceTest(unittest.TestCase):
 
     def test_scripts_to_src_migration_checkpoint_is_explicit(self) -> None:
         text = (ROOT / "docs/dev/0.9.530/scripts-to-src-migration.md").read_text(encoding="utf-8")
+        script_rows = [
+            [cell.strip() for cell in row.strip("|").split("|")]
+            for row in text.splitlines()
+            if row.startswith("| `scripts/")
+        ]
 
         self.assertIn("architecture alignment checkpoint", text)
         self.assertIn("not the final scripts-to-source migration", text)
@@ -147,6 +152,50 @@ class PublicSeedSurfaceTest(unittest.TestCase):
         self.assertIn("src/ai_workroot/runtime/context.py", text)
         self.assertIn("Legacy retained", text)
         self.assertIn("Partial migration", text)
+        self.assertIn("Migration priority", text)
+        for cells in script_rows:
+            self.assertGreaterEqual(len(cells), 7, cells)
+            self.assertIn(cells[-1], {"P0", "P1", "P2", "P3"}, cells)
+        documented_scripts = {cells[0].strip("`") for cells in script_rows}
+        actual_scripts = {
+            f"scripts/{path.name}"
+            for path in (ROOT / "scripts").glob("*.py")
+        }
+        self.assertEqual(documented_scripts, actual_scripts)
+
+    def test_part2_means_capability_parity_not_compatibility_removal(self) -> None:
+        docs = (
+            "docs/dev/0.9.530/README.md",
+            "docs/dev/0.9.530/final-compatibility-preserving-script-migration-design.md",
+            "docs/dev/0.9.530/scripts-to-src-migration.md",
+            "docs/dev/0.9.530/scripts-to-src-migration-architecture.md",
+            "docs/dev/0.9.530/scripts-to-src-migration-detailed-design.md",
+            "docs/specs/031-compatibility-preserving-script-migration.spec.md",
+            "docs/specs/032-part2-capability-parity-small-specs.spec.md",
+            "docs/specs/033-time-and-global-index-parity.spec.md",
+        )
+        forbidden = (
+            "Part 2 removes",
+            "Part 2 remove",
+            "Part 2 may remove",
+            "Part 2 must have its own branch",
+            "Part 2 is a later branch/version",
+            "future Part 2",
+            "Part 2 path for compatibility removal",
+        )
+        for rel in docs:
+            with self.subTest(rel=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                for phrase in forbidden:
+                    self.assertNotIn(phrase, text)
+        self.assertIn(
+            "Part 2 capability parity",
+            (ROOT / "docs/specs/032-part2-capability-parity-small-specs.spec.md").read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            "Compatibility Removal phase",
+            (ROOT / "docs/specs/031-compatibility-preserving-script-migration.spec.md").read_text(encoding="utf-8"),
+        )
 
     def test_readme_uses_current_domain_terms_for_formal_foundation(self) -> None:
         text = (ROOT / "README.md").read_text(encoding="utf-8")
