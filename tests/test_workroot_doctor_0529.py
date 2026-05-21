@@ -9,8 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.workroot_doctor import run_doctor
-from scripts.workroot_sqlite import initialize_workroot_sqlite
+from ai_workroot.runtime.legacy_doctor import run_doctor
+from ai_workroot.storage.legacy_sqlite import initialize_workroot_sqlite
 from scripts.workroot_state import initialize_workroot_state, write_json
 
 
