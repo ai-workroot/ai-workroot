@@ -103,10 +103,10 @@ def register_workroot_unlocked(home: Path, workroot_id: str, name: str, user_dir
     bindings = read_jsonl(bindings_path)
 
     if any(record.get("workroot_id") == workroot_id for record in workroots):
-        raise ValueError(f"duplicate workroot_id: {workroot_id}")
+        raise ValueError(f"Workroot ID already exists: {workroot_id}")
     for record in bindings:
         if record.get("user_directory") == str(user_directory):
-            raise ValueError(f"user directory already registered: {user_directory}")
+            raise ValueError(f"user directory already registered as Workroot {record.get('workroot_id')}: {user_directory}")
 
     state_directory = home / "workroots" / workroot_id
     for rel in PER_WORKROOT_DIRS:

@@ -10,6 +10,7 @@ import secrets
 from ai_workroot.agent.native_entry import sync_native_agent_entry
 from ai_workroot.runtime.bootstrap import resolve_ai_workroot_home
 from ai_workroot.runtime.environment import WorkrootRegistration, register_workroot
+from ai_workroot.storage.jsonl_registry import read_jsonl
 from ai_workroot.storage.sqlite import initialize_workroot_sqlite
 
 
@@ -17,6 +18,7 @@ from ai_workroot.storage.sqlite import initialize_workroot_sqlite
 class InitResult:
     registration: WorkrootRegistration
     native_agent_entry: bool
+    warnings: tuple[str, ...] = ()
 
     def message(self) -> str:
         suffix = " agent-ready" if self.native_agent_entry else " registered"
@@ -40,6 +42,7 @@ def initialize_workroot(
     resolved_id = workroot_id or _generate_workroot_id(name)
     _check_workroot_id(resolved_id)
 
+    warnings = tuple(_nested_workroot_warnings(home, user_directory))
     registration = register_workroot(home, resolved_id, name, user_directory)
     initialize_workroot_sqlite(Path(registration.state_directory) / "cache/workroot.sqlite")
 
@@ -47,7 +50,7 @@ def initialize_workroot(
         sync_native_agent_entry(user_directory / "AGENTS.md", "codex")
         sync_native_agent_entry(user_directory / "CLAUDE.md", "claude")
 
-    return InitResult(registration=registration, native_agent_entry=native_agent_entry)
+    return InitResult(registration=registration, native_agent_entry=native_agent_entry, warnings=warnings)
 
 
 def _generate_workroot_id(name: str) -> str:
@@ -74,9 +77,34 @@ def _validate_user_directory(user_directory: Path, home: Path) -> None:
 
 
 def _probe_directory(user_directory: Path) -> None:
-    probe = user_directory / ".ai-workroot-write-probe"
+    probe = user_directory / f".ai-workroot-write-probe-{secrets.token_hex(4)}"
     try:
         probe.write_text("probe\n", encoding="utf-8")
         probe.unlink()
     except OSError as exc:
         raise ValueError(f"user directory is not writable: {user_directory}") from exc
+
+
+def _nested_workroot_warnings(home: Path, user_directory: Path) -> list[str]:
+    warnings: list[str] = []
+    resolved = user_directory.resolve()
+    for record in read_jsonl(home / "registry/workroots.jsonl"):
+        state_directory = Path(str(record.get("state_directory", "")))
+        metadata_path = state_directory / "workroot.json"
+        if not metadata_path.is_file():
+            continue
+        try:
+            import json
+
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        existing_raw = metadata.get("user_directory")
+        if not existing_raw:
+            continue
+        existing = Path(str(existing_raw)).resolve()
+        if resolved != existing and (existing in resolved.parents or resolved in existing.parents):
+            warnings.append(
+                f"warning: nested Workroot directory relationship with {record.get('workroot_id')}: {existing}"
+            )
+    return warnings

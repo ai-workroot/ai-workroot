@@ -86,6 +86,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except ValueError as exc:
             parser.exit(1, f"{exc}\n")
+        for warning in result.warnings:
+            print(warning, file=__import__("sys").stderr)
         print(result.message())
         return 0
 

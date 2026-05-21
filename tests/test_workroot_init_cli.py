@@ -53,7 +53,31 @@ class WorkrootInitCliTest(unittest.TestCase):
             self.assertFalse((user_dir / "context").exists())
             self.assertFalse((user_dir / "runtime").exists())
             payload = json.loads(state_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload["mode"], "clean")
+            self.assertEqual(payload["version"], "0.9.530")
+            self.assertEqual(payload["user_directory"], str(user_dir.resolve()))
+
+    def test_script_clean_init_delegates_to_package_cli_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            result = self.run_cli(
+                {"AI_WORKROOT_HOME": str(home), "PYTHONPATH": str(ROOT / "src")},
+                "init",
+                "--name",
+                "Delegated Workroot",
+                "--directory",
+                str(user_dir),
+                "--no-native-agent-entry",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertRegex(result.stdout, r"^initialized wr_delegated_workroot_[a-z0-9]{8} registered\n$")
+            records = json.loads(self.run_cli({"AI_WORKROOT_HOME": str(home), "PYTHONPATH": str(ROOT / "src")}, "list", "--format", "json").stdout)
+            workroot_id = records[0]["workrootId"]
+            payload = json.loads((home / f"workroots/{workroot_id}/workroot.json").read_text(encoding="utf-8"))
+            self.assertIn("workroot_id", payload)
+            self.assertNotIn("workrootId", payload)
 
     def test_list_and_status_show_registered_workroot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -77,6 +101,9 @@ class WorkrootInitCliTest(unittest.TestCase):
             self.assertIn("Demo Workroot", listed.stdout)
             status = self.run_cli(env, "status", "--cwd", str(user_dir))
             self.assertEqual(status.returncode, 0, status.stderr)
+            self.assertIn("Workroot:", status.stdout)
+            self.assertIn("UserDirectory:", status.stdout)
+            self.assertIn("StateDirectory:", status.stdout)
             self.assertIn("Demo Workroot", status.stdout)
 
     def test_init_allows_duplicate_names_with_unique_ids(self) -> None:

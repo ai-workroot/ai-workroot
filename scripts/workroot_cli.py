@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +35,83 @@ from workroot_client import (
 from workroot_paths import resolve_ai_workroot_home, workroot_sqlite_path
 from workroot_sqlite import initialize_workroot_sqlite
 from workroot_state import initialize_workroot_state, read_jsonl
+
+
+CLEAN_PACKAGE_COMMANDS = {"init", "list", "status", "bootstrap-dev"}
+CLEAN_PACKAGE_IF_REGISTERED_COMMANDS = {"context", "doctor"}
+
+
+def run_package_cli(args: list[str]) -> int:
+    root = Path(__file__).resolve().parents[1]
+    src = root / "src"
+    existing_pythonpath = os.environ.get("PYTHONPATH")
+    pythonpath = str(src) if not existing_pythonpath else os.pathsep.join((str(src), existing_pythonpath))
+    env = {**os.environ, "PYTHONPATH": pythonpath}
+    result = subprocess.run(
+        [sys.executable, "-m", "ai_workroot", *args],
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    print(result.stdout, end="")
+    print(result.stderr, end="", file=sys.stderr)
+    return result.returncode
+
+
+def should_run_package_cli(args: list[str]) -> bool:
+    if not args:
+        return False
+    command = args[0]
+    if command in CLEAN_PACKAGE_COMMANDS:
+        return True
+    if command not in CLEAN_PACKAGE_IF_REGISTERED_COMMANDS:
+        return False
+    if command == "doctor" and "--release" in args:
+        return True
+    cwd = _option_value(args, "--cwd") or "."
+    return _package_registry_can_resolve(Path(cwd))
+
+
+def _option_value(args: list[str], option: str) -> str | None:
+    for index, item in enumerate(args):
+        if item == option and index + 1 < len(args):
+            return args[index + 1]
+        if item.startswith(option + "="):
+            return item.split("=", 1)[1]
+    return None
+
+
+def _package_registry_can_resolve(cwd: Path) -> bool:
+    target = cwd.expanduser().resolve()
+    home = Path(os.environ.get("AI_WORKROOT_HOME") or Path.home() / ".ai-workroot").expanduser().resolve()
+    registry_path = home / "registry/workroots.jsonl"
+    if not registry_path.is_file():
+        return False
+    for line in registry_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        state_directory = record.get("state_directory")
+        if not state_directory:
+            continue
+        metadata_path = Path(str(state_directory)) / "workroot.json"
+        if not metadata_path.is_file():
+            continue
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        user_directory = metadata.get("user_directory")
+        if not user_directory:
+            continue
+        user_path = Path(str(user_directory)).expanduser().resolve()
+        if target == user_path or user_path in target.parents:
+            return True
+    return False
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -297,6 +375,9 @@ def nested_workroot_warnings(home: Path, user_directory: Path) -> list[str]:
 
 
 def main() -> None:
+    if should_run_package_cli(sys.argv[1:]):
+        raise SystemExit(run_package_cli(sys.argv[1:]))
+
     parser = build_parser()
     args = parser.parse_args()
     client = WorkrootClient()
