@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import ast
+import subprocess
 
 from ai_workroot.agent.native_entry import NativeAgentEntryError, validate_managed_block
 from ai_workroot.runtime.registry import find_workroot_by_cwd
-from ai_workroot.storage.sqlite import initialize_workroot_sqlite
+from ai_workroot.storage.sqlite import verify_workroot_sqlite
 
 
 @dataclass(frozen=True)
@@ -45,11 +46,11 @@ def run_doctor(*, cwd: Path | str = ".", ai_workroot_home: Path | str | None = N
         findings.append(DoctorFinding("FAIL", "managed state boundary is invalid"))
 
     sqlite_path = state_directory / "cache/workroot.sqlite"
-    if sqlite_path.is_file():
-        initialize_workroot_sqlite(sqlite_path)
+    sqlite_issues = verify_workroot_sqlite(sqlite_path)
+    if not sqlite_issues:
         findings.append(DoctorFinding("PASS", "SQLite schema is initialized"))
     else:
-        findings.append(DoctorFinding("FAIL", "missing workroot SQLite database"))
+        findings.extend(DoctorFinding("FAIL", issue) for issue in sqlite_issues)
 
     for filename in ("AGENTS.md", "CLAUDE.md"):
         path = user_directory / filename
@@ -133,7 +134,27 @@ def _check_no_remote_vector_dependency(repo: Path) -> DoctorFinding:
 
 
 def _check_public_seed_quarantine(repo: Path) -> DoctorFinding:
-    tracked_seed_paths = [path for path in ("AGENTS.md", "CLAUDE.md", "space", ".workroot") if (repo / path).exists()]
+    seed_paths = ("AGENTS.md", "CLAUDE.md", "space", ".workroot")
+    tracked_seed_paths = _tracked_paths(repo, seed_paths)
     if tracked_seed_paths:
-        return DoctorFinding("PASS", "Public Seed quarantine: pending after replacement flows")
+        return DoctorFinding("FAIL", "tracked Public Seed root paths: " + ", ".join(tracked_seed_paths))
+    ignored_local = [path for path in seed_paths if (repo / path).exists()]
+    if ignored_local:
+        return DoctorFinding("PASS", "Public Seed quarantine: ignored local root entries only")
     return DoctorFinding("PASS", "Public Seed quarantine: complete")
+
+
+def _tracked_paths(repo: Path, paths: tuple[str, ...]) -> list[str]:
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--", *paths],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return []
+    if result.returncode != 0:
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]

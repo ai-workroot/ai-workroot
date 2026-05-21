@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -40,6 +41,46 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Clean Workroot release validation passed", result.stdout)
+
+    def test_release_doctor_fails_tracked_public_seed_root_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            subprocess.run(["git", "init"], cwd=tmp, check=True, capture_output=True)
+            repo.mkdir()
+            for rel in (
+                "src/ai_workroot/core",
+                "src/ai_workroot/contracts",
+                "src/ai_workroot/runtime",
+                "src/ai_workroot/storage",
+                "src/ai_workroot/indexing/providers",
+                "src/ai_workroot/resources/templates/native_agent_entry",
+                "tests/negative",
+                "install/unix",
+            ):
+                (repo / rel).mkdir(parents=True, exist_ok=True)
+            for rel in (
+                "src/ai_workroot/agent/native_entry.py",
+                "tests/negative/test_release_control_protection.py",
+                "install/unix/install.sh",
+            ):
+                (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+                (repo / rel).write_text("", encoding="utf-8")
+            (repo / "src/ai_workroot/resources/templates/native_agent_entry/AGENTS.md.template").write_text("", encoding="utf-8")
+            (repo / "AGENTS.md").write_text("tracked seed entry\n", encoding="utf-8")
+            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+
+            result = subprocess.run(
+                [sys.executable, "-m", "ai_workroot", "doctor", "--release"],
+                cwd=repo,
+                env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("tracked Public Seed root paths", result.stdout)
 
 
 if __name__ == "__main__":

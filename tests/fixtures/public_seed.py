@@ -27,6 +27,6 @@ def copy_repo_with_public_seed(target: Path, *, include_agent_entries: bool = Tr
     shutil.copytree(
         ROOT,
         target,
-        ignore=shutil.ignore_patterns(".git", ".idea", "__pycache__", "*.pyc", ".pytest_cache"),
+        ignore=shutil.ignore_patterns(".git", ".idea", ".ai-workroot-local", "__pycache__", "*.pyc", ".pytest_cache"),
     )
     install_public_seed_fixture(target, include_agent_entries=include_agent_entries)

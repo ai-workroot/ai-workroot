@@ -87,6 +87,82 @@ class EnvironmentStorageTest(unittest.TestCase):
 
             self.assertNotIn("knowledge_items", tables)
 
+    def test_initialize_workroot_sqlite_creates_release_lookup_indexes_and_index_source_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "workroot.sqlite"
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                indexes = {
+                    row[1]
+                    for row in connection.execute(
+                        "SELECT type, name FROM sqlite_master WHERE type = 'index'"
+                    )
+                }
+                indexed_file_columns = {
+                    row[1] for row in connection.execute("PRAGMA table_info(indexed_files)").fetchall()
+                }
+                migrations = {
+                    row[0] for row in connection.execute("SELECT migration_id FROM schema_migrations").fetchall()
+                }
+
+            for index_name in (
+                "idx_release_records_workroot_target",
+                "idx_tombstones_workroot_target",
+                "idx_redactions_workroot_target",
+                "idx_deletion_records_workroot_target",
+                "idx_context_candidates_workroot_source",
+                "idx_indexed_files_workroot_source",
+                "idx_relationship_edges_workroot_nodes",
+            ):
+                with self.subTest(index=index_name):
+                    self.assertIn(index_name, indexes)
+            self.assertIn("source_type", indexed_file_columns)
+            self.assertIn("source_id", indexed_file_columns)
+            self.assertIn("002-release-target-resolution-indexes", migrations)
+
+    def test_initialize_workroot_sqlite_migrates_old_indexed_files_without_source_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "old-workroot.sqlite"
+            with sqlite3.connect(db_path) as connection:
+                connection.execute(
+                    """
+                    CREATE TABLE indexed_files (
+                      file_id TEXT PRIMARY KEY,
+                      workroot_id TEXT NOT NULL,
+                      relative_path TEXT NOT NULL
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    INSERT INTO indexed_files (file_id, workroot_id, relative_path)
+                    VALUES ('file-1', 'wr_demo', 'notes.md')
+                    """
+                )
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                indexed_file_columns = {
+                    row[1] for row in connection.execute("PRAGMA table_info(indexed_files)").fetchall()
+                }
+                indexes = {
+                    row[1]
+                    for row in connection.execute(
+                        "SELECT type, name FROM sqlite_master WHERE type = 'index'"
+                    )
+                }
+                row = connection.execute(
+                    "SELECT file_id, relative_path FROM indexed_files WHERE file_id = 'file-1'"
+                ).fetchone()
+
+            self.assertIn("source_type", indexed_file_columns)
+            self.assertIn("source_id", indexed_file_columns)
+            self.assertIn("idx_indexed_files_workroot_source", indexes)
+            self.assertEqual(row, ("file-1", "notes.md"))
+
 
 if __name__ == "__main__":
     unittest.main()

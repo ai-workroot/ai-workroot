@@ -101,6 +101,13 @@ Responsibilities:
 - `cli`: thin command entry points.
 - `resources`: packaged templates.
 
+Migration status:
+
+- `src/ai_workroot/` is the active package direction for Clean Workroot.
+- `scripts/` still holds preserved Public Seed era capabilities and compatibility command wrappers.
+- New Clean Workroot behavior should be implemented in the package path first.
+- Legacy script changes should be compatibility-scoped and covered by tests until their behavior is migrated.
+
 Dependency rules:
 
 ```text
@@ -207,7 +214,7 @@ Reserves future boundaries for capabilities, skills, agent adapters, MCP bridges
 Context Control builds an explainable Context Package from:
 
 - required rules
-- active task state
+- active Work records
 - materialized context candidates
 - SQLite FTS matches
 - indexed file chunks

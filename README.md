@@ -43,15 +43,15 @@ AI agents are replaceable collaborators.
 
 In practical terms, AI Workroot gives agents a shared, user-owned foundation for:
 
-- context
-- task state
-- decisions
-- artifacts
-- handoff
-- memory
-- knowledge
-- invalidation
-- release and intentional forgetting
+- Workroot Management
+- Work
+- Assets
+- Release Control
+- Relationship Network
+- Retrieval & Index Control
+- Context Control
+- Agent Interface
+- System Health
 
 The folders, registries, schemas, and validation scripts are implementation details. They exist to make continuity reliable, portable, and inspectable.
 
@@ -91,7 +91,7 @@ The best relationship is complementary:
 
 AI Workroot is designed for individuals first.
 
-Its current shape is a private, user-owned foundation for one person's long-term work with AI: personal context, files, tasks, decisions, knowledge, handoff, memory, and intentional forgetting.
+Its current shape is a private, user-owned foundation for one person's long-term work with AI: Work records, Assets, Release Control, Relationship Network, Retrieval & Index Control, Context Control, Agent Interface, and System Health.
 
 The heart of this project is one person with many unfinished things, many tools, changing contexts, and a real need to continue.
 
@@ -115,11 +115,11 @@ AI Workroot can still connect with agents, models, clients, services, indexes, a
 
 Everything else is a visitor.
 
-## Memory, Release, And Continuity
+## Release Control And Continuity
 
 AI Workroot is not only about remembering more.
 
-Memory is one part of continuity, but human life is not only memory accumulation. People also forget, release, quiet, archive, redact, and move forward.
+Continuity is not only accumulation. People also forget, release, quiet, archive, redact, and move forward.
 
 AI Workroot should help preserve what matters without forcing every old event, obsolete belief, mistake, or painful context back into every future session.
 
@@ -155,6 +155,8 @@ src/ai_workroot/
 Root `AGENTS.md`, root `CLAUDE.md`, `space/`, and `.workroot/` are not active tracked architecture. Native Agent Entry files may be generated locally only with explicit authorization, and bootstrap-dev keeps local staging under ignored `.ai-workroot-local/`.
 
 Public Seed is historical. Its preserved files live under `docs/history/public-seed/` for compatibility review and old capability tests.
+
+`src/ai_workroot/` is the active package direction for 0.9.530. Some older capability implementations still live under `scripts/` as compatibility tooling from the Public Seed era; they remain testable while behavior is migrated behind the new Core / Contracts / Runtime / Storage / Indexing / Agent / CLI boundaries.
 
 The core principle should remain stable: the user's continuity should stay inspectable, portable, and owned by the user.
 

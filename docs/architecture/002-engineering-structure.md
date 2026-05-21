@@ -20,6 +20,19 @@ src/ai_workroot/
 
 ## Module responsibilities
 
+## Migration status
+
+`src/ai_workroot/` is the active architecture target for 0.9.530. New Clean Workroot behavior should land here unless a change is explicitly preserving legacy compatibility.
+
+`scripts/` still contains older Public Seed capability implementations and command wrappers. Those files are retained so legacy capabilities can be tested and migrated without losing behavior. They are not the desired long-term home for new domain logic.
+
+When touching a capability that exists in both places:
+
+- prefer the `src/ai_workroot/` package for new Clean Workroot runtime behavior;
+- keep `scripts/` changes limited to compatibility, wrappers, and legacy tests;
+- add tests that make the intended active path explicit;
+- do not silently move behavior out of `scripts/` unless the matching capability is already covered in `src/ai_workroot/`.
+
 ### `core/`
 
 Core concepts, behavior, value objects, policies, lightweight events.

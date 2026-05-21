@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
+from typing import Any
 
 from ai_workroot.core.environment import WorkrootEnvironment
 from ai_workroot.storage.jsonl_registry import append_jsonl, read_jsonl, write_json
@@ -55,9 +57,9 @@ def initialize_environment(home: Path) -> WorkrootEnvironment:
     ):
         (home / rel).mkdir(parents=True, exist_ok=True)
 
-    write_json(home / "config.json", {"version": "0.9.530", "kind": "WorkrootEnvironment"})
-    write_json(home / "preferences/operator-preferences.json", {"version": "0.9.530"})
-    write_json(home / "preferences/policy-defaults.json", {"version": "0.9.530"})
+    merge_json(home / "config.json", {"version": "0.9.530", "kind": "WorkrootEnvironment"})
+    merge_json(home / "preferences/operator-preferences.json", {"version": "0.9.530"})
+    merge_json(home / "preferences/policy-defaults.json", {"version": "0.9.530"})
 
     for filename in REGISTRY_FILES:
         path = home / "registry" / filename
@@ -65,6 +67,19 @@ def initialize_environment(home: Path) -> WorkrootEnvironment:
     (home / "registry/.registry.lock").touch(exist_ok=True)
 
     return WorkrootEnvironment(home=str(home))
+
+
+def merge_json(path: Path, defaults: dict[str, Any]) -> None:
+    existing: dict[str, Any] = {}
+    if path.is_file():
+        try:
+            parsed = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            parsed = {}
+        if isinstance(parsed, dict):
+            existing = parsed
+    merged = {**existing, **defaults}
+    write_json(path, merged)
 
 
 def register_workroot(home: Path, workroot_id: str, name: str, user_directory: Path) -> WorkrootRegistration:

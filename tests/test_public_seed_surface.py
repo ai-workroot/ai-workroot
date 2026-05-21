@@ -138,6 +138,37 @@ class PublicSeedSurfaceTest(unittest.TestCase):
                 for phrase in phrases:
                     self.assertIn(phrase, text)
 
+    def test_scripts_to_src_migration_checkpoint_is_explicit(self) -> None:
+        text = (ROOT / "docs/dev/0.9.530/scripts-to-src-migration.md").read_text(encoding="utf-8")
+
+        self.assertIn("architecture alignment checkpoint", text)
+        self.assertIn("not the final scripts-to-source migration", text)
+        self.assertIn("scripts/workroot_client.py", text)
+        self.assertIn("src/ai_workroot/runtime/context.py", text)
+        self.assertIn("Legacy retained", text)
+        self.assertIn("Partial migration", text)
+
+    def test_readme_uses_current_domain_terms_for_formal_foundation(self) -> None:
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        start = text.index("In practical terms, AI Workroot gives agents a shared, user-owned foundation for:")
+        end = text.index("The folders, registries, schemas, and validation scripts are implementation details.")
+        formal_section = text[start:end]
+
+        for phrase in (
+            "Workroot Management",
+            "Work",
+            "Assets",
+            "Release Control",
+            "Relationship Network",
+            "Retrieval & Index Control",
+            "Context Control",
+            "Agent Interface",
+            "System Health",
+        ):
+            self.assertIn(phrase, formal_section)
+        for retired in ("task state", "memory", "Mind", "Context Guide", "Context Gate"):
+            self.assertNotIn(retired, formal_section)
+
     def test_active_public_docs_do_not_use_public_seed_paths_as_current_workflow(self) -> None:
         docs = (
             "docs/product-experience.md",

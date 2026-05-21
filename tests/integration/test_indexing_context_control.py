@@ -129,6 +129,83 @@ class IndexingContextControlTest(unittest.TestCase):
             self.assertIn("final-fallback", package)
             self.assertLessEqual(len(package), 80 * 6)
 
+    def test_context_runtime_persists_package_trace_selection_and_trim_decisions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-persist",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-persist",
+                        "title": "Persisted context candidate",
+                        "summary": "Persistence " * 200,
+                        "importance": "critical",
+                    },
+                )
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="Persistence", debug=True, hard_token_limit=80, target_tokens=40),
+                ai_workroot_home=home,
+            )
+
+            with sqlite3.connect(db_path) as conn:
+                package_rows = conn.execute("SELECT mode, rendered FROM context_packages").fetchall()
+                trace_rows = conn.execute("SELECT debug_json FROM context_traces").fetchall()
+                selection_rows = conn.execute("SELECT candidate_id, reason FROM candidate_selections").fetchall()
+                trim_rows = conn.execute("SELECT section, reason FROM budget_trim_decisions").fetchall()
+                use_count = conn.execute(
+                    "SELECT use_count FROM context_candidates WHERE candidate_id = 'cand-persist'"
+                ).fetchone()[0]
+
+            self.assertIn("TokenUsage:", package)
+            self.assertEqual(len(package_rows), 1)
+            self.assertEqual(package_rows[0][0], "standard")
+            self.assertIn("# AI Workroot Context Package", package_rows[0][1])
+            self.assertEqual(len(trace_rows), 1)
+            self.assertIn("final-fallback", trace_rows[0][0])
+            self.assertIn(("cand-persist", "selected"), selection_rows)
+            self.assertIn(("rendered-package", "final-fallback"), trim_rows)
+            self.assertEqual(use_count, 1)
+
+    def test_final_rendered_package_respects_hard_token_limit_after_trim_marker(self) -> None:
+        from ai_workroot.runtime.context import estimate_tokens
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-long-marker",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-long-marker",
+                        "title": "Long marker candidate",
+                        "summary": "没有空格的中文内容" * 200,
+                        "importance": "critical",
+                    },
+                )
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="中文", debug=True, hard_token_limit=60, target_tokens=30),
+                ai_workroot_home=home,
+            )
+
+            self.assertLessEqual(estimate_tokens(package), 60)
+
 
 if __name__ == "__main__":
     unittest.main()

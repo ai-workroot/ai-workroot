@@ -1,0 +1,65 @@
+# Scripts to Source Migration Status
+
+## Status
+
+0.9.530 is an architecture alignment checkpoint, not the final scripts-to-source migration.
+
+Clean Workroot active runtime should move toward `src/ai_workroot/` as the product implementation. The `scripts/` directory is being narrowed to wrappers, development tools, validation tools, and legacy Public Seed compatibility. Legacy capability must remain preserved until it is explicitly mapped, tested, and replaced.
+
+## Migration Rules
+
+- Clean user-facing commands should be available through `python -m ai_workroot` and the installed `workroot` wrapper.
+- `scripts/bootstrap-dev.sh` and `scripts/install.sh` are wrappers and may remain.
+- Public Seed and historical tools must be labeled as legacy where they are not part of Clean Workroot active architecture.
+- Do not remove legacy task/run/action/session/handoff capabilities until replacement modules and tests exist.
+- Do not reintroduce root `space/`, root `.workroot/`, root tracked `AGENTS.md`, or root tracked `CLAUDE.md` as active architecture.
+
+## File Matrix
+
+| Script | Current role | Target module or disposition | Status | Risk | Current tests |
+|---|---|---|---|---|---|
+| `scripts/add_registry_row.py` | Historical registry maintenance helper | Legacy Public Seed support or `src/ai_workroot/storage/` maintenance command | Legacy retained | Could mutate old registry layout if used as Clean path | Legacy kernel/release tests |
+| `scripts/list_tasks.py` | Historical task listing helper | Legacy command under future `workroot legacy task list` or retired after Work module migration | Legacy retained | Old task registry semantics may confuse Clean Workroot users | Legacy task tests |
+| `scripts/new_task.py` | Historical task creation helper | Future Work service under `src/ai_workroot/runtime/work.py` | Legacy retained | Creates Public Seed task files, not Clean Workroot state | Legacy public-seed tests |
+| `scripts/new_task_smoke.py` | Historical smoke helper | Move under `tests/fixtures` or retire after test split | Deferred | Test-like helper can be mistaken for active product code | Release surface audit |
+| `scripts/rebuild_sqlite.py` | Legacy public-seed SQLite rebuild tool | Historical compatibility only | Legacy labeled | Must not be documented as Clean Workroot setup | 0.9.529 release gates |
+| `scripts/setup_workroot.py` | Historical setup helper | Superseded by `ai_workroot.runtime.init` for Clean Workroot | Legacy retained | May create old layout if used directly | Legacy tests |
+| `scripts/update_usage_direction.py` | Historical profile helper | Future Agent/User preference runtime service | Legacy retained | Writes Public Seed profile files | Legacy profile tests |
+| `scripts/upgrade_workroot.py` | Historical upgrade helper | Future migration adapter if still needed | Deferred | Could imply Public Seed active migration path | Legacy tests |
+| `scripts/validate_kernel.py` | Release validation and historical contract checks | Keep as release/dev validation tool | Active dev tool | Must distinguish historical checks from Clean Workroot release gates | `tests/test_0529_release_gates.py`, smoke validator |
+| `scripts/workroot_agent_entry.py` | 0.9.529 native entry implementation | Superseded by `src/ai_workroot/agent/native_entry.py` | Legacy retained | Duplicate behavior can drift | Native Agent Entry tests |
+| `scripts/workroot_bootstrap.py` | 0.9.529 bootstrap implementation | Superseded by `src/ai_workroot/runtime/bootstrap.py`; keep only for legacy CLI compatibility | Legacy retained | Old Public Seed repo identity checks must not be Clean path | Bootstrap-dev tests use package and wrapper path |
+| `scripts/workroot_candidates.py` | 0.9.529 context candidate provider | Superseded by `src/ai_workroot/indexing/providers/candidate_provider.py` | Partial migration | Old and new candidate semantics can diverge | Context tests |
+| `scripts/workroot_cli.py` | Legacy CLI with hidden Public Seed commands and some clean commands | Clean commands should delegate to `ai_workroot.cli.main`; legacy commands move under future `workroot legacy` | Partial migration | Users may invoke old clean flow directly | CLI and bootstrap compatibility tests |
+| `scripts/workroot_client.py` | Mature Public Seed task/run/action/artifact client | Future Work/Asset/Release services under `src/ai_workroot/runtime/` and `src/ai_workroot/storage/` | Deferred | Highest legacy capability loss risk | Legacy client tests |
+| `scripts/workroot_context.py` | Mature 0.9.529 Context Guide | Partially superseded by `src/ai_workroot/runtime/context.py`; migrate retrieval, trace, persistence incrementally | Partial migration | Context behavior regression risk | Context and indexing tests |
+| `scripts/workroot_doctor.py` | 0.9.529 doctor | Superseded by `src/ai_workroot/runtime/doctor.py`; keep as legacy compatibility until script CLI migration | Partial migration | Old doctor checks may imply old architecture | Doctor tests |
+| `scripts/workroot_indexing.py` | 0.9.529 FTS/indexing | Partially superseded by `src/ai_workroot/indexing/providers/sqlite_fts.py` | Partial migration | Duplicate FTS schemas must stay explicitly scoped | Indexing tests |
+| `scripts/workroot_migrations.py` | 0.9.529 migrations | Future `src/ai_workroot/storage/migrations.py` | Deferred | Old migration assumptions may not fit Clean schema | Migration tests |
+| `scripts/workroot_operation_manifest.py` | Legacy operation manifest/recipes | Preserve as legacy capability registry input or move to contracts later | Deferred | Operation recipes still reference old script commands | Architecture contract tests |
+| `scripts/workroot_paths.py` | 0.9.529 path/state resolution | Superseded by `src/ai_workroot/runtime/bootstrap.py`, `runtime/environment.py`, and `runtime/registry.py` | Partial migration | Path rules must stay Clean Mode compatible | Init/bootstrap tests |
+| `scripts/workroot_sqlite.py` | 0.9.529 SQLite schema | Superseded by `src/ai_workroot/storage/sqlite.py`; retain for legacy tests | Partial migration | Old schema includes historical `knowledge_items` table | SQLite/indexing tests |
+| `scripts/workroot_state.py` | 0.9.529 managed state registry | Superseded by `src/ai_workroot/runtime/environment.py` and `storage/jsonl_registry.py` | Partial migration | Registry concurrency and duplicate handling must stay protected | Registry/bootstrap tests |
+
+## Current Clean Path
+
+The current Clean Workroot path is:
+
+```text
+python -m ai_workroot init
+python -m ai_workroot list
+python -m ai_workroot status
+python -m ai_workroot context
+python -m ai_workroot doctor
+python -m ai_workroot bootstrap-dev
+```
+
+The installed `workroot` wrapper points to the same package entry point.
+
+## Deferred Work
+
+- Move mature Work/Asset/operation logic from `scripts/workroot_client.py` into `src/ai_workroot/`.
+- Convert `scripts/workroot_cli.py` clean commands into thin package delegation or isolate legacy commands under `legacy`.
+- Split the old Context Guide into Context Control, Retrieval & Index Control, and trace persistence modules.
+- Add a test-job split for unit, integration, smoke, negative, legacy compatibility, and release validation.
+- Add a clean review/export packaging command that excludes ignored local state.

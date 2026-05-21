@@ -68,7 +68,7 @@ vX.Y.Z
 - Released, tombstone, redacted, and deleted material is not part of default retrieval.
 - Durable lessons can survive even when painful source context is released.
 - Tombstone remains a first-class kernel term and is not collapsed into generic archive semantics.
-- Agent-specific memory does not replace Workroot files.
+- Agent-specific private recall does not replace Workroot-managed state and Assets.
 - Core registries are not weakened to fit a role-specific workflow.
 - Capability-specific registries are documented by the owning capability.
 - Extensions follow `docs/extension-contract.md`.
@@ -92,17 +92,17 @@ Windows PowerShell parse validation is pending unless a Windows CI job or local 
 
 The final status should contain only intentional release changes.
 
-## 0.9.529 Clean Native Context Gates
+## 0.9.530 Clean Workroot Gates
 
 - Clean Mode init creates no managed folders or control files inside the user-selected directory by default.
 - Native Agent Entry files are created or modified only after explicit authorization.
 - Managed state, indexes, context packages, handoffs, runtime data, logs, and debug traces live outside the user-selected directory by default.
-- SQLite graph, candidate, and FTS tables are present in managed state.
-- Context Guide runs locally, prints a Markdown Context Package, and does not require remote calls.
-- Context Guide treats 1 second as the normal hot-path target, not a hard accuracy limit.
-- Context Guide reads latency and token budgets from runtime hints or built-in defaults.
-- Context Guide token usage estimates the full Context Package, not only selected candidates.
-- Context Guide uses query, candidate FTS, file FTS, and related one-hop graph signals to influence selection or scoring.
+- SQLite Relationship Network, candidate, and FTS tables are present in managed state.
+- Context Control runs locally, prints a Markdown Context Package, and does not require remote calls.
+- Context Control treats 1 second as the normal hot-path target, not a hard accuracy limit.
+- Context Control reads latency and token budgets from runtime hints or built-in defaults.
+- Context Control token usage estimates the full Context Package, not only selected candidates.
+- Context Control uses query, candidate FTS, file FTS, and related one-hop Relationship Network signals to influence selection or scoring.
 - Standard Mode is the default; Quality Mode is local and bounded; Deep Mode requires explicit request.
 - If Quality Mode only expands candidate budget, debug trace labels it as `quality-budget-expansion`.
 - Context Package includes mode, confidence, latency, token usage, fallback status, and low-confidence reasons when applicable.

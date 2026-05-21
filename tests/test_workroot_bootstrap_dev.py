@@ -46,6 +46,20 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
             self.assertIn("bootstrap-dev preflight ok", result.stdout)
             self.assertFalse((repo / ".ai-workroot-local").exists())
 
+    def test_repo_fixture_copy_excludes_ignored_local_runtime_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            local = ROOT / ".ai-workroot-local"
+            marker = local / "test-fixture-marker.tmp"
+            local.mkdir(exist_ok=True)
+            marker.write_text("local runtime metadata must not enter fixture copies\n", encoding="utf-8")
+            try:
+                repo = Path(tmp) / "repo"
+                self.copy_repo(repo)
+
+                self.assertFalse((repo / ".ai-workroot-local").exists())
+            finally:
+                marker.unlink(missing_ok=True)
+
     def test_bootstrap_dev_initializes_context_and_doctor_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo"

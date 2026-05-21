@@ -5,6 +5,53 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+REQUIRED_TABLES = (
+    "schema_migrations",
+    "workroots",
+    "directory_bindings",
+    "workroot_aliases",
+    "workroot_relationships",
+    "assets",
+    "asset_surfaces",
+    "asset_publications",
+    "asset_path_history",
+    "asset_provenance",
+    "release_records",
+    "tombstones",
+    "redactions",
+    "deletion_records",
+    "release_propagation_events",
+    "tasks",
+    "agent_runs",
+    "work_actions",
+    "work_checkpoints",
+    "retrieval_cards",
+    "invalidation_records",
+    "handoffs",
+    "work_events",
+    "operation_transactions",
+    "relationship_nodes",
+    "relationship_edges",
+    "relationship_evidence",
+    "indexes",
+    "index_manifests",
+    "index_builds",
+    "index_invalidations",
+    "indexed_files",
+    "indexed_chunks",
+    "indexed_chunks_fts",
+    "context_candidates",
+    "context_candidates_fts",
+    "global_index_entries",
+    "context_packages",
+    "context_traces",
+    "candidate_selections",
+    "budget_trim_decisions",
+    "doctor_runs",
+    "diagnostic_findings",
+    "maintenance_actions",
+)
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -232,7 +279,9 @@ CREATE TABLE IF NOT EXISTS index_invalidations (
 CREATE TABLE IF NOT EXISTS indexed_files (
   file_id TEXT PRIMARY KEY,
   workroot_id TEXT NOT NULL,
-  relative_path TEXT NOT NULL
+  relative_path TEXT NOT NULL,
+  source_type TEXT,
+  source_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS indexed_chunks (
@@ -322,6 +371,26 @@ CREATE TABLE IF NOT EXISTS maintenance_actions (
 
 INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
 VALUES ('001-clean-workroot-schema', datetime('now'));
+
+CREATE INDEX IF NOT EXISTS idx_release_records_workroot_target
+  ON release_records(workroot_id, target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_tombstones_workroot_target
+  ON tombstones(workroot_id, target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_redactions_workroot_target
+  ON redactions(workroot_id, target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_deletion_records_workroot_target
+  ON deletion_records(workroot_id, target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_context_candidates_workroot_source
+  ON context_candidates(workroot_id, source_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_indexed_files_workroot_source
+  ON indexed_files(workroot_id, source_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_relationship_nodes_workroot_type
+  ON relationship_nodes(workroot_id, node_type, node_id);
+CREATE INDEX IF NOT EXISTS idx_relationship_edges_workroot_nodes
+  ON relationship_edges(workroot_id, from_node_id, to_node_id);
+
+INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+VALUES ('002-release-target-resolution-indexes', datetime('now'));
 """
 
 
@@ -329,4 +398,32 @@ def initialize_workroot_sqlite(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as connection:
         connection.execute("PRAGMA journal_mode=WAL")
+        connection.executescript(_schema_without_release_indexes())
+        _ensure_indexed_file_source_columns(connection)
         connection.executescript(SCHEMA)
+
+
+def _ensure_indexed_file_source_columns(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(indexed_files)").fetchall()}
+    for name in ("source_type", "source_id"):
+        if name not in columns:
+            connection.execute(f"ALTER TABLE indexed_files ADD COLUMN {name} TEXT")
+
+
+def _schema_without_release_indexes() -> str:
+    marker = "CREATE INDEX IF NOT EXISTS idx_release_records_workroot_target"
+    head, _, _tail = SCHEMA.partition(marker)
+    return head
+
+
+def sqlite_table_names(connection: sqlite3.Connection) -> set[str]:
+    rows = connection.execute("SELECT name FROM sqlite_master WHERE type IN ('table', 'virtual table')").fetchall()
+    return {str(row[0]) for row in rows}
+
+
+def verify_workroot_sqlite(path: Path) -> list[str]:
+    if not path.exists():
+        return [f"missing SQLite database: {path}"]
+    with sqlite3.connect(path) as connection:
+        tables = sqlite_table_names(connection)
+    return [f"missing SQLite table: {table}" for table in REQUIRED_TABLES if table not in tables]

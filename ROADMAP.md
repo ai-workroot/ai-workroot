@@ -47,7 +47,7 @@ Within each priority level, the order in the table is the default execution orde
 | Order | Item | Type | Notes |
 |---:|---|---|---|
 | 1 | Explore AI Workroot MCP Server | Integration | Let agents such as Hermes or Claude-compatible tools read Workroot state through MCP. |
-| 2 | Define Workroot state model | Architecture | Clarify state, decisions, handoff, memory, invalidation, release, and tombstone. |
+| 2 | Define Workroot domain state model | Architecture | Clarify Work, Asset, Release Control, Relationship Network, Retrieval & Index Control, Context Control, Agent Interface, System Health, invalidation, and tombstone behavior. |
 | 3 | Add Workroot doctor / repair concepts | Engineering | Detect broken structure, stale state, missing files, and invalid references. |
 | 4 | Explore timeline and task views | Product | Hide internal protocol complexity behind user-friendly views. |
 | 5 | Improve international documentation | Documentation | Keep English-first docs clear, concise, and globally understandable. |
