@@ -4,7 +4,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.workroot_migrations import Migration, MigrationRunner, read_migration_records
+from ai_workroot.storage.migrations import (
+    Migration,
+    MigrationRunner,
+    migration_lock,
+    read_migration_records,
+)
 
 
 class WorkrootMigrationsTest(unittest.TestCase):
@@ -36,6 +41,20 @@ class WorkrootMigrationsTest(unittest.TestCase):
             records = read_migration_records(root / "migrations/global.jsonl")
             self.assertEqual(records[0]["status"], "failed")
             self.assertIn("boom", records[0]["error"])
+
+    def test_legacy_script_wrapper_exports_package_runner(self) -> None:
+        from scripts.workroot_migrations import MigrationRunner as LegacyMigrationRunner
+
+        self.assertIs(LegacyMigrationRunner, MigrationRunner)
+
+    def test_migration_lock_times_out_when_lock_is_held(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            with migration_lock(root, "global"):
+                with self.assertRaises(TimeoutError):
+                    with migration_lock(root, "global", timeout=0.01):
+                        pass
 
 
 if __name__ == "__main__":
