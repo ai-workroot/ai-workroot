@@ -4,6 +4,11 @@
 
 0.9.530 is an architecture alignment checkpoint, not the final scripts-to-source migration.
 
+The final migration is split into two parts:
+
+- Part 1 completes package ownership while preserving existing script and legacy CLI compatibility.
+- Part 2 removes or narrows compatibility in a later branch/version after separate approval.
+
 Clean Workroot active runtime should move toward `src/ai_workroot/` as the product implementation. The `scripts/` directory is being narrowed to wrappers, development tools, validation tools, and legacy Public Seed compatibility. Legacy capability must remain preserved until it is explicitly mapped, tested, and replaced.
 
 The full completion design for the remaining migration is now split into:
@@ -25,6 +30,8 @@ The full completion design for the remaining migration is now split into:
 - `scripts/bootstrap-dev.sh` and `scripts/install.sh` are wrappers and may remain.
 - Public Seed and historical tools must be labeled as legacy where they are not part of Clean Workroot active architecture.
 - Do not remove legacy task/run/action/session/handoff capabilities until replacement modules and tests exist.
+- Do not remove old script compatibility in Part 1; convert scripts to wrappers or compatibility adapters instead.
+- Archiving script implementations under `docs/history/0.9.530/scripts/` preserves snapshots only. It does not remove the callable script wrapper in Part 1.
 - Do not reintroduce root `space/`, root `.workroot/`, root tracked `AGENTS.md`, or root tracked `CLAUDE.md` as active architecture.
 
 ## File Matrix

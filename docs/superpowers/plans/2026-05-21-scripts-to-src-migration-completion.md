@@ -10,6 +10,23 @@
 
 ---
 
+## Compatibility Update
+
+This plan is superseded for the final script migration execution details by:
+
+```text
+docs/dev/0.9.530/final-compatibility-preserving-script-migration-design.md
+docs/specs/031-compatibility-preserving-script-migration.spec.md
+docs/superpowers/plans/2026-05-21-compatibility-preserving-final-script-migration.md
+```
+
+The migration now has two parts:
+
+- Part 1: finish package ownership and keep all existing script/legacy CLI compatibility.
+- Part 2: remove or narrow compatibility later, after separate approval.
+
+Do not remove old script entry points while executing Part 1.
+
 ## File Responsibility Map
 
 - `src/ai_workroot/cli/`: primary Clean Workroot CLI and legacy namespace boundary.

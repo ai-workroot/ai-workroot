@@ -20,8 +20,10 @@ The raw package snapshots are retained for traceability. They may contain pre-cl
 
 The next 0.9.530 implementation stage is documented in:
 
+- `final-compatibility-preserving-script-migration-design.md`
 - `scripts-to-src-migration-architecture.md`
 - `scripts-to-src-migration-detailed-design.md`
+- `docs/specs/031-compatibility-preserving-script-migration.spec.md`
 - `docs/specs/023-active-package-cli-and-legacy-isolation.spec.md`
 - `docs/specs/024-work-and-asset-runtime-migration.spec.md`
 - `docs/specs/025-storage-and-migrations-migration.spec.md`
@@ -32,6 +34,14 @@ The next 0.9.530 implementation stage is documented in:
 - `docs/specs/030-test-suite-and-public-seed-quarantine.spec.md`
 
 These documents make the remaining migration explicit: active Clean Workroot product logic moves into `src/ai_workroot/`, while `scripts/` narrows to wrappers, developer tooling, release validation, and legacy compatibility.
+
+## Compatibility Decision
+
+The remaining scripts-to-source migration is a two-part process.
+
+Part 1 is the current 0.9.530 target: finish package ownership while preserving all existing script and legacy CLI compatibility. Old script files may become wrappers, and historical implementations may be archived under `docs/history/0.9.530/scripts/`, but callable compatibility paths remain.
+
+Part 2 is a later branch/version: remove or narrow compatibility after Part 1 has been reviewed and explicitly approved. Do not remove compatibility while completing Part 1.
 
 ## Mandatory Execution Correction
 

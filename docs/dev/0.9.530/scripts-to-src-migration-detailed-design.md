@@ -4,6 +4,8 @@
 
 Draft checkpoint for the next implementation stage on `feat/0.9.530-clean-workroot-domain-reset`.
 
+Compatibility correction: the current implementation stage is Part 1. Part 1 finishes package ownership while preserving existing script and legacy CLI compatibility. Part 2 removes or narrows compatibility later, with a separate branch/version and separate approval.
+
 ## Design Principle
 
 Migrate by behavior and contracts, not by mechanically moving files.
@@ -360,6 +362,8 @@ script command -> package runtime function -> package output
 ```
 
 Only legacy-only commands may keep old implementations temporarily. Their help text must not appear in the primary Clean Workroot command list.
+
+For Part 1, compatibility adapters are mandatory for old script entry points. A script can become a thin wrapper, but it must remain callable. Archiving a script under `docs/history/0.9.530/scripts/` preserves the old implementation snapshot only; it does not remove the live wrapper.
 
 Examples:
 
