@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.workroot_state import initialize_ai_workroot_home, initialize_workroot_state, read_jsonl
+from ai_workroot.runtime.state import initialize_ai_workroot_home, initialize_workroot_state, read_jsonl
 
 
 class WorkrootStateTest(unittest.TestCase):
