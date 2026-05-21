@@ -27,6 +27,11 @@ class ImportBoundariesTest(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertTrue((SRC / "ai_workroot" / name / "__init__.py").is_file())
 
+    def test_legacy_seed_package_is_importable(self) -> None:
+        import ai_workroot.runtime.legacy_seed as legacy_seed
+
+        self.assertIsNotNone(legacy_seed)
+
     def test_contracts_do_not_import_project_modules(self) -> None:
         contracts_dir = SRC / "ai_workroot" / "contracts"
         forbidden_prefix = "ai_workroot."
