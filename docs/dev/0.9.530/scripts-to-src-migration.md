@@ -6,6 +6,19 @@
 
 Clean Workroot active runtime should move toward `src/ai_workroot/` as the product implementation. The `scripts/` directory is being narrowed to wrappers, development tools, validation tools, and legacy Public Seed compatibility. Legacy capability must remain preserved until it is explicitly mapped, tested, and replaced.
 
+The full completion design for the remaining migration is now split into:
+
+- `scripts-to-src-migration-architecture.md`
+- `scripts-to-src-migration-detailed-design.md`
+- `docs/specs/023-active-package-cli-and-legacy-isolation.spec.md`
+- `docs/specs/024-work-and-asset-runtime-migration.spec.md`
+- `docs/specs/025-storage-and-migrations-migration.spec.md`
+- `docs/specs/026-retrieval-indexing-and-context-control-migration.spec.md`
+- `docs/specs/027-release-relationship-and-safety-migration.spec.md`
+- `docs/specs/028-system-health-validation-and-checkbot.spec.md`
+- `docs/specs/029-install-dev-scripts-and-wrappers.spec.md`
+- `docs/specs/030-test-suite-and-public-seed-quarantine.spec.md`
+
 ## Migration Rules
 
 - Clean user-facing commands should be available through `python -m ai_workroot` and the installed `workroot` wrapper.

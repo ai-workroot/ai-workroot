@@ -16,6 +16,23 @@ When documents conflict, use this order:
 
 The raw package snapshots are retained for traceability. They may contain pre-clarification execution order or terminology examples. Do not treat them as higher authority than the final clarifications, current specs, architecture docs, ADRs, or implementation plan.
 
+## Scripts-to-Source Migration Checkpoint
+
+The next 0.9.530 implementation stage is documented in:
+
+- `scripts-to-src-migration-architecture.md`
+- `scripts-to-src-migration-detailed-design.md`
+- `docs/specs/023-active-package-cli-and-legacy-isolation.spec.md`
+- `docs/specs/024-work-and-asset-runtime-migration.spec.md`
+- `docs/specs/025-storage-and-migrations-migration.spec.md`
+- `docs/specs/026-retrieval-indexing-and-context-control-migration.spec.md`
+- `docs/specs/027-release-relationship-and-safety-migration.spec.md`
+- `docs/specs/028-system-health-validation-and-checkbot.spec.md`
+- `docs/specs/029-install-dev-scripts-and-wrappers.spec.md`
+- `docs/specs/030-test-suite-and-public-seed-quarantine.spec.md`
+
+These documents make the remaining migration explicit: active Clean Workroot product logic moves into `src/ai_workroot/`, while `scripts/` narrows to wrappers, developer tooling, release validation, and legacy compatibility.
+
 ## Mandatory Execution Correction
 
 Build the replacement architecture first, then quarantine the old Public Seed active root.
