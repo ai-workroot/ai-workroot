@@ -8,7 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.validate_kernel import validate_0529_specs, validate_release_surface
+from ai_workroot.runtime.release_validation import validate_release_surface
+from scripts.validate_kernel import validate_0529_specs
 
 
 ROOT = Path(__file__).resolve().parents[1]

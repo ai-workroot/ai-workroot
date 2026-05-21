@@ -8,6 +8,7 @@ import ast
 import subprocess
 
 from ai_workroot.agent.native_entry import NativeAgentEntryError, validate_managed_block
+from ai_workroot.runtime.release_validation import validate_release_surface
 from ai_workroot.runtime.registry import find_workroot_by_cwd
 from ai_workroot.storage.sqlite import verify_workroot_sqlite
 
@@ -69,6 +70,8 @@ def run_doctor(*, cwd: Path | str = ".", ai_workroot_home: Path | str | None = N
 
 def run_release_doctor(root: Path | str = ".") -> DoctorResult:
     repo = Path(root).expanduser().resolve()
+    release_surface_errors: list[str] = []
+    validate_release_surface(repo, release_surface_errors)
     findings = [
         _check_path(repo, "src/ai_workroot/core", "core package"),
         _check_path(repo, "src/ai_workroot/contracts", "contracts package"),
@@ -82,6 +85,7 @@ def run_release_doctor(root: Path | str = ".") -> DoctorResult:
         _check_import_boundaries(repo),
         _check_no_remote_vector_dependency(repo),
         _check_public_seed_quarantine(repo),
+        _check_release_surface(release_surface_errors),
     ]
     status = "PASS" if all(finding.status != "FAIL" for finding in findings) else "FAIL"
     return DoctorResult(status, tuple(findings))
@@ -142,6 +146,12 @@ def _check_public_seed_quarantine(repo: Path) -> DoctorFinding:
     if ignored_local:
         return DoctorFinding("PASS", "Public Seed quarantine: ignored local root entries only")
     return DoctorFinding("PASS", "Public Seed quarantine: complete")
+
+
+def _check_release_surface(errors: list[str]) -> DoctorFinding:
+    if errors:
+        return DoctorFinding("FAIL", "release surface: " + "; ".join(errors[:3]))
+    return DoctorFinding("PASS", "release surface")
 
 
 def _tracked_paths(repo: Path, paths: tuple[str, ...]) -> list[str]:

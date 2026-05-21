@@ -13,6 +13,19 @@ import datetime as dt
 from pathlib import Path
 from typing import Any
 
+ROOT_FOR_IMPORTS = Path(__file__).resolve().parents[1]
+SRC_FOR_IMPORTS = ROOT_FOR_IMPORTS / "src"
+if str(SRC_FOR_IMPORTS) not in sys.path:
+    sys.path.insert(0, str(SRC_FOR_IMPORTS))
+
+from ai_workroot.runtime.release_validation import (
+    GENERATED_STATE_PATH_PREFIXES,
+    GENERATED_SUFFIXES,
+    PRIVATE_PATTERNS,
+    is_git_ignored,
+    validate_release_surface,
+)
+
 
 PUBLIC_SEED_HISTORY = Path("docs/history/public-seed")
 CONTRACT_DIR = Path(".workroot/kernel/contracts")
@@ -204,24 +217,6 @@ SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
 UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 OFFSET_INSTANT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")
-PRIVATE_PATTERNS = [
-    re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['\"]?[^'\"\s]+"),
-]
-GENERATED_SUFFIXES = {
-    ".sqlite",
-    ".sqlite3",
-    ".db",
-    ".duckdb",
-    ".wal",
-}
-GENERATED_STATE_PATH_PREFIXES = {
-    ".ai-workroot-local/",
-    "cache/",
-    "context/debug/",
-    "global-cache/",
-    "logs/",
-}
 REQUIRED_0529_SPECS = [
     "001-project-structure-and-naming.spec.md",
     "002-clean-mode-installation.spec.md",
@@ -328,21 +323,6 @@ ARTIFACT_AUDIENCES = {"internal", "user", "public", "evidence"}
 
 def add_error(errors: list[str], message: str) -> None:
     errors.append(message)
-
-
-def is_git_ignored(root: Path, path: Path) -> bool:
-    try:
-        rel = path.relative_to(root).as_posix()
-    except ValueError:
-        return False
-    result = subprocess.run(
-        ["git", "check-ignore", "--quiet", "--", rel],
-        cwd=root,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    return result.returncode == 0
 
 
 def load_json(path: Path, errors: list[str]) -> dict[str, Any] | None:
@@ -835,41 +815,6 @@ def validate_context_budget(root: Path, errors: list[str]) -> None:
             total_chars += len(path.read_text(encoding="utf-8"))
     if total_chars > budget.get("max_startup_characters", 0):
         add_error(errors, "default read order exceeds max_startup_characters")
-
-
-def validate_release_surface(root: Path, errors: list[str]) -> None:
-    for path in root.rglob("*"):
-        if ".git" in path.parts:
-            continue
-        if is_git_ignored(root, path):
-            continue
-        if path.is_file() and path.suffix.lower() in GENERATED_SUFFIXES:
-            add_error(errors, f"generated store must not be committed for release: {path.relative_to(root).as_posix()}")
-        rel = path.relative_to(root).as_posix()
-        if path.is_file() and any(rel.startswith(prefix) for prefix in GENERATED_STATE_PATH_PREFIXES):
-            add_error(errors, f"generated managed state path must not be committed for release: {rel}")
-        if path.is_file() and rel.startswith(".workroot/runtime/cache/") and path.name != ".gitkeep":
-            add_error(errors, f"runtime cache file must not be present for release: {rel}")
-        if path.is_file() and rel.startswith(".workroot/runtime/logs/") and path.name != ".gitkeep":
-            add_error(errors, f"runtime log file must not be present for release: {rel}")
-        if path.name in {".DS_Store"} or ".idea" in path.parts or "__pycache__" in path.parts:
-            add_error(errors, f"local metadata must not be committed: {path.relative_to(root).as_posix()}")
-
-    text_exts = {".md", ".json", ".csv", ".py", ".yml", ".yaml", ".txt", ".sql"}
-    for path in root.rglob("*"):
-        if ".git" in path.parts or not path.is_file() or path.suffix.lower() not in text_exts:
-            continue
-        if is_git_ignored(root, path):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError as exc:
-            add_error(errors, f"text file must be UTF-8: {path.relative_to(root).as_posix()}: {exc}")
-            continue
-        for pattern in PRIVATE_PATTERNS:
-            if pattern.search(text):
-                add_error(errors, f"possible private residue in {path.relative_to(root).as_posix()}")
-                break
 
 
 def validate_0529_specs(root: Path, errors: list[str]) -> None:

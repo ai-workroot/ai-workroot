@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compatibility wrapper for the legacy public-seed SQLite rebuild tool.
+"""Compatibility wrapper for the Legacy public-seed SQLite rebuild tool.
 
 This script targets the legacy `space/ + .workroot/` public seed layout. It is
 not the Clean Mode SQLite path used by managed AI Workroot state.

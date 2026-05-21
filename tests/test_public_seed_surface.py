@@ -5,7 +5,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from scripts.validate_kernel import is_git_ignored
+from ai_workroot.runtime.release_validation import is_git_ignored
 
 
 ROOT = Path(__file__).resolve().parents[1]

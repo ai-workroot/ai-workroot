@@ -10,4 +10,3 @@ class Capability:
     capability_id: str
     name: str
     status: str = "reserved"
-

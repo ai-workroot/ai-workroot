@@ -17,4 +17,3 @@ __all__ = [
     "read_registry",
     "write_registry_atomic",
 ]
-

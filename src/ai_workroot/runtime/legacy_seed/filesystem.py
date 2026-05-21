@@ -19,4 +19,3 @@ __all__ = [
     "replace_in_file",
     "restore_tree_or_file",
 ]
-
