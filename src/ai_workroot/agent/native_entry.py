@@ -8,6 +8,8 @@ from pathlib import Path
 
 MANAGED_BLOCK_BEGIN = "<!-- AI_WORKROOT_BEGIN -->"
 MANAGED_BLOCK_END = "<!-- AI_WORKROOT_END -->"
+BEGIN = MANAGED_BLOCK_BEGIN
+END = MANAGED_BLOCK_END
 TEMPLATE_PACKAGE = "ai_workroot.resources.templates.native_agent_entry"
 
 
@@ -24,6 +26,14 @@ def render_native_agent_entry(agent: str) -> str:
     return rendered
 
 
+def codex_block() -> str:
+    return render_native_agent_entry("codex")
+
+
+def claude_block() -> str:
+    return render_native_agent_entry("claude")
+
+
 def sync_native_agent_entry(path: Path, agent: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     block = render_native_agent_entry(agent)
@@ -31,10 +41,39 @@ def sync_native_agent_entry(path: Path, agent: str) -> None:
     path.write_text(_replace_managed_block(existing, block), encoding="utf-8")
 
 
+def apply_managed_block(path: Path, block: str) -> None:
+    validate_entry_content(block)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    path.write_text(_replace_managed_block(existing, block), encoding="utf-8")
+
+
+def validate_entry_content(text: str) -> None:
+    if MANAGED_BLOCK_BEGIN in text or MANAGED_BLOCK_END in text:
+        validate_managed_blocks(text)
+        return
+    _validate_native_entry_text(text)
+
+
+def validate_managed_blocks(text: str) -> None:
+    position = 0
+    while MANAGED_BLOCK_BEGIN in text[position:]:
+        start = text.index(MANAGED_BLOCK_BEGIN, position)
+        if MANAGED_BLOCK_END not in text[start:]:
+            raise NativeAgentEntryError("existing Native Agent Entry has invalid AI Workroot managed block markers")
+        end = text.index(MANAGED_BLOCK_END, start) + len(MANAGED_BLOCK_END)
+        _validate_native_entry_text(text[start:end])
+        position = end
+
+
 def validate_managed_block(block: str) -> None:
     if block.count(MANAGED_BLOCK_BEGIN) != 1 or block.count(MANAGED_BLOCK_END) != 1:
         raise NativeAgentEntryError("Native Agent Entry must contain exactly one AI Workroot managed block")
     managed = _managed_block_body(block)
+    _validate_native_entry_text(managed)
+
+
+def _validate_native_entry_text(managed: str) -> None:
     forbidden_terms = (
         "AI_WORKROOT_HOME",
         "workroot_id",
