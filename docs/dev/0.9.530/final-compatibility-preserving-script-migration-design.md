@@ -158,8 +158,10 @@ Scripts re-export these names so old imports continue to work.
 
 Validation:
 
+Historical compatibility-stage validation:
+
 ```bash
-PYTHONPATH=src python3 -m unittest tests/test_registry_store.py tests/test_workroot_client.py -v
+PYTHONPATH=src python3 -m unittest <legacy-registry-tests> <legacy-client-tests> -v
 python3 -m py_compile $(find src scripts -name "*.py")
 ```
 
@@ -177,8 +179,10 @@ Wrapper tests must prove legacy import paths still expose the same public names.
 
 Validation:
 
+Historical compatibility-stage validation:
+
 ```bash
-PYTHONPATH=src python3 -m unittest tests/test_workroot_client.py tests/test_workroot_cli.py -v
+PYTHONPATH=src python3 -m unittest <legacy-client-tests> <legacy-cli-tests> -v
 python3 -m py_compile $(find src scripts -name "*.py")
 ```
 
@@ -218,8 +222,10 @@ Keep these rules:
 
 Validation:
 
+Historical compatibility-stage validation:
+
 ```bash
-PYTHONPATH=src python3 -m unittest tests/test_workroot_cli.py tests/test_workroot_cli_discovery.py tests/smoke/test_clean_package_cli.py -v
+PYTHONPATH=src python3 -m unittest <legacy-cli-tests> tests.smoke.test_cli_discovery tests.smoke.test_clean_package_cli -v
 python3 -m py_compile $(find src scripts -name "*.py")
 ```
 
@@ -232,7 +238,7 @@ Core keeps only stable extension/capability concepts. Legacy command recipes rem
 Validation:
 
 ```bash
-PYTHONPATH=src python3 -m unittest tests/test_workroot_cli_discovery.py tests/test_architecture_contracts.py tests.unit.test_core_models -v
+PYTHONPATH=src python3 -m unittest tests.smoke.test_cli_discovery tests.contracts.test_architecture_contracts tests.unit.test_core_models -v
 ```
 
 ### Phase 7: Move Package Release Validation Authority
@@ -241,10 +247,12 @@ Move release-surface logic that belongs to active package health checks into `ai
 
 Validation:
 
+Historical compatibility-stage validation:
+
 ```bash
 PYTHONPATH=src python3 -m ai_workroot doctor --release
 python3 scripts/compat/validate_kernel.py --release
-PYTHONPATH=src python3 -m unittest tests/test_0529_release_gates.py tests/test_public_seed_surface.py tests/smoke/test_clean_release_validator.py -v
+PYTHONPATH=src python3 -m unittest tests.contracts.test_release_gates tests.contracts.test_repository_surface tests.smoke.test_clean_release_validator -v
 ```
 
 ### Phase 8: Archive Original Script Snapshots

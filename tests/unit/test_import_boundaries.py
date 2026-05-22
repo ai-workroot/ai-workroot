@@ -28,6 +28,30 @@ class ImportBoundariesTest(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertTrue((SRC / "ai_workroot" / name / "__init__.py").is_file())
 
+    def test_tests_root_contains_no_loose_test_modules(self) -> None:
+        loose_tests = sorted(
+            path.relative_to(ROOT).as_posix()
+            for path in (ROOT / "tests").glob("test_*.py")
+        )
+
+        self.assertEqual(loose_tests, [])
+
+    def test_required_test_directories_exist(self) -> None:
+        required = [
+            "contracts",
+            "e2e",
+            "fixtures",
+            "integration",
+            "negative",
+            "smoke",
+            "support",
+            "unit",
+        ]
+
+        for name in required:
+            with self.subTest(name=name):
+                self.assertTrue((ROOT / "tests" / name).is_dir())
+
     def test_src_has_no_active_legacy_modules(self) -> None:
         legacy_paths = [
             path.relative_to(ROOT).as_posix()

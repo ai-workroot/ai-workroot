@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def iter_suite_ids(suite: unittest.TestSuite) -> list[str]:
@@ -24,7 +24,8 @@ def iter_suite_ids(suite: unittest.TestSuite) -> list[str]:
 
 class E2EOptInPolicyTest(unittest.TestCase):
     def test_default_unittest_discovery_does_not_include_e2e_cases(self) -> None:
-        suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"))
+        loader = unittest.TestLoader()
+        suite = loader.discover(str(ROOT / "tests"), top_level_dir=str(ROOT))
         e2e_ids = [test_id for test_id in iter_suite_ids(suite) if ".e2e." in test_id or test_id.startswith("e2e.")]
 
         self.assertEqual(e2e_ids, [])

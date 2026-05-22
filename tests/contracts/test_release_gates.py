@@ -12,7 +12,7 @@ from unittest.mock import patch
 from ai_workroot.runtime.release_validation import validate_release_surface
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PUBLIC_SEED = ROOT / "docs/history/public-seed"
 ARCHIVE = ROOT / "docs/history/public-seed/code-archive"
 

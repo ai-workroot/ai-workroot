@@ -16,7 +16,7 @@
 - `docs/history/public-seed/code-archive/`: non-runnable archive of removed legacy source.
 - `scripts/dev/validate-release.sh`: active release validation, no legacy validators.
 - `tests/unit/test_import_boundaries.py`: package import and source boundary checks.
-- `tests/test_public_seed_surface.py`: root/docs/scripts/archive surface checks.
+- `tests/contracts/test_repository_surface.py`: root/docs/scripts/archive surface checks.
 - `tests/smoke/test_clean_package_cli.py`: active package CLI smoke checks.
 - `tests/smoke/test_clean_release_validator.py`: release doctor and validate-release smoke checks.
 - `tests/integration/*`: active Clean Workroot integration checks.
@@ -47,8 +47,8 @@ Expected: all commands exit 0.
 
 **Files:**
 - Modify: `tests/unit/test_import_boundaries.py`
-- Modify: `tests/test_public_seed_surface.py`
-- Modify: `tests/test_workroot_cli_discovery.py`
+- Modify: `tests/contracts/test_repository_surface.py`
+- Modify: `tests/smoke/test_cli_discovery.py`
 - Modify: `tests/smoke/test_clean_release_validator.py`
 
 - [x] **Step 1: Replace compatibility-positive tests with removal tests**
@@ -57,7 +57,7 @@ Expected: all commands exit 0.
 Run:
 
 ```bash
-PYTHONPATH=src python3 -m unittest tests.unit.test_import_boundaries tests.test_workroot_cli_discovery -v
+PYTHONPATH=src python3 -m unittest tests.unit.test_import_boundaries tests.smoke.test_cli_discovery -v
 ```
 
 Expected before implementation: FAIL because legacy modules and CLI still exist.
@@ -66,7 +66,7 @@ Expected before implementation: FAIL because legacy modules and CLI still exist.
 
 **Files:**
 - Modify: `src/ai_workroot/cli/main.py`
-- Modify: `tests/test_workroot_cli_discovery.py`
+- Modify: `tests/smoke/test_cli_discovery.py`
 
 - [x] **Step 1: Delete hidden legacy parser and dispatcher**
 - [x] **Step 2: Verify CLI boundary**
@@ -74,7 +74,7 @@ Expected before implementation: FAIL because legacy modules and CLI still exist.
 Run:
 
 ```bash
-PYTHONPATH=src python3 -m unittest tests.test_workroot_cli_discovery -v
+PYTHONPATH=src python3 -m unittest tests.smoke.test_cli_discovery -v
 ```
 
 Expected: PASS.

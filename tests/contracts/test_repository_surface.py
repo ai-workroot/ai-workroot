@@ -8,7 +8,7 @@ from pathlib import Path
 from ai_workroot.runtime.release_validation import is_git_ignored
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PUBLIC_SEED = ROOT / "docs/history/public-seed"
 TEXT_SUFFIXES = {".md", ".json", ".csv", ".py", ".yml", ".yaml", ".txt", ".sql"}
 CURRENT_DOC_ROOTS = (
