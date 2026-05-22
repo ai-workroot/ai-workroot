@@ -162,7 +162,7 @@ tests/unit/test_runtime_doctor.py
 tests/unit/test_release_target_resolver.py
 tests/unit/test_runtime_relationships.py
 tests/smoke/test_clean_release_validator.py
-tests/contracts/test_repository_surface.py
+split repository/docs contract tests under tests/contracts/
 tests/contracts/test_e2e_opt_in_policy.py
 tests/e2e/runner.py
 tests/e2e/harness.py
@@ -347,7 +347,7 @@ Rollback is a normal Git revert before external users rely on the new columns. I
 
 T1: Release validation fast path
 - Change: Replace recursive release surface scanning with Git file list scanning.
-- Files likely affected: `src/ai_workroot/runtime/release_validation.py`, `tests/smoke/test_clean_release_validator.py`, `tests/contracts/test_release_gates.py`.
+- Files likely affected: `src/ai_workroot/runtime/release_validation.py`, `tests/smoke/test_clean_release_validator.py`, split release-gate contract tests under `tests/contracts/`.
 - Verification: release validation tests, `doctor --release`, `validate-release.sh`.
 
 T2: Direct ContextRecallHint release safety

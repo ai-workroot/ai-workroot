@@ -112,7 +112,7 @@ Likely changed files:
 
 ```text
 src/ai_workroot/runtime/context.py
-tests/integration/test_indexing_context_control.py
+split Context Control integration tests under tests/integration/
 tests/e2e/longrun.py
 docs/specs/010-context-control.spec.md
 ```
@@ -210,7 +210,7 @@ ContextTrace debug JSON includes mode plan, continuity source rows, selected/dro
 
 T1: Add active continuity inclusion tests
 - Change: Seed active task/checkpoint/handoff and assert rendered active context includes compact sections.
-- Files likely affected: `tests/integration/test_indexing_context_control.py`
+- Files likely affected: split Context Control integration tests under `tests/integration/`
 - Verification: Test fails before implementation.
 
 T2: Implement continuity loading and rendering
@@ -220,7 +220,7 @@ T2: Implement continuity loading and rendering
 
 T3: Add mode behavior tests
 - Change: Test fast/standard/quality/deep active path behavior.
-- Files likely affected: `tests/integration/test_indexing_context_control.py`
+- Files likely affected: split Context Control integration tests under `tests/integration/`
 - Verification: Tests fail before implementation.
 
 T4: Implement mode plans

@@ -225,7 +225,7 @@ Validation:
 Historical compatibility-stage validation:
 
 ```bash
-PYTHONPATH=src python3 -m unittest <legacy-cli-tests> tests.smoke.test_cli_discovery tests.smoke.test_clean_package_cli -v
+PYTHONPATH=src python3 -m unittest <legacy-cli-tests> tests.smoke.test_cli_discovery tests.smoke.test_clean_cli_workflow -v
 python3 -m py_compile $(find src scripts -name "*.py")
 ```
 
@@ -252,7 +252,7 @@ Historical compatibility-stage validation:
 ```bash
 PYTHONPATH=src python3 -m ai_workroot doctor --release
 python3 scripts/compat/validate_kernel.py --release
-PYTHONPATH=src python3 -m unittest tests.contracts.test_release_gates tests.contracts.test_repository_surface tests.smoke.test_clean_release_validator -v
+PYTHONPATH=src python3 -m unittest tests.contracts.test_release_gates tests.contracts.test_repository_root_contract tests.contracts.test_current_docs_contract tests.smoke.test_clean_release_validator -v
 ```
 
 ### Phase 8: Archive Original Script Snapshots

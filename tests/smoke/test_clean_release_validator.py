@@ -27,7 +27,9 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
         self.assertIn("AI Workroot release doctor: PASS", result.stdout)
         self.assertIn("import boundaries", result.stdout)
         self.assertIn("Native Agent Entry templates", result.stdout)
-        self.assertIn("Release Control protection", result.stdout)
+        self.assertIn("Release Control context protection", result.stdout)
+        self.assertIn("Release Control target protection", result.stdout)
+        self.assertIn("Release Control relationship protection", result.stdout)
         self.assertIn("Public Seed quarantine", result.stdout)
 
     def test_validate_release_script_runs_clean_release_validator(self) -> None:
@@ -61,7 +63,9 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
                 (repo / rel).mkdir(parents=True, exist_ok=True)
             for rel in (
                 "src/ai_workroot/agent/native_entry.py",
-                "tests/negative/test_release_control_protection.py",
+                "tests/negative/test_release_protection_context.py",
+                "tests/negative/test_release_protection_targets.py",
+                "tests/negative/test_release_protection_relationships.py",
                 "install/unix/install.sh",
             ):
                 (repo / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -100,7 +104,9 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
                 (repo / rel).mkdir(parents=True, exist_ok=True)
             for rel in (
                 "src/ai_workroot/agent/native_entry.py",
-                "tests/negative/test_release_control_protection.py",
+                "tests/negative/test_release_protection_context.py",
+                "tests/negative/test_release_protection_targets.py",
+                "tests/negative/test_release_protection_relationships.py",
                 "install/unix/install.sh",
                 "cache/generated.txt",
             ):

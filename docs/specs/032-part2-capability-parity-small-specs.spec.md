@@ -220,7 +220,7 @@ tests/unit/test_runtime_release.py
 tests/unit/test_runtime_relationships.py
 tests/unit/test_global_indexes.py
 tests/integration/test_environment_storage.py
-tests/integration/test_indexing_context_control.py
+split Context Control integration tests under tests/integration/
 ```
 
 No file in this Spec may create managed state inside the user-selected Workroot directory by default.
@@ -354,18 +354,18 @@ T2: ContextRecallHint schema and provider
 
 T3: ContextRecallHint materialization in Context Control
 - Change: Materialize relevant hints before candidate query/selection.
-- Files likely affected: `src/ai_workroot/runtime/context.py`, `tests/integration/test_indexing_context_control.py`.
-- Verification: `PYTHONPATH=src python3 -m unittest tests.integration.test_indexing_context_control.IndexingContextControlTest.test_context_recall_hint_affects_active_context_selection -v`.
+- Files likely affected: `src/ai_workroot/runtime/context.py`, split Context Control integration tests under `tests/integration/`.
+- Verification: `PYTHONPATH=src python3 -m unittest tests.integration.test_context_retrieval_selection.ContextRetrievalSelectionTest.test_context_recall_hint_affects_active_context_selection -v`.
 
 T4: Release-aware ContextRecallHint resolution
 - Change: Resolve hint candidates to hint and canonical targets; apply protective release state.
-- Files likely affected: `src/ai_workroot/indexing/providers/release_provider.py`, `tests/unit/test_release_target_resolver.py`, `tests/integration/test_indexing_context_control.py`.
-- Verification: `PYTHONPATH=src python3 -m unittest tests.unit.test_release_target_resolver tests.integration.test_indexing_context_control -v`.
+- Files likely affected: `src/ai_workroot/indexing/providers/release_provider.py`, `tests/unit/test_release_target_resolver.py`, split Context Control integration tests under `tests/integration/`.
+- Verification: `PYTHONPATH=src python3 -m unittest tests.unit.test_release_target_resolver tests.integration.test_context_retrieval_selection tests.integration.test_context_budget_trace tests.integration.test_context_release_filtering -v`.
 
 T5: Context trace parity for hint-derived candidates
 - Change: Record selected and dropped hint-derived candidate evidence.
-- Files likely affected: `src/ai_workroot/runtime/context.py`, `tests/integration/test_indexing_context_control.py`.
-- Verification: `PYTHONPATH=src python3 -m unittest tests.integration.test_indexing_context_control -v`.
+- Files likely affected: `src/ai_workroot/runtime/context.py`, split Context Control integration tests under `tests/integration/`.
+- Verification: `PYTHONPATH=src python3 -m unittest tests.integration.test_context_retrieval_selection tests.integration.test_context_budget_trace tests.integration.test_context_release_filtering -v`.
 
 T6: Minimal active Work runtime
 - Change: Add package-owned helpers for tasks, agent runs, work actions, checkpoints, handoffs, and invalidations.

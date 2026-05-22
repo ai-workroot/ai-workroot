@@ -143,8 +143,8 @@ src/ai_workroot/indexing/providers/context_recall_hint_provider.py
 src/ai_workroot/indexing/providers/release_provider.py
 src/ai_workroot/storage/sqlite.py
 src/ai_workroot/runtime/doctor.py
-tests/negative/test_release_control_protection.py
-tests/integration/test_indexing_context_control.py
+tests/negative/test_release_protection_context.py, tests/negative/test_release_protection_targets.py, tests/negative/test_release_protection_relationships.py
+split Context Control integration tests under tests/integration/
 tests/unit/test_runtime_release.py
 tests/unit/test_context_recall_hints.py
 ```
@@ -261,7 +261,7 @@ Existing rows are sanitized only when strict release records are created or when
 
 T1: Add fallback disabled regression test
 - Change: Add a negative/integration test that creates a deleted candidate and a same-named user file, then verifies fallback does not expose it.
-- Files likely affected: `tests/integration/test_indexing_context_control.py`
+- Files likely affected: split Context Control integration tests under `tests/integration/`
 - Verification: Targeted unittest fails before implementation.
 
 T2: Implement protected-drop fallback gating

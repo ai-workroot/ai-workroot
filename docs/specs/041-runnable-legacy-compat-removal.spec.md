@@ -299,7 +299,7 @@ T1: Add legacy removal design and Spec
 
 T2: Add failing boundary tests
 - Change: Replace compatibility-preserving tests with legacy-removal boundary tests.
-- Files likely affected: `tests/unit/test_import_boundaries.py`, `tests/contracts/test_repository_surface.py`, `tests/smoke/test_cli_discovery.py`.
+- Files likely affected: `tests/unit/test_import_boundaries.py`, split repository/docs contract tests under `tests/contracts/`, `tests/smoke/test_cli_discovery.py`.
 - Verification: New tests fail against current runnable legacy code.
 
 T3: Remove active CLI legacy dispatch

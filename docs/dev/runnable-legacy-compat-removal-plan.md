@@ -16,8 +16,8 @@
 - `docs/history/public-seed/code-archive/`: non-runnable archive of removed legacy source.
 - `scripts/dev/validate-release.sh`: active release validation, no legacy validators.
 - `tests/unit/test_import_boundaries.py`: package import and source boundary checks.
-- `tests/contracts/test_repository_surface.py`: root/docs/scripts/archive surface checks.
-- `tests/smoke/test_clean_package_cli.py`: active package CLI smoke checks.
+- `tests/contracts/test_repository_root_contract.py`, `tests/contracts/test_current_docs_contract.py`: root/docs/scripts/archive surface checks.
+- `tests/smoke/test_clean_cli_workflow.py` and related CLI smoke tests: active package CLI smoke checks.
 - `tests/smoke/test_clean_release_validator.py`: release doctor and validate-release smoke checks.
 - `tests/integration/*`: active Clean Workroot integration checks.
 - Active docs: explain that runnable legacy compatibility is removed.
@@ -47,7 +47,7 @@ Expected: all commands exit 0.
 
 **Files:**
 - Modify: `tests/unit/test_import_boundaries.py`
-- Modify: `tests/contracts/test_repository_surface.py`
+- Modify: `tests/contracts/test_repository_root_contract.py`, `tests/contracts/test_current_docs_contract.py`
 - Modify: `tests/smoke/test_cli_discovery.py`
 - Modify: `tests/smoke/test_clean_release_validator.py`
 
