@@ -17,7 +17,8 @@ P1
 - Keep `config.json` small, readable, and stable.
 - Preserve user-defined custom fields when updating config.
 - Record registered and active Workroot counts.
-- Record last registry update and last doctor run timestamps with second precision.
+- Record last registry update and last doctor run UTC timestamps with second precision.
+- Record a default display time zone for user-visible generated files and logs.
 - Reserve maintenance fields for future upgrade locks.
 - Provide global Context Control defaults for token budgets and diagnostic logging.
 
@@ -68,13 +69,17 @@ FR-005: Workroot registration must refresh summary counts.
 
 FR-006: Doctor must record last doctor status and timestamp.
 
-FR-007: Timestamps must use UTC ISO-8601 with second precision.
+FR-007: Canonical timestamps in `config.json` must use UTC ISO-8601 with second precision. User-visible local timestamps must be rendered at output/log boundaries from the configured time zone.
 
 FR-008: `config.json` must include global Context Control defaults for `defaultTargetTokens` and `defaultHardTokenLimit`.
 
 FR-009: Context diagnostic logging must be disabled by default and must not include rendered Context Packages unless explicitly enabled.
 
 FR-010: Context diagnostic logs must be written under the per-Workroot managed state directory, not inside the user-selected directory.
+
+FR-011: `config.json` must include `time.timezone` and `time.locale`.
+
+FR-012: New environments must default `time.timezone` from `AI_WORKROOT_TIMEZONE` when set, otherwise from the operating system time zone, otherwise UTC.
 
 ### Non-functional Requirements
 
@@ -106,14 +111,9 @@ NFR-004: Context diagnostic logging must be bounded by retention settings so it 
   "mode": "clean",
   "createdAt": "2026-05-21T00:00:00Z",
   "updatedAt": "2026-05-21T00:00:00Z",
-  "summary": {
-    "registeredWorkrootCount": 1,
-    "activeWorkrootCount": 1,
-    "lastRegistryUpdatedAt": "2026-05-21T00:00:00Z",
-    "lastDoctorStatus": "PASS",
-    "lastDoctorRunAt": "2026-05-21T00:00:00Z",
-    "lastMigrationId": null,
-    "lastMigrationAt": null
+  "time": {
+    "timezone": "Asia/Shanghai",
+    "locale": "zh-CN"
   },
   "maintenance": {
     "status": "idle",
@@ -124,6 +124,15 @@ NFR-004: Context diagnostic logging must be bounded by retention settings so it 
     "message": null,
     "blocksWrites": true,
     "blocksContextGeneration": false
+  },
+  "summary": {
+    "registeredWorkrootCount": 1,
+    "activeWorkrootCount": 1,
+    "lastRegistryUpdatedAt": "2026-05-21T00:00:00Z",
+    "lastDoctorStatus": "PASS",
+    "lastDoctorRunAt": "2026-05-21T00:00:00Z",
+    "lastMigrationId": null,
+    "lastMigrationAt": null
   },
   "contextControl": {
     "defaultTargetTokens": 1200,
@@ -160,6 +169,8 @@ No user-facing CLI is added in this spec. Runtime APIs:
 
 Environment initialization creates or merges config. Registration refreshes counts. Doctor records health summary.
 
+The environment time zone is captured once in `config.json` unless the user changes it. Canonical managed config timestamps remain UTC-only. User-visible generated timestamps are rendered from UTC at output boundaries using the configured time zone and locale.
+
 Context generation reads global Context Control defaults. When diagnostic logging is enabled, each context request writes a JSONL diagnostic record to:
 
 ```text
@@ -167,6 +178,8 @@ AI_WORKROOT_HOME/workroots/<workroot_id>/logs/context-requests.jsonl
 ```
 
 The record may include budget source, token estimate, selected candidate IDs, release drops, fallback behavior, mode plan, and trim steps. The full rendered Context Package is included only when `includeRenderedPackage` is explicitly true.
+
+Diagnostic logs are observability artifacts rather than canonical state. For human analysis they include `displayTime` rendered with `time.timezone`, and they include `createdAt` for sorting, pruning, and cross-time-zone debugging.
 
 ### Error Handling
 
@@ -189,7 +202,7 @@ Existing configs without `contextControl` receive default values on the next env
 AC-001:
 Given an empty AI_WORKROOT_HOME
 When a Workroot is initialized
-Then config includes environment identity, UTC timestamps, summary counts, and maintenance status.
+Then config includes environment identity, UTC canonical timestamps, time zone config, summary counts, and maintenance status.
 
 AC-002:
 Given custom config keys
@@ -215,6 +228,11 @@ AC-006:
 Given context diagnostic logging is enabled without rendered package logging
 When context generation runs
 Then a summary record is written under managed state logs and no logs directory is created in the user-selected directory.
+
+AC-007:
+Given `AI_WORKROOT_TIMEZONE=Asia/Shanghai`
+When a Workroot is initialized
+Then `config.json` contains `time.timezone=Asia/Shanghai`, canonical timestamps end with `Z`, and no local top-level time fields are written.
 
 ## Test Plan
 

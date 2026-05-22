@@ -10,6 +10,10 @@ from ai_workroot.storage.jsonl_registry import read_jsonl
 from ai_workroot.storage.sqlite import initialize_workroot_sqlite
 
 
+def _legacy_snake_time_key(prefix: str) -> str:
+    return f"{prefix}_at"
+
+
 class EnvironmentStorageTest(unittest.TestCase):
     def test_initialize_environment_creates_clean_global_layout_without_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -106,9 +110,10 @@ class EnvironmentStorageTest(unittest.TestCase):
                 indexed_file_columns = {
                     row[1] for row in connection.execute("PRAGMA table_info(indexed_files)").fetchall()
                 }
-                migrations = {
-                    row[0] for row in connection.execute("SELECT migration_id FROM schema_migrations").fetchall()
-                }
+                migration_rows = connection.execute(
+                    "SELECT migration_id, appliedAt FROM schema_migrations"
+                ).fetchall()
+                migrations = {row[0] for row in migration_rows}
 
             for index_name in (
                 "idx_release_records_workroot_target",
@@ -127,6 +132,8 @@ class EnvironmentStorageTest(unittest.TestCase):
             self.assertIn("source_id", indexed_file_columns)
             self.assertIn("002-release-target-resolution-indexes", migrations)
             self.assertIn("003-context-recall-hints", migrations)
+            for _migration_id, appliedAt in migration_rows:
+                self.assertRegex(appliedAt, r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
     def test_initialize_workroot_sqlite_creates_active_work_runtime_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -139,6 +146,9 @@ class EnvironmentStorageTest(unittest.TestCase):
                 run_columns = {row[1] for row in connection.execute("PRAGMA table_info(agent_runs)").fetchall()}
                 action_columns = {row[1] for row in connection.execute("PRAGMA table_info(work_actions)").fetchall()}
                 asset_columns = {row[1] for row in connection.execute("PRAGMA table_info(assets)").fetchall()}
+                publication_columns = {
+                    row[1] for row in connection.execute("PRAGMA table_info(asset_publications)").fetchall()
+                }
                 migrations = {
                     row[0] for row in connection.execute("SELECT migration_id FROM schema_migrations").fetchall()
                 }
@@ -148,6 +158,9 @@ class EnvironmentStorageTest(unittest.TestCase):
             self.assertIn("validity", run_columns)
             self.assertIn("risk_level", action_columns)
             self.assertIn("surface_id", asset_columns)
+            self.assertIn("updatedAt", asset_columns)
+            self.assertNotIn(_legacy_snake_time_key("updated"), asset_columns)
+            self.assertIn("publishedAt", publication_columns)
             self.assertIn("004-active-work-runtime-fields", migrations)
             self.assertIn("005-active-asset-runtime-fields", migrations)
 
@@ -175,16 +188,46 @@ class EnvironmentStorageTest(unittest.TestCase):
                 "subject_type",
                 "subject_id",
                 "event_type",
-                "occurred_at",
-                "time_range_start",
-                "time_range_end",
+                "occurredAt",
+                "timezoneId",
+                "localDate",
+                "timeRangeStart",
+                "timeRangeEnd",
                 "source_ref",
-                "created_at",
+                "createdAt",
             ):
                 with self.subTest(column=column):
                     self.assertIn(column, time_columns)
             self.assertIn("idx_time_events_workroot_subject", indexes)
             self.assertIn("006-time-events", migrations)
+
+    def test_initialize_workroot_sqlite_uses_canonical_utc_context_columns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "workroot.sqlite"
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                migration_columns = {
+                    row[1] for row in connection.execute("PRAGMA table_info(schema_migrations)").fetchall()
+                }
+                candidate_columns = {
+                    row[1] for row in connection.execute("PRAGMA table_info(context_candidates)").fetchall()
+                }
+                hint_columns = {
+                    row[1] for row in connection.execute("PRAGMA table_info(context_recall_hints)").fetchall()
+                }
+
+            self.assertIn("appliedAt", migration_columns)
+            self.assertNotIn(_legacy_snake_time_key("applied"), migration_columns)
+            self.assertIn("updatedAt", candidate_columns)
+            self.assertIn("lastUsedAt", candidate_columns)
+            self.assertNotIn(_legacy_snake_time_key("updated"), candidate_columns)
+            self.assertNotIn(_legacy_snake_time_key("last_used"), candidate_columns)
+            self.assertIn("createdAt", hint_columns)
+            self.assertIn("updatedAt", hint_columns)
+            self.assertNotIn(_legacy_snake_time_key("created"), hint_columns)
+            self.assertNotIn(_legacy_snake_time_key("updated"), hint_columns)
 
     def test_initialize_workroot_sqlite_migrates_old_indexed_files_without_source_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

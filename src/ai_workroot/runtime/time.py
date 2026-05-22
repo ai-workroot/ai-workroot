@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import sqlite3
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 @dataclass(frozen=True)
@@ -14,6 +16,8 @@ class TimeEvent:
     subject_id: str
     event_type: str
     occurred_at: str
+    timezone_id: str = "UTC"
+    local_date: str = ""
     time_range_start: str = ""
     time_range_end: str = ""
     source_ref: str = ""
@@ -29,6 +33,8 @@ def record_time_event(
     subject_id: str,
     event_type: str,
     occurred_at: str,
+    timezone_id: str = "UTC",
+    local_date: str = "",
     time_range_start: str = "",
     time_range_end: str = "",
     source_ref: str = "",
@@ -44,6 +50,8 @@ def record_time_event(
     }.items():
         if not value:
             raise ValueError(f"{name} is required")
+    timezone_id = _valid_timezone_or_utc(timezone_id)
+    local_date = local_date or _local_date_for(occurred_at, timezone_id)
 
     event = TimeEvent(
         event_id=event_id,
@@ -52,6 +60,8 @@ def record_time_event(
         subject_id=subject_id,
         event_type=event_type,
         occurred_at=occurred_at,
+        timezone_id=timezone_id,
+        local_date=local_date,
         time_range_start=time_range_start,
         time_range_end=time_range_end,
         source_ref=source_ref,
@@ -61,19 +71,22 @@ def record_time_event(
         """
         INSERT INTO time_events (
           event_id, workroot_id, subject_type, subject_id, event_type,
-          occurred_at, time_range_start, time_range_end, source_ref, created_at
+          occurredAt, timezoneId, localDate, timeRangeStart,
+          timeRangeEnd, source_ref, createdAt
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(event_id) DO UPDATE SET
           workroot_id=excluded.workroot_id,
           subject_type=excluded.subject_type,
           subject_id=excluded.subject_id,
           event_type=excluded.event_type,
-          occurred_at=excluded.occurred_at,
-          time_range_start=excluded.time_range_start,
-          time_range_end=excluded.time_range_end,
+          occurredAt=excluded.occurredAt,
+          timezoneId=excluded.timezoneId,
+          localDate=excluded.localDate,
+          timeRangeStart=excluded.timeRangeStart,
+          timeRangeEnd=excluded.timeRangeEnd,
           source_ref=excluded.source_ref,
-          created_at=excluded.created_at
+          createdAt=excluded.createdAt
         """,
         (
             event.event_id,
@@ -82,6 +95,8 @@ def record_time_event(
             event.subject_id,
             event.event_type,
             event.occurred_at,
+            event.timezone_id,
+            event.local_date,
             event.time_range_start,
             event.time_range_end,
             event.source_ref,
@@ -116,10 +131,11 @@ def query_time_events(
     rows = conn.execute(
         f"""
         SELECT event_id, workroot_id, subject_type, subject_id, event_type,
-               occurred_at, time_range_start, time_range_end, source_ref, created_at
+               occurredAt, timezoneId, localDate, timeRangeStart,
+               timeRangeEnd, source_ref, createdAt
         FROM time_events
         WHERE {" AND ".join(where)}
-        ORDER BY occurred_at ASC, event_id ASC
+        ORDER BY occurredAt ASC, event_id ASC
         LIMIT ?
         """,
         params,
@@ -134,11 +150,13 @@ def _time_event_from_row(row: sqlite3.Row | tuple[object, ...]) -> TimeEvent:
         subject_type=str(row[_column(row, "subject_type", 2)]),
         subject_id=str(row[_column(row, "subject_id", 3)]),
         event_type=str(row[_column(row, "event_type", 4)]),
-        occurred_at=str(row[_column(row, "occurred_at", 5)]),
-        time_range_start=str(row[_column(row, "time_range_start", 6)] or ""),
-        time_range_end=str(row[_column(row, "time_range_end", 7)] or ""),
-        source_ref=str(row[_column(row, "source_ref", 8)] or ""),
-        created_at=str(row[_column(row, "created_at", 9)] or ""),
+        occurred_at=str(row[_column(row, "occurredAt", 5)]),
+        timezone_id=str(row[_column(row, "timezoneId", 6)] or "UTC"),
+        local_date=str(row[_column(row, "localDate", 7)] or ""),
+        time_range_start=str(row[_column(row, "timeRangeStart", 8)] or ""),
+        time_range_end=str(row[_column(row, "timeRangeEnd", 9)] or ""),
+        source_ref=str(row[_column(row, "source_ref", 10)] or ""),
+        created_at=str(row[_column(row, "createdAt", 11)] or ""),
     )
 
 
@@ -146,3 +164,19 @@ def _column(row: sqlite3.Row | tuple[object, ...], name: str, index: int) -> str
     if isinstance(row, sqlite3.Row):
         return name
     return index
+
+
+def _local_date_for(utc_value: str, timezone_id: str) -> str:
+    normalized = utc_value[:-1] + "+00:00" if utc_value.endswith("Z") else utc_value
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(ZoneInfo(timezone_id)).date().isoformat()
+
+
+def _valid_timezone_or_utc(value: str) -> str:
+    try:
+        ZoneInfo(value)
+    except ZoneInfoNotFoundError:
+        return "UTC"
+    return value

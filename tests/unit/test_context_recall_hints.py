@@ -70,6 +70,11 @@ class ContextRecallHintsTest(unittest.TestCase):
         )
         self.assertEqual(fts_row[0], "hint-clean-mode")
 
+    def test_context_recall_hint_is_core_retrieval_model(self) -> None:
+        from ai_workroot.core.retrieval import ContextRecallHint as CoreContextRecallHint
+
+        self.assertIs(ContextRecallHint, CoreContextRecallHint)
+
     def test_query_context_recall_hints_filters_workroot_and_lifecycle(self) -> None:
         conn = self.open_db()
         upsert_context_recall_hint(

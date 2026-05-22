@@ -112,11 +112,13 @@ CREATE TABLE IF NOT EXISTS time_events (
   subject_type TEXT NOT NULL,
   subject_id TEXT NOT NULL,
   event_type TEXT NOT NULL,
-  occurred_at TEXT NOT NULL,
-  time_range_start TEXT,
-  time_range_end TEXT,
+  occurredAt TEXT NOT NULL,
+  timezoneId TEXT,
+  localDate TEXT,
+  timeRangeStart TEXT,
+  timeRangeEnd TEXT,
   source_ref TEXT,
-  created_at TEXT
+  createdAt TEXT
 );
 ```
 

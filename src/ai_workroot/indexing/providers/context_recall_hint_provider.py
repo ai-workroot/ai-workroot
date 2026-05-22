@@ -7,32 +7,12 @@ Asset, Task, WorkAction, Handoff, or other canonical object.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import sqlite3
 
+from ai_workroot.core.retrieval import ContextRecallHint
 from ai_workroot.core.release import ReleaseTargetRef
 from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
 from ai_workroot.indexing.providers.release_provider import evaluate_release_targets
-
-
-@dataclass(frozen=True)
-class ContextRecallHint:
-    hint_id: str
-    workroot_id: str
-    target_type: str
-    target_id: str
-    title: str
-    summary: str = ""
-    scope_type: str = ""
-    scope_id: str = ""
-    kind: str = "context-card"
-    priority: str = "normal"
-    recall_rule: str = "task-related"
-    lifecycle_status: str = "active"
-    origin: str = "manual"
-    source_ref: str = ""
-    created_at: str = ""
-    updated_at: str = ""
 
 
 def upsert_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecallHint) -> None:
@@ -41,7 +21,7 @@ def upsert_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecallHint
         INSERT INTO context_recall_hints (
           hint_id, workroot_id, target_type, target_id, scope_type, scope_id,
           kind, title, summary, priority, recall_rule, lifecycle_status,
-          origin, source_ref, created_at, updated_at
+          origin, source_ref, createdAt, updatedAt
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(hint_id) DO UPDATE SET
@@ -58,7 +38,7 @@ def upsert_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecallHint
           lifecycle_status=excluded.lifecycle_status,
           origin=excluded.origin,
           source_ref=excluded.source_ref,
-          updated_at=excluded.updated_at
+          updatedAt=excluded.updatedAt
         """,
         (
             hint.hint_id,
@@ -157,7 +137,7 @@ def materialize_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecal
             "context_policy": hint.recall_rule or "task-related",
             "safety_policy": "",
             "token_estimate": 0,
-            "updated_at": hint.updated_at,
+            "updatedAt": hint.updated_at,
         },
     )
     return candidate_id
@@ -206,8 +186,8 @@ def _hint_from_row(row: sqlite3.Row | tuple[object, ...]) -> ContextRecallHint:
         lifecycle_status=str(row[_column(row, "lifecycle_status", 11)] or "active"),
         origin=str(row[_column(row, "origin", 12)] or "manual"),
         source_ref=str(row[_column(row, "source_ref", 13)] or ""),
-        created_at=str(row[_column(row, "created_at", 14)] or ""),
-        updated_at=str(row[_column(row, "updated_at", 15)] or ""),
+        created_at=str(row[_column(row, "createdAt", 14)] or ""),
+        updated_at=str(row[_column(row, "updatedAt", 15)] or ""),
     )
 
 

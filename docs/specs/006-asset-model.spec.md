@@ -52,11 +52,11 @@ current_path
 original_path
 content_hash
 size_bytes
-modified_at
-last_seen_at
-missing_since
-created_at
-updated_at
+modifiedAt
+lastSeenAt
+missingSince
+createdAt
+updatedAt
 ```
 
 ## Lifecycle statuses
@@ -98,7 +98,7 @@ allowed_asset_types
 git_policy
 is_local_only
 created_by
-created_at
+createdAt
 ```
 
 ## AssetPublication
@@ -114,7 +114,7 @@ workroot_id
 surface_id
 target_path
 publication_status
-published_at
+publishedAt
 published_by
 source_task_id
 reason

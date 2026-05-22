@@ -156,8 +156,8 @@ CREATE TABLE IF NOT EXISTS context_recall_hints (
   lifecycle_status TEXT,
   origin TEXT,
   source_ref TEXT,
-  created_at TEXT,
-  updated_at TEXT
+  createdAt TEXT,
+  updatedAt TEXT
 );
 ```
 
@@ -174,8 +174,8 @@ ON context_recall_hints(workroot_id, target_type, target_id);
 Record migration marker:
 
 ```sql
-INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
-VALUES ('003-context-recall-hints', datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('003-context-recall-hints', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 ```
 
 Materialized candidates use:

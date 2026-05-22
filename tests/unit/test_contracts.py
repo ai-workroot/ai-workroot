@@ -43,6 +43,7 @@ class ContractsTest(unittest.TestCase):
         event = EventRecord(event_type="created", payload={"id": "wr_demo"})
 
         self.assertEqual(file_info.path, "README.md")
+        self.assertEqual(file_info.modified_at, "2026-05-20T00:00:00Z")
         self.assertFalse(git_status.is_dirty)
         self.assertEqual(event.payload["id"], "wr_demo")
 

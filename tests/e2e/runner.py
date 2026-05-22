@@ -14,6 +14,7 @@ SUITES = {
     "safety": "tests.e2e.safety_cases",
     "persona-smoke": "tests.e2e.persona_smoke_cases",
     "longrun": "tests.e2e.longrun_cases",
+    "live-agent": "tests.e2e.live_agent_cases",
 }
 
 
@@ -44,6 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     selected = args.suite or []
     if not selected:
         parser.error("choose at least one --suite or use --list")
+    if "live-agent" in selected and os.environ.get("AI_WORKROOT_E2E_ALLOW_REMOTE_LLM") != "1":
+        print("Live-agent E2E requires AI_WORKROOT_E2E_ALLOW_REMOTE_LLM=1.", file=__import__("sys").stderr)
+        return 2
 
     if args.dry_run:
         print("Selected E2E suites:")

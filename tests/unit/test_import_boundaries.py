@@ -177,6 +177,150 @@ class ImportBoundariesTest(unittest.TestCase):
 
         self.assertEqual(violations, [])
 
+    def test_environment_config_uses_simple_canonical_time_field_names(self) -> None:
+        environment_path = SRC / "ai_workroot" / "runtime" / "environment.py"
+        tree = ast.parse(environment_path.read_text(encoding="utf-8"), filename=str(environment_path))
+        forbidden = {
+            "createdAtUtc",
+            "updatedAtUtc",
+            "lastRegistryUpdatedAtUtc",
+            "lastDoctorRunAtUtc",
+            "lastMigrationAtUtc",
+            "startedAtUtc",
+            "completedAtUtc",
+            "createdAtLocal",
+            "updatedAtLocal",
+        }
+        violations: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Dict):
+                for key in node.keys:
+                    if isinstance(key, ast.Constant) and key.value in forbidden:
+                        violations.append(f"{environment_path.relative_to(ROOT)}:{key.lineno}:{key.value}")
+
+        self.assertEqual(violations, [])
+
+    def test_active_python_source_does_not_use_verbose_utc_time_field_names(self) -> None:
+        forbidden = (
+            "createdAtUtc",
+            "updatedAtUtc",
+            "occurredAtUtc",
+            "lastRegistryUpdatedAtUtc",
+            "lastDoctorRunAtUtc",
+            "lastMigrationAtUtc",
+            "startedAtUtc",
+            "completedAtUtc",
+            "lastUsedAtUtc",
+            "modifiedAtUtc",
+            "observedAtUtc",
+            "appliedAtUtc",
+            "publishedAtUtc",
+            "created_at_utc",
+            "updated_at_utc",
+            "occurred_at_utc",
+            "last_registry_updated_at_utc",
+            "last_doctor_run_at_utc",
+            "last_migration_at_utc",
+            "started_at_utc",
+            "completed_at_utc",
+            "last_used_at_utc",
+            "modified_at_utc",
+            "observed_at_utc",
+            "applied_at_utc",
+            "published_at_utc",
+            "localCreatedAt",
+            "localUpdatedAt",
+            "createdAtLocal",
+            "updatedAtLocal",
+        )
+        violations: list[str] = []
+        for path in (SRC / "ai_workroot").rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                for term in forbidden:
+                    index = line.find(term)
+                    while index >= 0:
+                        violations.append(f"{path.relative_to(ROOT)}:{lineno}:{term}:{line.strip()}")
+                        index = line.find(term, index + 1)
+
+        self.assertEqual(violations, [])
+
+    def test_active_docs_do_not_describe_verbose_utc_time_field_names_as_current_contract(self) -> None:
+        forbidden = (
+            "createdAtUtc",
+            "updatedAtUtc",
+            "occurredAtUtc",
+            "lastRegistryUpdatedAtUtc",
+            "lastDoctorRunAtUtc",
+            "lastMigrationAtUtc",
+            "startedAtUtc",
+            "completedAtUtc",
+            "lastUsedAtUtc",
+            "modifiedAtUtc",
+            "observedAtUtc",
+            "appliedAtUtc",
+            "publishedAtUtc",
+            "created_at_utc",
+            "updated_at_utc",
+            "occurred_at_utc",
+            "last_registry_updated_at_utc",
+            "last_doctor_run_at_utc",
+            "last_migration_at_utc",
+            "started_at_utc",
+            "completed_at_utc",
+            "last_used_at_utc",
+            "modified_at_utc",
+            "observed_at_utc",
+            "applied_at_utc",
+            "published_at_utc",
+            "localCreatedAt",
+            "localUpdatedAt",
+            "createdAtLocal",
+            "updatedAtLocal",
+        )
+        doc_roots = [ROOT / "docs/specs", ROOT / "docs/dev"]
+        ignored_parts = {"history", "e2e-incidents"}
+        violations: list[str] = []
+        for root in doc_roots:
+            for path in root.rglob("*.md"):
+                relative_parts = set(path.relative_to(ROOT).parts)
+                if relative_parts & ignored_parts:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                for lineno, line in enumerate(text.splitlines(), start=1):
+                    for term in forbidden:
+                        index = line.find(term)
+                        while index >= 0:
+                            violations.append(f"{path.relative_to(ROOT)}:{lineno}:{term}:{line.strip()}")
+                            index = line.find(term, index + 1)
+
+        self.assertEqual(violations, [])
+
+    def test_runtime_state_does_not_contain_old_compatibility_layout(self) -> None:
+        state_path = SRC / "ai_workroot" / "runtime" / "state.py"
+        text = state_path.read_text(encoding="utf-8")
+        forbidden = (
+            "contextGuide",
+            "knowledge/facts",
+            "knowledge/inbox",
+            "graph/exports",
+            "graph/backups",
+            "user/profile.md",
+            "initialize_workroot_state_unlocked",
+        )
+        violations = [term for term in forbidden if term in text]
+
+        self.assertEqual(violations, [])
+
+    def test_active_source_does_not_use_sqlite_datetime_now_for_canonical_writes(self) -> None:
+        violations: list[str] = []
+        for path in (SRC / "ai_workroot").rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            if "datetime('now')" in text:
+                violations.append(path.relative_to(ROOT).as_posix())
+
+        self.assertEqual(violations, [])
+
 
 if __name__ == "__main__":
     sys.path.insert(0, str(SRC))
@@ -203,3 +347,15 @@ def _string_constants(node: ast.AST) -> Iterable[str]:
     for child in ast.walk(node):
         if isinstance(child, ast.Constant) and isinstance(child.value, str):
             yield child.value
+
+
+def _legacy_camel_time_key(prefix: str) -> str:
+    return f"{prefix}At"
+
+
+def _legacy_snake_time_key(prefix: str) -> str:
+    return f"{prefix}_at"
+
+
+def _quoted_ambiguous_timestamp(quote: str) -> str:
+    return f"{quote}time" + f"stamp{quote}"

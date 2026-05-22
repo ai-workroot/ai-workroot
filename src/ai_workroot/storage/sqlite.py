@@ -59,7 +59,7 @@ REQUIRED_TABLES = (
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
   migration_id TEXT PRIMARY KEY,
-  applied_at TEXT
+  appliedAt TEXT
 );
 
 CREATE TABLE IF NOT EXISTS workroots (
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS assets (
   surface_id TEXT,
   current_path TEXT,
   content_hash TEXT,
-  updated_at TEXT
+  updatedAt TEXT
 );
 
 CREATE TABLE IF NOT EXISTS asset_surfaces (
@@ -113,14 +113,15 @@ CREATE TABLE IF NOT EXISTS asset_publications (
   workroot_id TEXT NOT NULL,
   surface_id TEXT NOT NULL,
   target_path TEXT NOT NULL,
-  publication_status TEXT
+  publication_status TEXT,
+  publishedAt TEXT
 );
 
 CREATE TABLE IF NOT EXISTS asset_path_history (
   history_id TEXT PRIMARY KEY,
   asset_id TEXT NOT NULL,
   path TEXT NOT NULL,
-  observed_at TEXT
+  observedAt TEXT
 );
 
 CREATE TABLE IF NOT EXISTS asset_provenance (
@@ -224,8 +225,8 @@ CREATE TABLE IF NOT EXISTS context_recall_hints (
   lifecycle_status TEXT,
   origin TEXT,
   source_ref TEXT,
-  created_at TEXT,
-  updated_at TEXT
+  createdAt TEXT,
+  updatedAt TEXT
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS context_recall_hints_fts USING fts5(hint_id, title, summary);
@@ -249,11 +250,13 @@ CREATE TABLE IF NOT EXISTS time_events (
   subject_type TEXT NOT NULL,
   subject_id TEXT NOT NULL,
   event_type TEXT NOT NULL,
-  occurred_at TEXT NOT NULL,
-  time_range_start TEXT,
-  time_range_end TEXT,
+  occurredAt TEXT NOT NULL,
+  timezoneId TEXT,
+  localDate TEXT,
+  timeRangeStart TEXT,
+  timeRangeEnd TEXT,
   source_ref TEXT,
-  created_at TEXT
+  createdAt TEXT
 );
 
 CREATE TABLE IF NOT EXISTS work_events (
@@ -351,8 +354,8 @@ CREATE TABLE IF NOT EXISTS context_candidates (
   context_policy TEXT,
   safety_policy TEXT,
   token_estimate INTEGER,
-  updated_at TEXT,
-  last_used_at TEXT,
+  updatedAt TEXT,
+  lastUsedAt TEXT,
   use_count INTEGER DEFAULT 0
 );
 
@@ -413,8 +416,8 @@ CREATE TABLE IF NOT EXISTS maintenance_actions (
   status TEXT
 );
 
-INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
-VALUES ('001-clean-workroot-schema', datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('001-clean-workroot-schema', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 
 CREATE INDEX IF NOT EXISTS idx_release_records_workroot_target
   ON release_records(workroot_id, target_type, target_id);
@@ -437,25 +440,25 @@ CREATE INDEX IF NOT EXISTS idx_relationship_nodes_workroot_target
 CREATE INDEX IF NOT EXISTS idx_relationship_edges_workroot_nodes
   ON relationship_edges(workroot_id, from_node_id, to_node_id);
 CREATE INDEX IF NOT EXISTS idx_time_events_workroot_subject
-  ON time_events(workroot_id, subject_type, subject_id, occurred_at);
+  ON time_events(workroot_id, subject_type, subject_id, occurredAt);
 
-INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
-VALUES ('002-release-target-resolution-indexes', datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('002-release-target-resolution-indexes', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 
-INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
-VALUES ('003-context-recall-hints', datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('003-context-recall-hints', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 
-INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
-VALUES ('004-active-work-runtime-fields', datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('004-active-work-runtime-fields', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 
-INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
-VALUES ('005-active-asset-runtime-fields', datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('005-active-asset-runtime-fields', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 
-INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
-VALUES ('006-time-events', datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('006-time-events', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 
-INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
-VALUES ('007-relationship-node-canonical-targets', datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('007-relationship-node-canonical-targets', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 """
 
 
@@ -468,6 +471,8 @@ def initialize_workroot_sqlite(path: Path) -> None:
         _ensure_active_work_runtime_columns(connection)
         _ensure_active_asset_runtime_columns(connection)
         _ensure_relationship_node_target_columns(connection)
+        _ensure_context_candidate_time_columns(connection)
+        _ensure_context_recall_hint_time_columns(connection)
         connection.executescript(SCHEMA)
 
 
@@ -515,6 +520,11 @@ def _ensure_active_asset_runtime_columns(connection: sqlite3.Connection) -> None
     columns = {row[1] for row in connection.execute("PRAGMA table_info(assets)").fetchall()}
     if "surface_id" not in columns:
         connection.execute("ALTER TABLE assets ADD COLUMN surface_id TEXT")
+    if "updatedAt" not in columns:
+        connection.execute("ALTER TABLE assets ADD COLUMN updatedAt TEXT")
+    publication_columns = {row[1] for row in connection.execute("PRAGMA table_info(asset_publications)").fetchall()}
+    if "publishedAt" not in publication_columns:
+        connection.execute("ALTER TABLE asset_publications ADD COLUMN publishedAt TEXT")
 
 
 def _ensure_relationship_node_target_columns(connection: sqlite3.Connection) -> None:
@@ -522,6 +532,20 @@ def _ensure_relationship_node_target_columns(connection: sqlite3.Connection) -> 
     for name in ("target_type", "target_id"):
         if name not in columns:
             connection.execute(f"ALTER TABLE relationship_nodes ADD COLUMN {name} TEXT")
+
+
+def _ensure_context_candidate_time_columns(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(context_candidates)").fetchall()}
+    for name in ("updatedAt", "lastUsedAt"):
+        if name not in columns:
+            connection.execute(f"ALTER TABLE context_candidates ADD COLUMN {name} TEXT")
+
+
+def _ensure_context_recall_hint_time_columns(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(context_recall_hints)").fetchall()}
+    for name in ("createdAt", "updatedAt"):
+        if name not in columns:
+            connection.execute(f"ALTER TABLE context_recall_hints ADD COLUMN {name} TEXT")
 
 
 def _schema_without_release_indexes() -> str:

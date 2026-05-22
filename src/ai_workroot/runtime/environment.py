@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ai_workroot.core.environment import WorkrootEnvironment
 from ai_workroot.storage.jsonl_registry import append_jsonl, read_jsonl, write_json
@@ -64,6 +66,12 @@ class ContextControlConfig:
     diagnostic_logging: ContextDiagnosticLoggingConfig = ContextDiagnosticLoggingConfig()
 
 
+@dataclass(frozen=True)
+class EnvironmentTimeConfig:
+    timezone: str
+    locale: str = "en-US"
+
+
 def initialize_environment(home: Path) -> WorkrootEnvironment:
     home = home.expanduser().resolve()
     for rel in (
@@ -94,35 +102,59 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def environment_now(home: Path | str | None = None, *, now_utc: str | None = None) -> str:
+    config = load_environment_time_config(home) if home is not None else _default_environment_time_config()
+    return format_environment_time(now_utc or utc_now(), config)
+
+
+def format_environment_time(value: str, config: EnvironmentTimeConfig) -> str:
+    instant = _parse_utc_instant(value)
+    return instant.astimezone(_zone_info(config.timezone)).replace(microsecond=0).isoformat()
+
+
+def load_environment_time_config(home: Path | str | None) -> EnvironmentTimeConfig:
+    if home is None:
+        return _default_environment_time_config()
+    config_path = Path(home).expanduser().resolve() / "config.json"
+    existing = _read_json_object(config_path).get("time")
+    return _merge_time_config(existing)
+
+
 def ensure_environment_config(home: Path, *, now: str | None = None) -> dict[str, Any]:
     home = home.expanduser().resolve()
     config_path = home / "config.json"
-    timestamp = now or utc_now()
+    timestamp_utc = now or utc_now()
     existing = _read_json_object(config_path)
+    time_config = _merge_time_config(existing.get("time"))
+    created_at = _utc_or_default(existing.get("createdAt"), timestamp_utc)
     config = {
-        **existing,
         "kind": "WorkrootEnvironment",
         "environmentId": str(existing.get("environmentId") or DEFAULT_ENVIRONMENT_ID),
         "version": ENVIRONMENT_VERSION,
         "schemaVersion": ENVIRONMENT_VERSION,
         "layoutVersion": ENVIRONMENT_VERSION,
         "mode": "clean",
-        "createdAt": str(existing.get("createdAt") or timestamp),
-        "updatedAt": str(existing.get("updatedAt") or timestamp),
-        "summary": _merge_summary(existing.get("summary")),
+        "createdAt": created_at,
+        "updatedAt": timestamp_utc,
+        "time": _time_config_payload(time_config),
         "maintenance": _merge_maintenance(existing.get("maintenance")),
+        "summary": _merge_summary(existing.get("summary")),
         "contextControl": _merge_context_control(existing.get("contextControl")),
     }
-    for removed in ("paths", "layout", "policies", "agentIntegration", "workroots"):
+    removed_keys = {"paths", "layout", "policies", "agentIntegration", "workroots"}
+    for key, value in existing.items():
+        if key not in removed_keys:
+            config.setdefault(key, value)
+    for removed in removed_keys:
         config.pop(removed, None)
-    write_json(config_path, config)
+    write_environment_config(config_path, config)
     return config
 
 
 def refresh_environment_registry_summary(home: Path, *, now: str | None = None) -> dict[str, Any]:
     home = home.expanduser().resolve()
-    timestamp = now or utc_now()
-    config = ensure_environment_config(home, now=timestamp)
+    timestamp_utc = now or utc_now()
+    config = ensure_environment_config(home, now=timestamp_utc)
     workroots = read_jsonl(home / "registry/workroots.jsonl")
     active_count = sum(1 for record in workroots if str(record.get("status") or "active") == "active")
     summary = _merge_summary(config.get("summary"))
@@ -130,29 +162,29 @@ def refresh_environment_registry_summary(home: Path, *, now: str | None = None) 
         {
             "registeredWorkrootCount": len(workroots),
             "activeWorkrootCount": active_count,
-            "lastRegistryUpdatedAt": timestamp,
+            "lastRegistryUpdatedAt": timestamp_utc,
         }
     )
     config["summary"] = summary
-    config["updatedAt"] = timestamp
-    write_json(home / "config.json", config)
+    config["updatedAt"] = timestamp_utc
+    write_environment_config(home / "config.json", config)
     return config
 
 
 def record_environment_doctor_summary(home: Path, *, status: str, now: str | None = None) -> dict[str, Any]:
     home = home.expanduser().resolve()
-    timestamp = now or utc_now()
-    config = ensure_environment_config(home, now=timestamp)
+    timestamp_utc = now or utc_now()
+    config = ensure_environment_config(home, now=timestamp_utc)
     summary = _merge_summary(config.get("summary"))
     summary.update(
         {
             "lastDoctorStatus": status,
-            "lastDoctorRunAt": timestamp,
+            "lastDoctorRunAt": timestamp_utc,
         }
     )
     config["summary"] = summary
-    config["updatedAt"] = timestamp
-    write_json(home / "config.json", config)
+    config["updatedAt"] = timestamp_utc
+    write_environment_config(home / "config.json", config)
     return config
 
 
@@ -167,6 +199,11 @@ def merge_json(path: Path, defaults: dict[str, Any]) -> None:
             existing = parsed
     merged = {**existing, **defaults}
     write_json(path, merged)
+
+
+def write_environment_config(path: Path, config: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _read_json_object(path: Path) -> dict[str, Any]:
@@ -227,6 +264,117 @@ def _merge_context_diagnostic_logging(value: object) -> dict[str, Any]:
         "retentionDays": _positive_int(existing.get("retentionDays"), 7),
         "maxEntriesPerWorkroot": _positive_int(existing.get("maxEntriesPerWorkroot"), 200),
     }
+
+
+def _merge_time_config(value: object) -> EnvironmentTimeConfig:
+    existing = value if isinstance(value, dict) else {}
+    configured = str(existing.get("timezone") or "").strip()
+    locale = _configured_or_detected_locale(existing)
+    if configured:
+        return EnvironmentTimeConfig(
+            timezone=_valid_time_zone_or_default(configured),
+            locale=locale,
+        )
+    env_value = os.environ.get("AI_WORKROOT_TIMEZONE", "").strip()
+    if env_value:
+        return EnvironmentTimeConfig(
+            timezone=_valid_time_zone_or_default(env_value),
+            locale=locale,
+        )
+    default = _default_environment_time_config()
+    return EnvironmentTimeConfig(
+        timezone=default.timezone,
+        locale=locale,
+    )
+
+
+def _default_environment_time_config() -> EnvironmentTimeConfig:
+    return EnvironmentTimeConfig(_system_time_zone_name())
+
+
+def _time_config_payload(config: EnvironmentTimeConfig) -> dict[str, str]:
+    return {
+        "timezone": config.timezone,
+        "locale": config.locale,
+    }
+
+
+def _configured_or_detected_locale(existing: dict[str, Any]) -> str:
+    configured = str(existing.get("locale") or "").strip()
+    if configured:
+        return _normalize_locale(configured)
+    env_value = os.environ.get("AI_WORKROOT_LOCALE", "").strip()
+    if env_value:
+        return _normalize_locale(env_value)
+    for name in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        value = os.environ.get(name, "").strip()
+        if value and value.split(".", 1)[0].upper() not in {"C", "POSIX"}:
+            return _normalize_locale(value)
+    return "en-US"
+
+
+def _normalize_locale(value: str) -> str:
+    normalized = value.split(".", 1)[0].split("@", 1)[0].replace("_", "-")
+    return normalized or "en-US"
+
+
+def _system_time_zone_name() -> str:
+    env_tz = os.environ.get("TZ", "").strip()
+    if env_tz:
+        return _valid_time_zone_or_default(env_tz)
+    localtime = Path("/etc/localtime")
+    try:
+        resolved = localtime.resolve()
+    except OSError:
+        resolved = Path()
+    parts = resolved.parts
+    if "zoneinfo" in parts:
+        index = parts.index("zoneinfo")
+        candidate = "/".join(parts[index + 1 :])
+        if candidate:
+            return _valid_time_zone_or_default(candidate)
+    local_zone = datetime.now().astimezone().tzinfo
+    if local_zone is not None:
+        name = getattr(local_zone, "key", None) or str(local_zone)
+        if name:
+            return _valid_time_zone_or_default(name)
+    return "UTC"
+
+
+def _valid_time_zone_or_default(value: str) -> str:
+    try:
+        ZoneInfo(value)
+    except ZoneInfoNotFoundError:
+        return "UTC"
+    return value
+
+
+def _zone_info(value: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(value)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo("UTC")
+
+
+def _parse_utc_instant(value: str) -> datetime:
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _utc_or_default(utc_value: object, fallback: str) -> str:
+    utc_text = str(utc_value or "").strip()
+    if _is_utc_z_timestamp(utc_text):
+        return utc_text
+    return fallback
+
+
+def _is_utc_z_timestamp(value: str) -> bool:
+    return bool(value) and value.endswith("Z")
 
 
 def _positive_int(value: object, default: int) -> int:

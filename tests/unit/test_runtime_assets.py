@@ -218,7 +218,7 @@ class RuntimeAssetsTest(unittest.TestCase):
         asset = mark_asset_missing(conn, workroot_id="wr_demo", asset_id="asset-missing", missing_since="2026-05-21T00:00:00Z")
 
         row = conn.execute(
-            "SELECT lifecycle_status, updated_at FROM assets WHERE asset_id = 'asset-missing'"
+            "SELECT lifecycle_status, updatedAt FROM assets WHERE asset_id = 'asset-missing'"
         ).fetchone()
         self.assertEqual(asset.lifecycle_status, "missing")
         self.assertEqual(row, ("missing", "2026-05-21T00:00:00Z"))

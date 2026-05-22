@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -81,6 +82,89 @@ class E2EOptInPolicyTest(unittest.TestCase):
             self.assertIn("Selected E2E suites:", result.stdout)
             self.assertIn("Sandbox run root:", result.stdout)
             self.assertIn(str(sandbox_base), result.stdout)
+
+    def test_live_agent_suite_requires_remote_llm_opt_in_even_when_e2e_is_enabled(self) -> None:
+        env = dict(os.environ)
+        env.pop("AI_WORKROOT_E2E_ALLOW_REMOTE_LLM", None)
+        result = subprocess.run(
+            [sys.executable, "-m", "tests.e2e.runner", "--suite", "live-agent", "--dry-run"],
+            cwd=ROOT,
+            env={**env, "PYTHONPATH": str(ROOT / "src"), "AI_WORKROOT_RUN_E2E": "1"},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Live-agent E2E requires AI_WORKROOT_E2E_ALLOW_REMOTE_LLM=1", result.stderr)
+
+    def test_live_agent_environment_uses_sandbox_codex_home_by_default(self) -> None:
+        from tests.e2e.live_agent import build_live_agent_environment
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run_root = Path(tmp) / "run-live"
+            run_root.mkdir()
+            base_env = {
+                "HOME": str(run_root / "home"),
+                "AI_WORKROOT_HOME": str(run_root / "ai-workroot-home"),
+                "PYTHONPATH": str(ROOT / "src"),
+            }
+            with patch.dict(os.environ, {"PATH": os.environ.get("PATH", "")}, clear=True):
+                live_env = build_live_agent_environment(base_env, run_root=run_root)
+
+            self.assertEqual(live_env["CODEX_HOME"], str(run_root / "home/.codex"))
+            self.assertNotEqual(live_env["CODEX_HOME"], str(Path.home() / ".codex"))
+            self.assertTrue((run_root / "home/.codex").is_dir())
+
+    def test_live_agent_environment_copies_only_codex_auth_config_and_rules(self) -> None:
+        from tests.e2e.live_agent import build_live_agent_environment
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            real_codex_home = base / "real-codex"
+            real_codex_home.mkdir()
+            for name in ("auth.json", "config.toml", "AGENTS.md"):
+                (real_codex_home / name).write_text(f"{name}\n", encoding="utf-8")
+            for ignored_name in ("history.jsonl", "logs_2.sqlite", "state_5.sqlite"):
+                (real_codex_home / ignored_name).write_text("ignore\n", encoding="utf-8")
+            (real_codex_home / "sessions").mkdir()
+            (real_codex_home / "sessions/session.jsonl").write_text("ignore\n", encoding="utf-8")
+            run_root = base / "run-live"
+            run_root.mkdir()
+            base_env = {
+                "HOME": str(run_root / "home"),
+                "AI_WORKROOT_HOME": str(run_root / "ai-workroot-home"),
+                "PYTHONPATH": str(ROOT / "src"),
+            }
+            with patch.dict(os.environ, {"PATH": os.environ.get("PATH", ""), "CODEX_HOME": str(real_codex_home)}, clear=True):
+                live_env = build_live_agent_environment(base_env, run_root=run_root)
+
+            sandbox_codex_home = Path(live_env["CODEX_HOME"])
+            self.assertEqual(sorted(path.name for path in sandbox_codex_home.iterdir()), ["AGENTS.md", "auth.json", "config.toml"])
+            self.assertFalse((sandbox_codex_home / "history.jsonl").exists())
+            self.assertFalse((sandbox_codex_home / "logs_2.sqlite").exists())
+            self.assertFalse((sandbox_codex_home / "sessions").exists())
+
+    def test_e2e_harness_enables_context_diagnostic_logging_by_default(self) -> None:
+        from tests.e2e.harness import env_for
+        from tests.e2e.safety import new_default_run_root, prepare_run_root
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox_base = Path(tmp) / "ai-workroot-e2e-sandboxes"
+            run_root = prepare_run_root(new_default_run_root(base=sandbox_base), sandbox_base=sandbox_base)
+
+            env_for(run_root / "ai-workroot-home")
+
+            config = json.loads((run_root / "ai-workroot-home/config.json").read_text(encoding="utf-8"))
+            diagnostics = config["contextControl"]["diagnosticLogging"]
+            self.assertTrue(diagnostics["enabled"])
+            self.assertTrue(diagnostics["includeRenderedPackage"])
+            self.assertTrue(diagnostics["includeTraceSummary"])
+            self.assertTrue(diagnostics["includeRetrievalSummary"])
+            self.assertTrue(diagnostics["includeTokenEstimate"])
+            self.assertEqual(config["contextControl"]["defaultTargetTokens"], 1200)
+            self.assertEqual(config["contextControl"]["defaultHardTokenLimit"], 2400)
+            self.assertNotIn("paths", config)
 
     def test_direct_longrun_entrypoint_requires_explicit_environment_opt_in(self) -> None:
         from tests.e2e import longrun

@@ -58,9 +58,9 @@ def validate_release_surface(root: Path, errors: list[str]) -> None:
         if path.is_file() and any(rel.startswith(prefix) for prefix in GENERATED_STATE_PATH_PREFIXES):
             add_error(errors, f"generated managed state path must not be committed for release: {rel}")
         if path.is_file() and rel.startswith(".workroot/runtime/cache/") and path.name != ".gitkeep":
-            add_error(errors, f"runtime cache file must not be present for release: {rel}")
+            add_error(errors, f"retired Public Seed generated runtime cache must not be present for release: {rel}")
         if path.is_file() and rel.startswith(".workroot/runtime/logs/") and path.name != ".gitkeep":
-            add_error(errors, f"runtime log file must not be present for release: {rel}")
+            add_error(errors, f"retired Public Seed generated runtime log must not be present for release: {rel}")
         if path.name in {".DS_Store"} or ".idea" in path.parts or "__pycache__" in path.parts:
             add_error(errors, f"local metadata must not be committed: {path.relative_to(root).as_posix()}")
 

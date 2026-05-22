@@ -53,7 +53,7 @@ class EnvironmentConfigCliSmokeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             home = base / "home"
-            env = {"AI_WORKROOT_HOME": str(home)}
+            env = {"AI_WORKROOT_HOME": str(home), "AI_WORKROOT_TIMEZONE": "Asia/Shanghai"}
 
             result = run_workroot_cli(env, "init", "--name", "Summary", "--directory", str(base / "project"), "--no-native-agent-entry")
 
@@ -62,10 +62,13 @@ class EnvironmentConfigCliSmokeTest(unittest.TestCase):
             self.assertEqual(config["kind"], "WorkrootEnvironment")
             self.assertEqual(config["environmentId"], "env_local_default")
             self.assertEqual(config["mode"], "clean")
+            self.assertEqual(config["time"]["timezone"], "Asia/Shanghai")
+            self.assertEqual(config["time"]["locale"], "en-US")
             self.assertRegex(config["createdAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
             self.assertRegex(config["updatedAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
             self.assertEqual(config["summary"]["registeredWorkrootCount"], 1)
             self.assertEqual(config["summary"]["activeWorkrootCount"], 1)
+            self.assertRegex(config["summary"]["lastRegistryUpdatedAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
             self.assertEqual(
                 config["contextControl"],
                 {
@@ -84,6 +87,135 @@ class EnvironmentConfigCliSmokeTest(unittest.TestCase):
             )
             self.assertNotIn("workroots", config)
             self.assertNotIn("policies", config)
+
+    def test_environment_config_preserves_explicit_time_zone_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            home.mkdir()
+            (home / "config.json").write_text(
+                json.dumps(
+                    {
+                        "kind": "WorkrootEnvironment",
+                        "time": {
+                            "timezone": "America/Los_Angeles",
+                            "locale": "zh-CN",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = run_workroot_cli(
+                {"AI_WORKROOT_HOME": str(home), "AI_WORKROOT_TIMEZONE": "Asia/Shanghai"},
+                "init",
+                "--name",
+                "Time",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = json.loads((home / "config.json").read_text(encoding="utf-8"))
+            self.assertEqual(config["time"]["timezone"], "America/Los_Angeles")
+            self.assertEqual(config["time"]["locale"], "zh-CN")
+            self.assertRegex(config["createdAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+    def test_environment_config_does_not_reuse_legacy_visible_timestamps_on_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            home.mkdir()
+            (home / "config.json").write_text(
+                json.dumps(
+                    {
+                        "kind": "WorkrootEnvironment",
+                        "createdAt": "2026-05-21T00:00:00Z",
+                        "updatedAt": "2026-05-21T01:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = run_workroot_cli(
+                {"AI_WORKROOT_HOME": str(home), "AI_WORKROOT_TIMEZONE": "Asia/Shanghai"},
+                "init",
+                "--name",
+                "Migrated Time",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = json.loads((home / "config.json").read_text(encoding="utf-8"))
+            self.assertEqual(config["createdAt"], "2026-05-21T00:00:00Z")
+            self.assertRegex(config["updatedAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+    def test_environment_config_refreshes_update_time_on_registry_change(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            home.mkdir()
+            (home / "config.json").write_text(
+                json.dumps(
+                    {
+                        "kind": "WorkrootEnvironment",
+                        "updatedAt": "2026-05-20T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = run_workroot_cli(
+                {"AI_WORKROOT_HOME": str(home), "AI_WORKROOT_TIMEZONE": "Asia/Shanghai"},
+                "init",
+                "--name",
+                "Refresh Time",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = json.loads((home / "config.json").read_text(encoding="utf-8"))
+            self.assertNotEqual(config["updatedAt"], "2026-05-20T00:00:00Z")
+            self.assertEqual(config["updatedAt"], config["summary"]["lastRegistryUpdatedAt"])
+
+    def test_environment_config_keeps_readable_top_level_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+
+            result = run_workroot_cli(
+                {"AI_WORKROOT_HOME": str(home), "AI_WORKROOT_TIMEZONE": "Asia/Shanghai"},
+                "init",
+                "--name",
+                "Ordered Config",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config_text = (home / "config.json").read_text(encoding="utf-8")
+            ordered_keys = [
+                '"kind"',
+                '"environmentId"',
+                '"version"',
+                '"schemaVersion"',
+                '"layoutVersion"',
+                '"mode"',
+                '"createdAt"',
+                '"updatedAt"',
+                '"time"',
+                '"maintenance"',
+                '"summary"',
+                '"contextControl"',
+            ]
+            positions = [config_text.index(key) for key in ordered_keys]
+            self.assertEqual(positions, sorted(positions))
 
     def test_init_preserves_existing_context_control_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

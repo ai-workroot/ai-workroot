@@ -22,7 +22,7 @@ target_ref
 release_level
 recall_rule
 reason
-created_at
+createdAt
 created_by
 policy_ref
 ```
@@ -82,7 +82,7 @@ lesson_asset_id
 memorial_date
 recall_rule
 visibility_policy
-created_at
+createdAt
 created_by
 ```
 
@@ -98,7 +98,7 @@ workroot_id
 target_ref
 redacted_fields
 redaction_reason
-created_at
+createdAt
 created_by
 ```
 
@@ -111,7 +111,7 @@ deletion_id
 workroot_id
 target_ref
 minimum_audit_note
-created_at
+createdAt
 created_by
 ```
 

@@ -47,6 +47,7 @@ class E2ESafetyTest(unittest.TestCase):
             self.assertEqual(second.parent, base.resolve())
             self.assertNotEqual(first, second)
             self.assertTrue(first.name.startswith("run-"))
+            self.assertRegex(first.name, r"^run-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-[0-9a-f]{8}$")
 
     def test_prepare_run_root_creates_sandbox_and_owned_sentinels(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -132,6 +133,11 @@ class E2ESafetyTest(unittest.TestCase):
     def test_live_e2e_rejects_real_repository_cwd(self) -> None:
         with self.assertRaises(ValueError):
             ensure_not_real_repo_cwd_for_live_e2e(REPO_ROOT)
+
+    def test_e2e_runner_lists_live_agent_suite_when_explicitly_enabled(self) -> None:
+        from tests.e2e.runner import SUITES
+
+        self.assertIn("live-agent", SUITES)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from ai_workroot.indexing.global_indexes import (
+    query_global_index_health,
     query_global_asset_index,
     query_global_task_index,
     query_global_time_index,
@@ -55,6 +56,25 @@ class GlobalIndexesTest(unittest.TestCase):
                 ).fetchone()
             self.assertEqual(row, ("workroot", "Demo"))
 
+    def test_global_workroot_index_skips_missing_database_without_creating_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialize_environment(home)
+            registration = register_workroot(home, workroot_id="wr_demo", name="Demo", user_directory=user_dir)
+            db_path = Path(registration.state_directory) / "cache/workroot.sqlite"
+
+            entry_count = refresh_global_workroot_index(home)
+            health = query_global_index_health(home)
+
+            self.assertEqual(entry_count, 0)
+            self.assertFalse(db_path.exists())
+            self.assertEqual(len(health), 1)
+            self.assertEqual(health[0]["reason"], "missing-workroot-sqlite")
+            self.assertEqual(health[0]["workrootId"], "wr_demo")
+
     def test_global_workroot_index_does_not_create_context_candidates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -72,6 +92,24 @@ class GlobalIndexesTest(unittest.TestCase):
                 candidate_count = conn.execute("SELECT COUNT(*) FROM context_candidates").fetchone()[0]
 
             self.assertEqual(candidate_count, 0)
+
+    def test_global_task_asset_and_time_indexes_skip_missing_database_without_creating_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            user_dir.mkdir()
+            initialize_environment(home)
+            registration = register_workroot(home, workroot_id="wr_demo", name="Demo", user_directory=user_dir)
+            db_path = Path(registration.state_directory) / "cache/workroot.sqlite"
+
+            self.assertEqual(refresh_global_task_index(home), 0)
+            self.assertEqual(refresh_global_asset_index(home), 0)
+            self.assertEqual(refresh_global_time_index(home), 0)
+
+            health = query_global_index_health(home)
+            self.assertFalse(db_path.exists())
+            self.assertEqual([row["reason"] for row in health], ["missing-workroot-sqlite"])
 
     def test_refresh_and_query_global_task_asset_and_time_indexes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -23,7 +23,13 @@ from ai_workroot.indexing.providers.release_provider import (
 )
 from ai_workroot.indexing.providers.relationship_provider import RelationshipSignal, relationship_signals_for_sources
 from ai_workroot.indexing.providers.sqlite_fts import FtsMatch, search_fts
-from ai_workroot.runtime.environment import ContextControlConfig, load_context_control_config, utc_now
+from ai_workroot.runtime.environment import (
+    ContextControlConfig,
+    environment_now,
+    load_environment_time_config,
+    load_context_control_config,
+    utc_now,
+)
 from ai_workroot.runtime.registry import find_workroot_by_cwd
 from ai_workroot.storage.jsonl_registry import append_jsonl
 
@@ -315,6 +321,14 @@ def estimate_tokens(text: str) -> int:
         max(1, code_punctuation + non_ascii_count),
     ]
     return max(estimates)
+
+
+def rendered_token_usage(rendered: str) -> int:
+    for line in rendered.splitlines():
+        match = re.match(r"^TokenUsage:\s*(\d+)/\d+\s*$", line)
+        if match:
+            return int(match.group(1))
+    return 0
 
 
 def _resolve_mode_plan(mode: str) -> ModePlan:
@@ -925,10 +939,10 @@ def _persist_context_runtime_state(
             """
             UPDATE context_candidates
             SET use_count = COALESCE(use_count, 0) + 1,
-                last_used_at = datetime('now')
+                lastUsedAt = ?
             WHERE workroot_id = ? AND candidate_id = ?
             """,
-            (workroot_id, candidate.candidate_id),
+            (utc_now(), workroot_id, candidate.candidate_id),
         )
     for candidate_id, reason in release_report.dropped:
         conn.execute(
@@ -966,8 +980,13 @@ def _write_context_diagnostic_log(
     if not getattr(logging_config, "enabled", False):
         return
     token_usage = estimate_tokens(rendered)
+    home = Path(record["stateDirectory"]).parents[1]
+    timestamp_utc = utc_now()
+    time_config = load_environment_time_config(home)
     entry: dict[str, object] = {
-        "timestamp": utc_now(),
+        "displayTime": environment_now(home, now_utc=timestamp_utc),
+        "createdAt": timestamp_utc,
+        "timezone": time_config.timezone,
         "workrootId": record["workrootId"],
         "agent": request.agent,
         "mode": request.mode,
@@ -979,7 +998,7 @@ def _write_context_diagnostic_log(
         },
     }
     if getattr(logging_config, "include_token_estimate", True):
-        entry["tokenUsage"] = {"estimated": token_usage}
+        entry["tokenUsage"] = {"estimated": token_usage, "renderedMetadata": rendered_token_usage(rendered)}
     if getattr(logging_config, "include_trace_summary", True):
         entry["trace"] = {
             "confidence": "0.70" if selected else "0.30",
@@ -1014,8 +1033,9 @@ def _prune_context_diagnostic_log(log_path: Path, *, retention_days: int, max_en
         kept: list[str] = []
         for line in lines:
             try:
-                timestamp = json.loads(line).get("timestamp")
-                parsed = datetime.strptime(str(timestamp), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                record = json.loads(line)
+                timestamp_utc = record.get("createdAt")
+                parsed = datetime.strptime(str(timestamp_utc), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
             except (json.JSONDecodeError, ValueError):
                 kept.append(line)
                 continue

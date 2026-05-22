@@ -1913,11 +1913,11 @@ current_path
 original_path
 content_hash
 size_bytes
-modified_at
-last_seen_at
-missing_since
-created_at
-updated_at
+modifiedAt
+lastSeenAt
+missingSince
+createdAt
+updatedAt
 ```
 
 ## Lifecycle statuses
@@ -1959,7 +1959,7 @@ allowed_asset_types
 git_policy
 is_local_only
 created_by
-created_at
+createdAt
 ```
 
 ## AssetPublication
@@ -1975,7 +1975,7 @@ workroot_id
 surface_id
 target_path
 publication_status
-published_at
+publishedAt
 published_by
 source_task_id
 reason
@@ -2054,7 +2054,7 @@ target_ref
 release_level
 recall_rule
 reason
-created_at
+createdAt
 created_by
 policy_ref
 ```
@@ -2114,7 +2114,7 @@ lesson_asset_id
 memorial_date
 recall_rule
 visibility_policy
-created_at
+createdAt
 created_by
 ```
 
@@ -2130,7 +2130,7 @@ workroot_id
 target_ref
 redacted_fields
 redaction_reason
-created_at
+createdAt
 created_by
 ```
 
@@ -2143,7 +2143,7 @@ deletion_id
 workroot_id
 target_ref
 minimum_audit_note
-created_at
+createdAt
 created_by
 ```
 
@@ -2234,8 +2234,8 @@ to_node_id
 relationship_type
 confidence
 status
-created_at
-updated_at
+createdAt
+updatedAt
 created_by
 ```
 
@@ -2276,7 +2276,7 @@ task_id
 context_trace_id
 snippet_hash
 note
-created_at
+createdAt
 ```
 
 ## Canonical vs projection

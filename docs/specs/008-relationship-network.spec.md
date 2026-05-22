@@ -42,8 +42,8 @@ to_node_id
 relationship_type
 confidence
 status
-created_at
-updated_at
+createdAt
+updatedAt
 created_by
 ```
 
@@ -84,7 +84,7 @@ task_id
 context_trace_id
 snippet_hash
 note
-created_at
+createdAt
 ```
 
 ## Canonical vs projection

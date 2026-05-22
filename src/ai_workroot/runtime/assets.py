@@ -35,7 +35,7 @@ def create_internal_asset(
         """
         INSERT INTO assets (
           asset_id, workroot_id, asset_type, title, lifecycle_status,
-          publication_status, surface_id, current_path, content_hash, updated_at
+          publication_status, surface_id, current_path, content_hash, updatedAt
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(asset_id) DO UPDATE SET
@@ -45,7 +45,7 @@ def create_internal_asset(
           lifecycle_status=excluded.lifecycle_status,
           publication_status=excluded.publication_status,
           surface_id=excluded.surface_id,
-          updated_at=excluded.updated_at
+          updatedAt=excluded.updatedAt
         """,
         (
             asset.asset_id,
@@ -215,7 +215,7 @@ def _store_publication(
     conn.execute(
         """
         UPDATE assets
-        SET publication_status = ?, surface_id = ?, current_path = ?, lifecycle_status = ?, updated_at = COALESCE(updated_at, '')
+        SET publication_status = ?, surface_id = ?, current_path = ?, lifecycle_status = ?, updatedAt = COALESCE(updatedAt, '')
         WHERE workroot_id = ? AND asset_id = ?
         """,
         (asset.publication_status, asset.surface_id, asset.current_path, asset.lifecycle_status, workroot_id, asset.asset_id),
@@ -267,7 +267,7 @@ def mark_asset_missing(conn: sqlite3.Connection, *, workroot_id: str, asset_id: 
     conn.execute(
         """
         UPDATE assets
-        SET lifecycle_status = ?, updated_at = ?
+        SET lifecycle_status = ?, updatedAt = ?
         WHERE workroot_id = ? AND asset_id = ?
         """,
         (asset.lifecycle_status, missing_since, workroot_id, asset_id),
@@ -321,7 +321,7 @@ def _asset_from_row(row: sqlite3.Row) -> Asset:
         surface_id=str(row[_column(row, "surface_id", 6)] or "") or None,
         current_path=str(row[_column(row, "current_path", 7)] or "") or None,
         content_hash=str(row[_column(row, "content_hash", 8)] or "") or None,
-        updated_at=str(row[_column(row, "updated_at", 9)] or "") or None,
+        updated_at=str(row[_column(row, "updatedAt", 9)] or "") or None,
     )
 
 

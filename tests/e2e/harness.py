@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+from ai_workroot.runtime.environment import ensure_environment_config, write_environment_config
 from tests.e2e.personas import Persona
 
 
@@ -33,6 +34,8 @@ class CommandResult:
 
 
 def env_for(ai_workroot_home: Path) -> dict[str, str]:
+    ai_workroot_home = ai_workroot_home.expanduser().resolve()
+    _enable_e2e_context_diagnostics(ai_workroot_home)
     run_root = ai_workroot_home.parent
     return {
         **os.environ,
@@ -40,6 +43,28 @@ def env_for(ai_workroot_home: Path) -> dict[str, str]:
         "AI_WORKROOT_HOME": str(ai_workroot_home),
         "HOME": str(run_root / "home"),
     }
+
+
+def _enable_e2e_context_diagnostics(ai_workroot_home: Path) -> None:
+    config = ensure_environment_config(ai_workroot_home)
+    context_control = config.get("contextControl", {})
+    diagnostic_logging = context_control.get("diagnosticLogging", {})
+    config["contextControl"] = {
+        **context_control,
+        "defaultTargetTokens": int(context_control.get("defaultTargetTokens") or 1200),
+        "defaultHardTokenLimit": int(context_control.get("defaultHardTokenLimit") or 2400),
+        "diagnosticLogging": {
+            **diagnostic_logging,
+            "enabled": True,
+            "includeRenderedPackage": True,
+            "includeTraceSummary": True,
+            "includeRetrievalSummary": True,
+            "includeTokenEstimate": True,
+            "retentionDays": int(diagnostic_logging.get("retentionDays") or 7),
+            "maxEntriesPerWorkroot": int(diagnostic_logging.get("maxEntriesPerWorkroot") or 500),
+        },
+    }
+    write_environment_config(ai_workroot_home / "config.json", config)
 
 
 def run_cli(args: tuple[str, ...], *, env: dict[str, str], cwd: Path = REPO_ROOT) -> CommandResult:

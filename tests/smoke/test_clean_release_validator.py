@@ -149,6 +149,8 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             (repo / "AGENTS.md").write_text("local agent entry\n", encoding="utf-8")
             (repo / "CLAUDE.md").write_text("local claude entry\n", encoding="utf-8")
             subprocess.run(["git", "add", ".gitignore", "src", "scripts"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.name", "AI Workroot Test"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "ai-workroot-test@example.invalid"], cwd=repo, check=True, capture_output=True)
             subprocess.run(["git", "commit", "-m", "seed"], cwd=repo, check=True, capture_output=True)
 
             result = subprocess.run(

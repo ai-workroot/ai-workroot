@@ -40,8 +40,8 @@ def upsert_context_candidate(conn: sqlite3.Connection, payload: dict[str, Any]) 
         "context_policy": payload.get("context_policy", "task-related"),
         "safety_policy": payload.get("safety_policy", ""),
         "token_estimate": int(payload.get("token_estimate", 0)),
-        "updated_at": payload.get("updated_at", ""),
-        "last_used_at": payload.get("last_used_at", ""),
+        "updatedAt": payload.get("updatedAt", ""),
+        "lastUsedAt": payload.get("lastUsedAt", ""),
         "use_count": int(payload.get("use_count", 0)),
     }
     conn.execute(
@@ -49,12 +49,12 @@ def upsert_context_candidate(conn: sqlite3.Connection, payload: dict[str, Any]) 
         INSERT INTO context_candidates (
           candidate_id, workroot_id, source_type, source_id, title, summary,
           domains, importance, confidence, status, context_policy, safety_policy,
-          token_estimate, updated_at, last_used_at, use_count
+          token_estimate, updatedAt, lastUsedAt, use_count
         )
         VALUES (
           :candidate_id, :workroot_id, :source_type, :source_id, :title, :summary,
           :domains, :importance, :confidence, :status, :context_policy, :safety_policy,
-          :token_estimate, :updated_at, :last_used_at, :use_count
+          :token_estimate, :updatedAt, :lastUsedAt, :use_count
         )
         ON CONFLICT(candidate_id) DO UPDATE SET
           workroot_id=excluded.workroot_id,
@@ -69,7 +69,7 @@ def upsert_context_candidate(conn: sqlite3.Connection, payload: dict[str, Any]) 
           context_policy=excluded.context_policy,
           safety_policy=excluded.safety_policy,
           token_estimate=excluded.token_estimate,
-          updated_at=excluded.updated_at
+          updatedAt=excluded.updatedAt
         """,
         record,
     )
@@ -124,8 +124,8 @@ def _ensure_candidate_columns(conn: sqlite3.Connection) -> None:
         "status": "TEXT",
         "context_policy": "TEXT",
         "token_estimate": "INTEGER",
-        "updated_at": "TEXT",
-        "last_used_at": "TEXT",
+        "updatedAt": "TEXT",
+        "lastUsedAt": "TEXT",
         "use_count": "INTEGER DEFAULT 0",
     }
     for name, column_type in expected.items():

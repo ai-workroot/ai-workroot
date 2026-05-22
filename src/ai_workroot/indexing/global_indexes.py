@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
+from typing import Iterable
 
 from ai_workroot.storage.jsonl_registry import read_jsonl
-from ai_workroot.storage.sqlite import initialize_workroot_sqlite
 
 
 def refresh_global_workroot_index(ai_workroot_home: Path | str) -> int:
@@ -22,7 +22,8 @@ def refresh_global_workroot_index(ai_workroot_home: Path | str) -> int:
         if not workroot_id or not state_directory:
             continue
         db_path = state_directory / "cache/workroot.sqlite"
-        initialize_workroot_sqlite(db_path)
+        if not _workroot_db_exists(home, workroot_id, db_path):
+            continue
         with sqlite3.connect(db_path) as conn:
             conn.execute(
                 """
@@ -159,14 +160,14 @@ def refresh_global_time_index(ai_workroot_home: Path | str) -> int:
         with sqlite3.connect(workroot.db_path) as conn:
             rows = conn.execute(
                 """
-                SELECT event_id, subject_type, subject_id, event_type, occurred_at
+                SELECT event_id, subject_type, subject_id, event_type, occurredAt
                 FROM time_events
                 WHERE workroot_id = ?
-                ORDER BY occurred_at ASC, event_id ASC
+                ORDER BY occurredAt ASC, event_id ASC
                 """,
                 (workroot.workroot_id,),
             ).fetchall()
-            for event_id, subject_type, subject_id, event_type, occurred_at in rows:
+            for event_id, subject_type, subject_id, event_type, occurredAt in rows:
                 entry_id = f"time:{workroot.workroot_id}:{event_id}"
                 title = f"{event_type} {subject_type} {subject_id}"
                 conn.execute(
@@ -189,7 +190,7 @@ def refresh_global_time_index(ai_workroot_home: Path | str) -> int:
                         "subjectType": str(subject_type),
                         "subjectId": str(subject_id),
                         "eventType": str(event_type),
-                        "occurredAt": str(occurred_at),
+                        "occurredAt": str(occurredAt),
                         "title": title,
                     }
                 )
@@ -200,6 +201,10 @@ def refresh_global_time_index(ai_workroot_home: Path | str) -> int:
 
 def query_global_time_index(ai_workroot_home: Path | str, *, query: str = "") -> list[dict[str, str]]:
     return _query_global_index(ai_workroot_home, "time.index.jsonl", query=query)
+
+
+def query_global_index_health(ai_workroot_home: Path | str) -> list[dict[str, str]]:
+    return _query_global_index(ai_workroot_home, "health.jsonl", query="")
 
 
 class _RegisteredWorkroot:
@@ -216,9 +221,36 @@ def _registered_workroots(home: Path) -> list[_RegisteredWorkroot]:
         if not workroot_id or not state_directory:
             continue
         db_path = state_directory / "cache/workroot.sqlite"
-        initialize_workroot_sqlite(db_path)
-        workroots.append(_RegisteredWorkroot(workroot_id, db_path))
+        if _workroot_db_exists(home, workroot_id, db_path):
+            workroots.append(_RegisteredWorkroot(workroot_id, db_path))
     return workroots
+
+
+def _workroot_db_exists(home: Path, workroot_id: str, db_path: Path) -> bool:
+    if db_path.is_file():
+        return True
+    _append_global_index_health(
+        home,
+        {
+            "workrootId": workroot_id,
+            "reason": "missing-workroot-sqlite",
+            "path": str(db_path),
+        },
+    )
+    return False
+
+
+def _append_global_index_health(home: Path, record: dict[str, str]) -> None:
+    health_path = home / "global-index/health.jsonl"
+    existing = read_jsonl(health_path)
+    if any(
+        str(row.get("workrootId") or "") == record["workrootId"]
+        and str(row.get("reason") or "") == record["reason"]
+        and str(row.get("path") or "") == record["path"]
+        for row in existing
+    ):
+        return
+    _write_global_workroot_index(health_path, [*(_string_records(existing)), record])
 
 
 def _query_global_index(ai_workroot_home: Path | str, filename: str, *, query: str = "") -> list[dict[str, str]]:
@@ -237,3 +269,7 @@ def _write_global_workroot_index(path: Path, records: list[dict[str, str]]) -> N
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(record, ensure_ascii=False, sort_keys=True) for record in records]
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+def _string_records(records: Iterable[dict[str, object]]) -> list[dict[str, str]]:
+    return [{str(key): str(value) for key, value in record.items()} for record in records]

@@ -59,7 +59,7 @@ def default_sandbox_base() -> Path:
 
 def new_default_run_root(*, base: Path | None = None) -> Path:
     sandbox_base = (base or default_sandbox_base()).expanduser().resolve()
-    run_id = f"run-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:8]}"
+    run_id = f"run-{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M-%S')}-{uuid4().hex[:8]}"
     return sandbox_base / run_id
 
 

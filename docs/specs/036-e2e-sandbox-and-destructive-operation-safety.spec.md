@@ -152,7 +152,7 @@ Preflight artifacts must include:
 ```json
 {
   "runId": "run-20260521-153000-a1b2c3",
-  "timestamp": "2026-05-21T15:30:00Z",
+  "createdAt": "2026-05-21T15:30:00Z",
   "sandboxBase": "$HOME/tmp/ai-workroot-e2e-sandboxes",
   "runRoot": "$HOME/tmp/ai-workroot-e2e-sandboxes/run-20260521-153000-a1b2c3",
   "repoPath": ".../repo",
@@ -187,7 +187,7 @@ Allowed visible local sandbox layout:
 
 ```text
 $HOME/tmp/ai-workroot-e2e-sandboxes/
-  run-<timestamp>-<short-id>/
+  run-<createdAt>-<short-id>/
     .ai-workroot-e2e-sandbox
     repo/
       .ai-workroot-owned
@@ -384,7 +384,7 @@ Rollback is not recommended. If a regression blocks E2E, disable the unsafe E2E 
 
 Safety decisions must be logged to `artifacts/safety-decisions.jsonl` with:
 
-- timestamp
+- createdAt
 - operation
 - path or command
 - classification
