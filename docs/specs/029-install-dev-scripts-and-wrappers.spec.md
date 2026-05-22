@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Accepted for 0.9.530; compatibility wrapper notes superseded by `041-runnable-legacy-compat-removal.spec.md`
 
 ## Priority
 
@@ -10,12 +10,12 @@ P1
 
 ## Background
 
-Install scripts and developer scripts currently live under generic `scripts/`. The 0.9.530 architecture wants user installation separated from developer tooling, while retaining simple wrapper scripts for compatibility.
+Install scripts and developer scripts previously lived under generic `scripts/`. The 0.9.530 architecture separated user installation from developer tooling. Spec 041 removes runnable compatibility wrappers from active paths.
 
 ## Goals
 
 - Move or wrap user installation under `install/`.
-- Keep `scripts/` wrappers thin.
+- Keep `scripts/` limited to developer/release/review helpers.
 - Move developer utilities under `scripts/dev/`.
 - Make wrapper behavior explicit in docs.
 - Keep installation sudo/admin-free by default.
@@ -24,7 +24,7 @@ Install scripts and developer scripts currently live under generic `scripts/`. T
 
 - Do not build a GUI installer.
 - Do not create a full first-run consumer setup application.
-- Do not remove compatibility wrappers until docs and tests are updated.
+- Do not restore compatibility wrappers as active paths after Spec 041.
 
 ## Scope
 
@@ -32,7 +32,6 @@ Install scripts and developer scripts currently live under generic `scripts/`. T
 
 - `install/unix/install.sh`.
 - `install/windows/install.ps1`.
-- `scripts/compat/install.sh` and `scripts/compat/install.ps1` wrappers.
 - `scripts/dev/bootstrap-dev.sh` and `scripts/dev/bootstrap-dev.ps1` wrappers.
 - Developer validation utilities under `scripts/dev/`.
 
@@ -59,7 +58,7 @@ FR-003: Install script help must state whether it is a wrapper installer or full
 
 FR-004: bootstrap-dev scripts must call package `bootstrap-dev` behavior.
 
-FR-005: Developer scripts must live under `scripts/dev/` unless they are compatibility wrappers.
+FR-005: Developer scripts must live under `scripts/dev/`.
 
 ### Non-functional Requirements
 
@@ -77,15 +76,13 @@ Install script: user-facing wrapper installer.
 
 Developer script: repository maintenance or validation tool.
 
-Compatibility wrapper: script retained for old paths but delegating to the active package command.
+Compatibility wrapper: historical 0.9.530 transition script retained for old paths. Removed from active paths by Spec 041.
 
 ### File Layout
 
 ```text
 install/unix/install.sh
 install/windows/install.ps1
-scripts/compat/install.sh
-scripts/compat/install.ps1
 scripts/dev/bootstrap-dev.sh
 scripts/dev/bootstrap-dev.ps1
 scripts/dev/validate-release.sh
@@ -115,11 +112,11 @@ Scripts must not read user content directories unless the user passes them expli
 
 ### Compatibility
 
-Old script paths may remain as wrappers with warnings or docs links.
+Old script paths are not active wrappers after Spec 041. Historical source may remain only in non-runnable archive form.
 
 ## Acceptance Criteria
 
-AC-001: Given `bash -n scripts/compat/install.sh`, when it runs, then syntax passes.
+AC-001: Given `bash -n install/unix/install.sh`, when it runs, then syntax passes.
 
 AC-002: Given temp install dir, when install script runs twice, then the second run succeeds without changing user config.
 
@@ -146,7 +143,7 @@ AC-004: Given script docs, when reviewed, then install is described as wrapper i
 
 ## Migration / Rollback
 
-Add new `install/` scripts first, then make old script paths delegate. Rollback by restoring old wrappers while keeping package CLI unchanged.
+Add new `install/` scripts first. After Spec 041, rollback is a branch revert, not restoring active old wrappers.
 
 ## Observability / Debugging
 
@@ -156,13 +153,13 @@ Scripts print invoked package command and target install path in verbose/help mo
 
 T1: Add install directory scripts
 - Change: Move or copy wrapper installer logic into `install/unix` and `install/windows`.
-- Files likely affected: `install/`, `scripts/compat/install.*`.
+- Files likely affected: `install/`.
 - Verification: syntax and temp install smoke.
 
-T2: Thin old wrappers
-- Change: Make old install/bootstrap script paths delegate and document compatibility.
-- Files likely affected: `scripts/compat/install.sh`, `scripts/compat/install.ps1`, `scripts/dev/bootstrap-dev.*`.
-- Verification: wrapper smoke tests.
+T2: Keep developer wrappers package-based
+- Change: Ensure bootstrap-dev scripts delegate to package behavior and remain developer-only.
+- Files likely affected: `scripts/dev/bootstrap-dev.*`.
+- Verification: bootstrap-dev smoke tests.
 
 T3: Move developer utilities
 - Change: Move dev-only scripts under `scripts/dev/` or document why retained.

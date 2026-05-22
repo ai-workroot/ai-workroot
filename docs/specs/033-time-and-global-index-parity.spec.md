@@ -12,7 +12,7 @@ P1
 
 Part 2 capability parity for 0.9.530 requires preserving useful legacy recall and navigation behavior while the active architecture moves into `src/ai_workroot/`. ContextRecallHint, Work, Asset, Release, and Relationship active paths now exist. The remaining gap is the supporting time dimension and Global Index projections for Task, Asset, and Time navigation.
 
-This Spec completes the remaining lightweight parity layer without removing legacy compatibility.
+This Spec completed the remaining lightweight parity layer before runnable legacy compatibility removal. Compatibility notes in this Spec are superseded by `041-runnable-legacy-compat-removal.spec.md`.
 
 ## Goals
 
@@ -27,7 +27,7 @@ This Spec completes the remaining lightweight parity layer without removing lega
 
 - Do not implement complex time-range Release Control.
 - Do not write time-based asset surfaces into user directories by default.
-- Do not remove or narrow legacy compatibility.
+- Do not remove capability parity. Runnable compatibility removal is governed by Spec 041.
 - Do not use Global Index as a default Context Control source.
 - Do not introduce vector retrieval, remote embeddings, remote LLMs, or cloud dependencies.
 

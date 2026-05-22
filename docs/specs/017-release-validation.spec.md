@@ -8,18 +8,18 @@ Target: 0.9.530
 ```text
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/compat/validate_kernel.py --release  # Phase 0 baseline only until replaced or rewritten
+PYTHONPATH=src python3 -m ai_workroot doctor --release
+scripts/dev/validate-release.sh
 python3 -m ai_workroot --help
 git diff --check
 ```
 
-`scripts/compat/validate_kernel.py --release` is tied to the old Public Seed/kernel architecture. It may be used for baseline comparison, but final 0.9.530 release readiness must not rely on it alone unless it is rewritten to validate Clean Workroot.
+The old Public Seed/kernel validator is preserved only as historical archive material after Spec 041. Active release readiness must use the package release doctor and `scripts/dev/validate-release.sh`.
 
 Final validation must provide a Clean Workroot release entry point, for example:
 
 ```text
-python3 -m ai_workroot.cli.main doctor --release
-python3 -m ai_workroot.runtime.doctor --release
+PYTHONPATH=src python3 -m ai_workroot doctor --release
 scripts/dev/validate-release.sh
 ```
 

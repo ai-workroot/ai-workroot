@@ -4,28 +4,24 @@
 
 0.9.530 scripts closure is complete for the active Clean Workroot product path.
 
+This document records the 0.9.530 compatibility-preserving state. It is superseded for current active paths by `docs/specs/041-runnable-legacy-compat-removal.spec.md`: runnable legacy compatibility is removed, and old source is preserved only as non-runnable archive material under `docs/history/public-seed/code-archive/`.
+
 Active Clean Workroot product logic lives under `src/ai_workroot/`. The
 `scripts/` tree is now a support surface only:
 
 - `scripts/dev/`: developer, release validation, review export, and smoke helpers.
-- `scripts/compat/`: short compatibility wrappers that delegate to package modules.
-- `scripts/legacy/public_seed/`: quarantined Public Seed compatibility entry points.
+- historical 0.9.530 only: `scripts/compat/` and `scripts/legacy/public_seed/` were temporary compatibility surfaces.
 
-This is not Compatibility Removal. Old Public Seed capability remains callable
-where compatibility tests require it, but it is no longer presented as the
-active Clean Workroot product implementation layer.
+This was not Compatibility Removal at the time. Current active paths no longer keep those callable compatibility surfaces.
 
 For example, active Context Control is implemented in
-`src/ai_workroot/runtime/context.py`; the legacy Context Guide wrapper is
-quarantined under `scripts/legacy/public_seed/workroot_context.py`.
+`src/ai_workroot/runtime/context.py`; the legacy Context Guide source is now archived as non-runnable history.
 
 ## Migration Rules
 
 - Clean user-facing commands should use `python -m ai_workroot` or the installed `workroot` console script.
-- Compatibility callers may use `scripts/compat/*` wrappers.
-- Public Seed compatibility callers may use `scripts/legacy/public_seed/*`.
 - New Clean Workroot product behavior must not be added under `scripts/`.
-- Legacy capability must not be hard-deleted until a separate Compatibility Removal phase is approved.
+- Runnable legacy compatibility must not be restored as a fallback.
 - `scripts/` root must not contain Python implementation files.
 
 ## File Matrix
@@ -83,9 +79,4 @@ The installed `workroot` wrapper points to `ai_workroot.cli.main:main`.
 
 ## Remaining Compatibility Boundary
 
-The compatibility layer remains intentionally available:
-
-- `scripts/compat/workroot_cli.py` keeps old direct script invocation working.
-- `scripts/legacy/public_seed/*` keeps old Public Seed helpers callable.
-- Compatibility Removal is a separate future phase and must have its own Spec,
-  tests, and review.
+The compatibility layer described in this 0.9.530 checkpoint is no longer active. Spec 041 removes runnable compatibility and keeps source snapshots under `docs/history/public-seed/code-archive/`.

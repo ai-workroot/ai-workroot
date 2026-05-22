@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-0.9.530 needs a package-owned release validation path. `scripts/compat/validate_kernel.py` remains useful as a historical baseline, but it cannot be the final authority for Clean Workroot release readiness. The project also needs a repeatable checkbot command for branch checkpoints without tagging or releasing.
+0.9.530 introduced a package-owned release validation path. The runnable legacy compatibility removal feature branch removes the legacy validator from active paths, so release validation now relies on the package release doctor and the `scripts/dev/validate-release.sh` wrapper. The project also needs a repeatable checkbot command for branch checkpoints without tagging or releasing.
 
 ## Goals
 
@@ -121,7 +121,7 @@ Smoke tests must not inspect or mutate real `AI_WORKROOT_HOME`. Output must not 
 
 ### Compatibility
 
-`scripts/compat/validate_kernel.py --release` may remain in checkbot as baseline until package release doctor fully supersedes it.
+Historical validator source is archived for inspection only. Checkbot must not call runnable legacy validators.
 
 ## Acceptance Criteria
 
@@ -154,7 +154,7 @@ AC-004: Given a missing optional PowerShell parser, when checkbot runs on macOS/
 
 ## Migration / Rollback
 
-Add package release doctor checks before removing historical validator from the gate. Rollback keeps `validate_kernel.py` as baseline while preserving new doctor tests.
+Package release doctor checks are the active gate. Rollback is a branch revert, not restoring a second runnable legacy validator in the active checkbot path.
 
 ## Observability / Debugging
 

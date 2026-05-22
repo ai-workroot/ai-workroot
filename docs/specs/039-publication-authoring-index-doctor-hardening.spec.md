@@ -12,7 +12,7 @@ P1
 
 0.9.530 added active runtime modules for Work, Asset, Release, Relationship, and global indexes. Several behaviors remain too ambiguous for a milestone: asset publication is metadata-only while named as publish, active authoring surfaces are runtime-only, index invalidation is minimal, Doctor integrity checks are shallow, and clean review export is not standardized.
 
-This Spec hardens these surfaces without removing legacy compatibility.
+This Spec hardened these surfaces before runnable legacy compatibility removal. Compatibility notes are superseded by `041-runnable-legacy-compat-removal.spec.md`.
 
 ## Goals
 

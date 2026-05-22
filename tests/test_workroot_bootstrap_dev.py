@@ -16,10 +16,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class WorkrootBootstrapDevTest(unittest.TestCase):
     def run_cli(self, cwd: Path, env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
+        process_env = {**os.environ, **env}
+        process_env["PYTHONPATH"] = str(ROOT / "src")
         return subprocess.run(
-            [sys.executable, str(cwd / "scripts/compat/workroot_cli.py"), *args],
+            [sys.executable, "-m", "ai_workroot", *args],
             cwd=cwd,
-            env={**os.environ, **env},
+            env=process_env,
             text=True,
             capture_output=True,
             check=False,

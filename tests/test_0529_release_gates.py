@@ -10,18 +10,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ai_workroot.runtime.release_validation import validate_release_surface
-from ai_workroot.runtime.legacy_seed.kernel_validation import validate_0529_specs
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_SEED = ROOT / "docs/history/public-seed"
+ARCHIVE = ROOT / "docs/history/public-seed/code-archive"
 
 
 class ReleaseGates0529Test(unittest.TestCase):
     def test_install_and_bootstrap_scripts_exist(self) -> None:
         expected = [
-            ROOT / "scripts/compat/install.sh",
-            ROOT / "scripts/compat/install.ps1",
+            ROOT / "install/unix/install.sh",
+            ROOT / "install/windows/install.ps1",
             ROOT / "scripts/dev/bootstrap-dev.sh",
             ROOT / "scripts/dev/bootstrap-dev.ps1",
         ]
@@ -39,7 +39,10 @@ class ReleaseGates0529Test(unittest.TestCase):
                 if any(char in script_path for char in "*?["):
                     self.assertTrue(list(ROOT.glob(script_path)), f"missing required test command script glob: {script_path}")
                 else:
-                    self.assertTrue((ROOT / script_path).exists(), f"missing required test command script: {script_path}")
+                    self.assertTrue(
+                        (ROOT / script_path).exists() or (ARCHIVE / f"{script_path}.txt").exists(),
+                        f"missing required historical test command script: {script_path}",
+                    )
 
     def test_install_script_help_and_dry_run_do_not_write_wrapper(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -47,7 +50,7 @@ class ReleaseGates0529Test(unittest.TestCase):
             env = {**os.environ, "AI_WORKROOT_INSTALL_DIR": str(install_dir)}
 
             help_result = subprocess.run(
-                [str(ROOT / "scripts/compat/install.sh"), "--help"],
+                [str(ROOT / "install/unix/install.sh"), "--help"],
                 cwd=ROOT,
                 env=env,
                 text=True,
@@ -55,7 +58,7 @@ class ReleaseGates0529Test(unittest.TestCase):
                 check=False,
             )
             dry_run_result = subprocess.run(
-                [str(ROOT / "scripts/compat/install.sh"), "--dry-run"],
+                [str(ROOT / "install/unix/install.sh"), "--dry-run"],
                 cwd=ROOT,
                 env=env,
                 text=True,
@@ -78,11 +81,11 @@ class ReleaseGates0529Test(unittest.TestCase):
         checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
 
         self.assertIn("Windows PowerShell parse validation is pending", checklist)
-        self.assertIn("scripts/compat/install.ps1", checklist)
+        self.assertIn("install/windows/install.ps1", checklist)
         self.assertIn("scripts/dev/bootstrap-dev.ps1", checklist)
 
-    def test_rebuild_sqlite_is_marked_as_legacy_seed_tooling(self) -> None:
-        script = (ROOT / "scripts/legacy/public_seed/rebuild_sqlite.py").read_text(encoding="utf-8")
+    def test_rebuild_sqlite_is_archived_as_non_runnable_legacy_tooling(self) -> None:
+        script = (ARCHIVE / "scripts/legacy/public_seed/rebuild_sqlite.py.txt").read_text(encoding="utf-8")
         instantiate = (ROOT / "docs/instantiate-workroot.md").read_text(encoding="utf-8")
 
         self.assertIn("Legacy public-seed SQLite rebuild tool", script)
@@ -100,29 +103,40 @@ class ReleaseGates0529Test(unittest.TestCase):
         ):
             self.assertIn(text, release_notes)
 
-    def test_numbered_0529_specs_exist(self) -> None:
-        errors: list[str] = []
+    def test_numbered_0529_specs_are_preserved_in_history(self) -> None:
+        specs = ROOT / "docs/history/0.9.529/specs"
+        expected = (
+            "001-project-structure-and-naming.spec.md",
+            "002-clean-mode-installation.spec.md",
+            "003-managed-state-layout.spec.md",
+            "004-bootstrap-process.spec.md",
+            "005-migrations.spec.md",
+            "006-doctor-command.spec.md",
+            "007-context-guide-builder.spec.md",
+            "008-materialized-context-candidates.spec.md",
+            "009-fts-indexing-and-retrieval.spec.md",
+            "010-debug-trace-and-observability.spec.md",
+            "011-cli-user-flows.spec.md",
+            "012-native-agent-entry.spec.md",
+            "014-release-and-test-gates.spec.md",
+        )
 
-        validate_0529_specs(ROOT, errors)
-
-        self.assertEqual(errors, [])
+        for filename in expected:
+            self.assertTrue((specs / filename).is_file(), filename)
 
     def test_context_amendment_release_gate_requirements_are_present(self) -> None:
-        errors: list[str] = []
-
-        validate_0529_specs(ROOT, errors)
-
-        self.assertEqual(errors, [])
         spec = (ROOT / "docs/history/0.9.529/specs/015-context-guide-modes-budgets-and-confidence.spec.md").read_text(
             encoding="utf-8"
         )
         checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
-        context_source = (ROOT / "src/ai_workroot/runtime/legacy_context.py").read_text(encoding="utf-8")
+        context_source = (ROOT / "src/ai_workroot/runtime/context.py").read_text(encoding="utf-8")
+
 
         self.assertIn("runtime-hints.json", spec)
         self.assertIn("Deep Mode requires explicit request", checklist)
         self.assertIn("Context Package includes mode, confidence, latency, token usage", checklist)
-        self.assertIn("DEFAULT_CONTEXT_GUIDE_CONFIG", context_source)
+        self.assertIn("DEFAULT_TARGET_TOKENS", context_source)
+        self.assertIn("DEFAULT_HARD_TOKEN_LIMIT", context_source)
 
     def test_release_validation_rejects_generated_state_and_cache_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,6 +1,6 @@
 # AI Workroot 0.9.530 Specs
 
-Status: accepted source of truth for `feat/0.9.530-clean-workroot-domain-reset`.
+Status: accepted source of truth for the 0.9.530 Clean Workroot reset, with runnable legacy compatibility removal layered on top.
 
 AI Workroot 0.9.530 is a Clean Workroot architecture reset, not a normal bugfix release. The active architecture is Clean Workroot. Public Seed is historical and must not remain the active root layout after the replacement architecture is working.
 
@@ -45,6 +45,10 @@ AI Workroot 0.9.530 is a Clean Workroot architecture reset, not a normal bugfix 
 37. `037-release-derived-index-safety-hardening.spec.md`
 38. `038-active-context-control-parity-hardening.spec.md`
 39. `039-publication-authoring-index-doctor-hardening.spec.md`
+40. `040-0530-focused-hardening.spec.md`
+41. `041-runnable-legacy-compat-removal.spec.md`
+
+Specs 023, 031, and the compatibility notes inside 029, 030, 033, 039, and 040 describe transitional 0.9.530 compatibility-preserving work. For current active paths, Spec 041 is authoritative: no runnable legacy compatibility remains under `src/ai_workroot`, `scripts/compat`, or `scripts/legacy`.
 
 ## Required Companion Docs
 

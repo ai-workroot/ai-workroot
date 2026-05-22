@@ -10,14 +10,14 @@ P0
 
 ## Background
 
-`ai_workroot.runtime.legacy_seed.client` preserves mature legacy capabilities for tasks, runs, actions, artifacts, retrieval cards, checkpoints, invalidations, session summaries, continuation, and batch rollback. These capabilities must not be lost, but active Clean Workroot runtime behavior belongs in `src/ai_workroot/`.
+Earlier 0.9.530 work used `ai_workroot.runtime.legacy_seed.client` as a temporary compatibility owner for mature Public Seed capabilities. Spec 041 removes runnable legacy compatibility from active paths. The important product capabilities must remain owned by active Clean Workroot runtime modules under `src/ai_workroot/`.
 
 ## Goals
 
 - Move Work process capabilities into package runtime and core modules.
 - Move artifact/decision/mind/knowledge-like outputs into Asset concepts.
 - Preserve batch transaction and rollback behavior.
-- Keep legacy Public Seed behavior available only as compatibility until package parity exists.
+- Keep the useful legacy capabilities represented in active Work and Asset runtime behavior.
 - Add package-first tests for each preserved capability.
 
 ## Non-goals
@@ -138,7 +138,7 @@ Private/internal assets stay in managed state by default. User-directory publica
 
 ### Compatibility
 
-Legacy script commands stay available under legacy boundary until package equivalents pass regression tests.
+Runnable legacy script commands are removed from active paths by Spec 041. Historical source remains available for inspection under `docs/history/public-seed/code-archive/`.
 
 ## Acceptance Criteria
 
@@ -200,9 +200,9 @@ T4: Preserve batch rollback
 - Files likely affected: `src/ai_workroot/runtime/work.py`, `src/ai_workroot/storage/repositories.py`.
 - Verification: failure rollback tests.
 
-T5: Isolate legacy client
-- Change: Move old command tests to legacy or make script delegate where parity exists.
-- Files likely affected: `src/ai_workroot/runtime/legacy_seed/client.py`, Public Seed compatibility wrapper, `tests/legacy/`.
+T5: Verify capability parity after legacy removal
+- Change: Ensure Work/Asset runtime tests cover capabilities formerly represented by Public Seed scripts.
+- Files likely affected: `src/ai_workroot/runtime/work.py`, `src/ai_workroot/runtime/assets.py`, `tests/unit/`, `tests/integration/`.
 - Verification: full unittest suite.
 
 ## Risks

@@ -60,12 +60,13 @@ class ArchitectureContractsTest(unittest.TestCase):
         self.assertIn("space/work", text)
         self.assertIn("space/mind", text)
 
-    def test_agent_fast_start_prefers_operation_manifest_over_source_code(self) -> None:
+    def test_historical_agent_fast_start_is_preserved_as_public_seed_history(self) -> None:
         text = read(".workroot/kernel/boot/agent-fast-start.md")
         self.assertIn("operation manifest", text)
         self.assertIn("workroot legacy manifest --format json", text)
         self.assertIn("workroot legacy recipe batch-12-tasks --format json", text)
         self.assertIn("Do not read implementation source modules", text)
+        self.assertTrue((ROOT / "docs/history/public-seed/code-archive/MANIFEST.md").is_file())
 
     def test_part2_temporal_and_global_index_boundaries_are_documented(self) -> None:
         retrieval = read("docs/specs/009-retrieval-index-control.spec.md")

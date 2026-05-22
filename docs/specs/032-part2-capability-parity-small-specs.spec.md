@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Accepted for 0.9.530; compatibility notes superseded by `041-runnable-legacy-compat-removal.spec.md`
 
 ## Priority
 
@@ -20,12 +20,12 @@ Each slice is a small Spec iteration with acceptance criteria, targeted tests, a
 - Keep `context_candidates` as a materialized read model, not the canonical Context Card store.
 - Add active package-owned runtime paths for Work, Asset, Release, and Relationship behavior.
 - Add minimal Global Workroot Index visibility without turning global indexes into cross-Workroot knowledge.
-- Keep legacy script and Public Seed compatibility callable until separate compatibility-removal approval.
+- Preserve legacy capability through active package modules and historical archive review; callable compatibility removal is governed by Spec 041.
 - Validate every small Spec iteration with targeted tests plus full release gates at checkpoints.
 
 ## Non-goals
 
-- Do not remove legacy compatibility in this branch.
+- Do not remove capability parity. Runnable compatibility removal is handled separately by Spec 041.
 - Do not tag, release, or merge from this Spec.
 - Do not introduce a vector database, remote embedding service, remote LLM dependency, or cloud service.
 - Do not reintroduce Public Seed as the active Clean Workroot architecture.

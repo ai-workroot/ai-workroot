@@ -33,15 +33,15 @@ The next 0.9.530 implementation stage is documented in:
 - `docs/specs/029-install-dev-scripts-and-wrappers.spec.md`
 - `docs/specs/030-test-suite-and-public-seed-quarantine.spec.md`
 
-These documents make the remaining migration explicit: active Clean Workroot product logic moves into `src/ai_workroot/`, while `scripts/` narrows to wrappers, developer tooling, release validation, and legacy compatibility.
+These documents record the 0.9.530 package-ownership migration. They are historical design inputs after runnable legacy compatibility removal. Current active Clean Workroot product logic lives in `src/ai_workroot/`, while `scripts/` is limited to developer, release validation, and review helpers.
 
-## Compatibility Decision
+## Historical Compatibility Decision
 
-The remaining scripts-to-source migration has two explicitly named phases.
+The scripts-to-source migration had two explicitly named phases.
 
-The package-ownership phase is the current 0.9.530 target: finish package ownership while preserving all existing script and legacy CLI compatibility. Old script files may become wrappers, and historical implementations may be archived under `docs/history/0.9.530/scripts/`, but callable compatibility paths remain.
+The package-ownership phase was the 0.9.530 target: finish package ownership while preserving existing script and legacy CLI compatibility. Old script files could become wrappers, and historical implementations could be archived under `docs/history/0.9.530/scripts/`.
 
-The Compatibility Removal phase is a later branch/version: remove or narrow compatibility after package ownership has been reviewed and explicitly approved. Do not remove compatibility while completing the current package-ownership phase.
+The Compatibility Removal phase is implemented by `docs/specs/041-runnable-legacy-compat-removal.spec.md`: runnable legacy compatibility is removed from active paths and preserved as non-runnable archive material under `docs/history/public-seed/code-archive/`.
 
 ## Mandatory Execution Correction
 
@@ -51,7 +51,7 @@ Do not begin implementation by deleting or moving root `space/`, `.workroot/`, `
 
 ## Baseline
 
-Before source-of-truth docs were imported, the branch passed:
+Before source-of-truth docs were imported, the 0.9.530 branch passed:
 
 ```text
 python3 -m py_compile $(find src scripts -name "*.py")

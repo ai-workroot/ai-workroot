@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from importlib import import_module
 from pathlib import Path
 
 from ai_workroot.storage.migrations import (
@@ -42,10 +43,12 @@ class WorkrootMigrationsTest(unittest.TestCase):
             self.assertEqual(records[0]["status"], "failed")
             self.assertIn("boom", records[0]["error"])
 
-    def test_legacy_script_wrapper_exports_package_runner(self) -> None:
-        from scripts.compat.workroot_migrations import MigrationRunner as LegacyMigrationRunner
+    def test_migration_runner_is_active_package_owner_without_legacy_wrapper(self) -> None:
+        active_migrations = import_module("ai_workroot.storage.migrations")
 
-        self.assertIs(LegacyMigrationRunner, MigrationRunner)
+        self.assertIs(active_migrations.MigrationRunner, MigrationRunner)
+        with self.assertRaises(ModuleNotFoundError):
+            import_module("scripts.compat.workroot_migrations")
 
     def test_migration_lock_times_out_when_lock_is_held(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

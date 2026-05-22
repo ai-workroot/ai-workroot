@@ -2,7 +2,13 @@
 
 ## Status
 
-Draft implementation checkpoint for `feat/0.9.530-clean-workroot-domain-reset`.
+Historical 0.9.530 transition checkpoint.
+
+This document is superseded for current active behavior by
+`docs/specs/041-runnable-legacy-compat-removal.spec.md`. The compatibility
+CLI namespace and compatibility wrappers described below were intentionally
+removed in the runnable legacy compatibility cleanup branch. Keep this file only as historical design
+context for why the compatibility layer existed during the 0.9.530 migration.
 
 ## Problem
 
@@ -19,7 +25,7 @@ centered on scripts. The architecture boundary should be stronger:
 - package code must not import, execute, or recommend scripts as canonical
   product commands.
 
-## Target Design
+## Historical Target Design
 
 ### Canonical CLI Surface
 
@@ -34,39 +40,23 @@ workroot doctor
 workroot bootstrap-dev
 ```
 
-Legacy Public Seed operation commands become package-owned compatibility
-commands under:
+During the 0.9.530 transition, Legacy Public Seed operation commands were
+planned as package-owned compatibility commands under a hidden legacy namespace:
 
 ```text
-workroot legacy manifest
-workroot legacy schema
-workroot legacy recipe
-workroot legacy task
-workroot legacy run
-workroot legacy action
-workroot legacy artifact
-workroot legacy retrieval-card
-workroot legacy checkpoint
-workroot legacy invalidation
-workroot legacy mind
-workroot legacy session
-workroot legacy continue
-workroot legacy batch
+workroot <removed-legacy-namespace> ...
 ```
 
-The `legacy` command is intentionally hidden from default Clean Mode help. It is
-available for compatibility and documented only where legacy Public Seed
-operation compatibility is being discussed.
+That compatibility namespace is no longer available after Spec 041. Current
+Clean Workroot users should use only the active commands listed above.
 
 ### Compatibility Wrappers
 
-`scripts/compat/workroot_cli.py` remains callable for old automation. It is a
-thin wrapper that imports package code after adding the repository `src/`
-directory to `sys.path`.
-
-`scripts/legacy/public_seed/*` remains a quarantine area for historical entry
-points. Those files may re-export package behavior, but new Clean Workroot
-product behavior must not be added there.
+During the 0.9.530 transition, compatibility wrappers remained callable for old
+automation and legacy Public Seed entry points stayed in a runnable quarantine
+area. Spec 041 removes those runnable surfaces. Historical source snapshots now
+live under `docs/history/public-seed/code-archive/` as non-runnable `.txt`
+files.
 
 ### Package Boundary
 
@@ -77,21 +67,21 @@ Package modules must not:
 - expose `scripts/...` paths as canonical package command guidance.
 
 Package modules may mention legacy concepts, but command examples emitted by
-package code should use `workroot legacy ...` or `python -m ai_workroot legacy
-...`, not script paths.
+package code should use current Clean Workroot commands, not script paths or
+removed compatibility commands.
 
 ### Agent Operation Manifest
 
-The legacy operation manifest stays package-owned under
-`ai_workroot.runtime.legacy_seed.operation_manifest`.
-
-It should describe operation contracts and use package CLI commands:
+During the 0.9.530 transition, the legacy operation manifest stayed package
+owned under a temporary legacy module. That module has been archived as
+non-runnable history after Spec 041. Historical examples used the removed
+legacy namespace:
 
 ```text
-workroot legacy manifest --format json
-workroot legacy schema --format json
-workroot legacy recipe batch-12-tasks --format json
-workroot legacy batch apply --file plan.json
+workroot <removed-legacy-namespace> manifest --format json
+workroot <removed-legacy-namespace> schema --format json
+workroot <removed-legacy-namespace> recipe batch-12-tasks --format json
+workroot <removed-legacy-namespace> batch apply --file plan.json
 ```
 
 Implementation source modules remain non-startup implementation details and are
@@ -101,7 +91,7 @@ not normal agent reading requirements.
 
 1. Add regression tests proving package source no longer contains canonical
    `scripts/...` command guidance.
-2. Add package CLI tests for `python -m ai_workroot legacy ...`.
+2. Add package CLI tests for the temporary compatibility namespace.
 3. Refactor `ai_workroot.cli.legacy_seed.main` to accept `argv` so package CLI
    can call it directly without subprocess.
 4. Add hidden `legacy` dispatch to `ai_workroot.cli.main`.
@@ -112,21 +102,21 @@ not normal agent reading requirements.
 7. Re-run unit, integration, negative, smoke, package doctor, release
    validation, py_compile, and diff checks.
 
-## Acceptance Criteria
+## Historical Acceptance Criteria
+
+These criteria applied only to the 0.9.530 compatibility-preserving checkpoint.
+They are superseded by Spec 041:
 
 - Package source has no `scripts/` string constants.
-- `python -m ai_workroot --help` remains Clean Mode focused and does not expose
-  individual legacy operation commands.
-- `python -m ai_workroot legacy manifest --format json` works.
-- `python -m ai_workroot legacy recipe task-l2-evidence` renders package-owned
-  legacy command examples.
-- `scripts/compat/workroot_cli.py` remains callable for compatibility.
+- `python -m ai_workroot --help` remains Clean Mode focused.
+- The removed compatibility namespace fails as an invalid command.
+- `scripts/compat/` and `scripts/legacy/` do not exist as runnable surfaces.
 - No package module imports or executes scripts.
 
 ## Non-goals
 
-- Do not remove compatibility wrappers.
-- Do not remove legacy Public Seed capability.
+- Do not remove compatibility wrappers during the historical 0.9.530 transition.
+- Do not remove legacy Public Seed capability during that transition.
 - Do not make legacy commands a primary Clean Mode user surface.
 - Do not introduce new architecture concepts.
 - Do not merge, tag, or release.

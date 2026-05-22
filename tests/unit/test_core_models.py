@@ -6,7 +6,6 @@ from ai_workroot.core.assets import Asset, AssetPublication, AssetSurface
 from ai_workroot.core.common import SourceRef, TemporalScope, TimeRange
 from ai_workroot.core.context import ContextBudget
 from ai_workroot.core.extensions import Capability
-from ai_workroot.runtime.legacy_seed.operation_manifest import manifest, recipe, schema
 from ai_workroot.core.relationships import RelationshipEdge, RelationshipEvidence
 from ai_workroot.core.release import DeletionRecord, Redaction, ReleaseTargetRef, Tombstone
 from ai_workroot.core.retrieval import IndexManifest
@@ -157,21 +156,6 @@ class CoreModelsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             TimeRange(start="2026-05-22T00:00:00Z", end="2026-05-21T00:00:00Z")
 
-    def test_operation_manifest_is_package_owned(self) -> None:
-        payload = manifest()
-
-        self.assertEqual(payload["manifest_id"], "agent-operation-manifest")
-        self.assertIn("task.create", payload["batch_operations"])
-        self.assertIn("legacy public-seed", payload["legacy_mode"]["description"])
-
-    def test_operation_schema_and_recipe_are_package_owned(self) -> None:
-        payload = schema()
-        batch_recipe = recipe("batch-12-tasks")
-
-        self.assertIn("batch_operations", payload)
-        self.assertIn("artifact.add", payload["batch_operations"])
-        self.assertEqual(batch_recipe["format"], "batch-json")
-
     def test_core_extensions_keeps_stable_capability_concept_only(self) -> None:
         import ai_workroot.core.extensions as extensions
 
@@ -180,6 +164,7 @@ class CoreModelsTest(unittest.TestCase):
         self.assertEqual(capability.status, "reserved")
         self.assertFalse(hasattr(extensions, "manifest"))
         self.assertFalse(hasattr(extensions, "BATCH_OPERATIONS"))
+        self.assertFalse(hasattr(extensions, "legacy_manifest"))
 
 
 if __name__ == "__main__":

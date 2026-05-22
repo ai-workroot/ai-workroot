@@ -22,14 +22,15 @@ Example commands:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/compat/validate_kernel.py --release  # baseline only until Clean Workroot validator replaces it
+PYTHONPATH=src python3 -m ai_workroot doctor --release
+scripts/dev/validate-release.sh
 git diff --check
 bash -n install/unix/install.sh
 ```
 
 PowerShell parse should be included if available. If not, document limitation.
 
-Final release CI must include a Clean Workroot release validator. The old kernel validator cannot be the sole final release gate unless rewritten for the 0.9.530 architecture.
+Final release CI must include the Clean Workroot release validator. The old kernel validator is preserved only as historical archive material and is not an active release gate.
 
 ## Release gate
 

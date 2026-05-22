@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-The mature 0.9.529 Context Guide and indexing behavior is preserved through `scripts/legacy/public_seed/workroot_context.py`, `scripts/legacy/public_seed/workroot_indexing.py`, and `scripts/legacy/public_seed/workroot_candidates.py` compatibility wrappers while active behavior moves into package Retrieval & Index Control and Context Control.
+The mature 0.9.529 Context Guide and indexing behavior has been migrated into package Retrieval & Index Control and Context Control. Spec 041 removes runnable legacy script compatibility from active paths; old source is retained only as non-runnable historical archive material.
 
 ## Goals
 
@@ -131,7 +131,7 @@ Redacted/deleted content is removed before rendering. Safety-sensitive content r
 
 ### Compatibility
 
-Old script context tests are ported to package context tests. Legacy tests remain only for historical compatibility.
+Old script context tests are ported to package context tests or archived as historical tests. Active validation must not execute legacy script context code.
 
 ## Acceptance Criteria
 

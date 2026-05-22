@@ -6,7 +6,7 @@ Draft checkpoint for `feat/0.9.530-clean-workroot-domain-reset`.
 
 This document extends the accepted 0.9.530 Clean Workroot architecture reset. It does not replace the core domain architecture. It defines how the remaining mature implementation in `scripts/` moves into `src/ai_workroot/` without capability loss.
 
-Compatibility correction: the remaining migration has two explicitly named phases. The current branch target moves implementation ownership into `src/ai_workroot/` while preserving old script and legacy CLI compatibility. The Compatibility Removal phase, a later branch/version, removes or narrows compatibility after separate approval. Do not remove callable script compatibility while completing the current package-ownership phase.
+Compatibility note: this document records the 0.9.530 package-ownership phase, which preserved old script and legacy CLI compatibility while moving implementation ownership into `src/ai_workroot/`. It is superseded for current active paths by `docs/specs/041-runnable-legacy-compat-removal.spec.md`, which removes callable legacy compatibility and preserves old source as non-runnable archive material.
 
 ## Purpose
 

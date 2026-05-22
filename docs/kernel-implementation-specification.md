@@ -129,7 +129,7 @@ Work keeps factual process continuity. Required concepts include:
 - Handoff
 - OperationTransaction
 
-Legacy Public Seed commands may remain under explicit compatibility paths, but Clean Workroot user flows must center on `init`, `list`, `status`, `context`, `doctor`, and `bootstrap-dev`.
+Clean Workroot user flows center on `init`, `list`, `status`, `context`, `doctor`, and `bootstrap-dev`. Runnable legacy Public Seed commands are not part of the active implementation path.
 
 ## Asset
 
@@ -253,7 +253,6 @@ Required gates:
 ```bash
 python3 -m py_compile $(find src scripts -name "*.py")
 python3 -m unittest discover -s tests -v
-python3 scripts/compat/validate_kernel.py --release
 PYTHONPATH=src python3 -m ai_workroot doctor --release
 scripts/dev/validate-release.sh
 git diff --check

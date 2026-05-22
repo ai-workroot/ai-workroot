@@ -131,19 +131,6 @@ class BootstrapDevReplacementTest(unittest.TestCase):
             self.assertIn("bootstrap-dev initialized wr_ai_workroot", result.stdout)
             self.assertTrue((home / "workroots/wr_ai_workroot/cache/workroot.sqlite").is_file())
 
-    def test_legacy_python_bootstrap_wrapper_delegates_to_package_runtime(self) -> None:
-        from scripts.compat.workroot_bootstrap import bootstrap_dev as script_bootstrap_dev
-
-        with tempfile.TemporaryDirectory() as tmp:
-            repo = Path(tmp) / "repo"
-            home = Path(tmp) / "home"
-            self.make_minimal_repo(repo)
-
-            result = script_bootstrap_dev(repo, ai_workroot_home=home)
-
-            self.assertEqual(result.status, "initialized")
-            self.assertTrue((home / "workroots/wr_ai_workroot/cache/workroot.sqlite").is_file())
-
 
 if __name__ == "__main__":
     unittest.main()

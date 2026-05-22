@@ -28,10 +28,31 @@ class ImportBoundariesTest(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertTrue((SRC / "ai_workroot" / name / "__init__.py").is_file())
 
-    def test_legacy_seed_package_is_importable(self) -> None:
-        import ai_workroot.runtime.legacy_seed as legacy_seed
+    def test_src_has_no_active_legacy_modules(self) -> None:
+        legacy_paths = [
+            path.relative_to(ROOT).as_posix()
+            for path in (SRC / "ai_workroot").rglob("*")
+            if "legacy" in path.relative_to(SRC).as_posix()
+        ]
 
-        self.assertIsNotNone(legacy_seed)
+        self.assertEqual(legacy_paths, [])
+
+    def test_src_does_not_import_legacy_modules(self) -> None:
+        violations: list[str] = []
+        forbidden = ("legacy_", ".legacy_", "legacy_seed", "public_seed")
+        for path in (SRC / "ai_workroot").rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                module_names: list[str] = []
+                if isinstance(node, ast.Import):
+                    module_names.extend(alias.name for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    module_names.append(node.module)
+                for module in module_names:
+                    if any(term in module for term in forbidden):
+                        violations.append(f"{path.relative_to(ROOT)}:{getattr(node, 'lineno', 0)}:{module}")
+
+        self.assertEqual(violations, [])
 
     def test_contracts_do_not_import_project_modules(self) -> None:
         contracts_dir = SRC / "ai_workroot" / "contracts"

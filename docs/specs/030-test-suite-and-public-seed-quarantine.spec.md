@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Accepted for 0.9.530; legacy-test notes superseded by `041-runnable-legacy-compat-removal.spec.md`
 
 ## Priority
 
@@ -10,13 +10,13 @@ P0
 
 ## Background
 
-The repository still has tests that import legacy scripts directly and historical materials that must not be confused with active Clean Workroot architecture. The test suite must prove both package behavior and legacy preservation without keeping Public Seed active.
+The repository previously had tests that imported legacy scripts directly and historical materials that must not be confused with active Clean Workroot architecture. After Spec 041, default tests prove package behavior and archive boundaries without executing runnable legacy compatibility.
 
 ## Goals
 
 - Split tests by purpose.
 - Make package tests authoritative for active Clean Workroot behavior.
-- Keep legacy tests explicitly legacy.
+- Preserve legacy tests only as non-runnable historical archive material unless a package parity test replaces them.
 - Preserve Public Seed evidence only as history or fixtures.
 - Add negative tests preventing active root regression.
 
@@ -56,7 +56,7 @@ FR-001: All test-like Python files must live under `tests/` or be renamed so the
 
 FR-002: Package behavior tests must import `ai_workroot.*`, not `scripts.*`.
 
-FR-003: Legacy tests may import `scripts.*` only under explicit legacy naming or directory.
+FR-003: Active tests must not import `scripts.*` legacy compatibility paths. Historical tests are archived as non-runnable `.txt` material.
 
 FR-004: Negative tests must fail if root tracked `space/`, `.workroot/`, `AGENTS.md`, `CLAUDE.md`, or `.idea/` returns as active architecture.
 
@@ -78,7 +78,7 @@ NFR-004: Tests must not depend on the developer's real GitHub, SSH, or global en
 
 Active test: validates current Clean Workroot package behavior.
 
-Legacy test: validates preserved Public Seed compatibility only.
+Legacy test: historical test material from the Public Seed era. It is non-runnable after Spec 041 unless rewritten as an active package parity test.
 
 Negative test: prevents forbidden architecture regression.
 
@@ -89,7 +89,6 @@ tests/unit/
 tests/integration/
 tests/smoke/
 tests/negative/
-tests/legacy/
 tests/fixtures/
 ```
 
@@ -115,7 +114,7 @@ Test fixtures must not contain local absolute paths, private user names, or real
 
 ### Compatibility
 
-Legacy tests remain until package parity is proven. They are moved or renamed rather than silently removed.
+Legacy tests are archived after package parity is proven or intentionally retired. Active default discovery must not execute legacy script tests.
 
 ## Acceptance Criteria
 
@@ -123,7 +122,7 @@ AC-001: Given `git ls-files`, when scanned for test-like files outside `tests/`,
 
 AC-002: Given package tests, when run, then active Clean Workroot behavior is covered through `ai_workroot.*` imports.
 
-AC-003: Given legacy tests, when run, then their path or name clearly marks legacy compatibility.
+AC-003: Given historical legacy tests, when archived, then they are non-runnable `.txt` files under `docs/history/public-seed/code-archive/`.
 
 AC-004: Given root tracked Public Seed files, when release validation tests run, then they fail.
 
@@ -140,7 +139,7 @@ AC-005: Given ignored local `AGENTS.md`, `CLAUDE.md`, or `.idea/`, when validati
 ### Integration Tests
 
 - Package storage/runtime/context flows.
-- Legacy preservation parity checks.
+- Historical archive boundary checks.
 
 ### Manual Verification
 
@@ -150,11 +149,11 @@ AC-005: Given ignored local `AGENTS.md`, `CLAUDE.md`, or `.idea/`, when validati
 
 ## Migration / Rollback
 
-Move tests gradually. If a package test fails after migration, keep the legacy test and mark the package behavior gap instead of deleting coverage.
+Move tests gradually. If a package test fails after migration, keep historical evidence in the archive and mark the package behavior gap instead of restoring runnable compatibility.
 
 ## Observability / Debugging
 
-Test audit output lists package tests, legacy tests, smoke tests, negative tests, and any tests still importing scripts.
+Test audit output lists package tests, smoke tests, negative tests, archived legacy tests, and any active tests still importing scripts.
 
 ## Task Breakdown
 
@@ -163,10 +162,10 @@ T1: Add test audit command
 - Files likely affected: `scripts/dev/validate-release.sh`, tests.
 - Verification: audit output in checkbot.
 
-T2: Move legacy tests
-- Change: Move script-importing tests to `tests/legacy/` or rename with legacy labels.
-- Files likely affected: `tests/legacy/`, existing tests.
-- Verification: unittest discovery.
+T2: Archive legacy tests
+- Change: Move retired script-importing tests to non-runnable history or replace them with package parity tests.
+- Files likely affected: `docs/history/public-seed/code-archive/tests/`, existing tests.
+- Verification: unittest discovery and archive boundary tests.
 
 T3: Add package parity tests
 - Change: Add package tests for each migrated behavior before retiring legacy tests.

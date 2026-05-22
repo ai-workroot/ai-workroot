@@ -78,10 +78,6 @@ def build_parser() -> argparse.ArgumentParser:
         if command == "bootstrap-dev":
             command_parser.add_argument("--dry-run", action="store_true", help="Validate bootstrap-dev inputs without writes.")
             command_parser.add_argument("--cwd", default=".", help="Repository directory to bootstrap.")
-    legacy = subparsers.add_parser("legacy", help=argparse.SUPPRESS, add_help=False)
-    legacy.add_argument("-h", "--help", action="store_true", dest="legacy_help")
-    legacy.add_argument("legacy_args", nargs=argparse.REMAINDER)
-
     return parser
 
 
@@ -161,16 +157,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             parser.exit(1, f"{exc}\n")
         print(result.message())
-        return 0
-
-    if args.command == "legacy":
-        from ai_workroot.cli.legacy_seed import main as legacy_main
-
-        legacy_args = list(args.legacy_args)
-        if args.legacy_help or not legacy_args:
-            legacy_main(["--help"])
-        else:
-            legacy_main(legacy_args)
         return 0
 
     if args.command:

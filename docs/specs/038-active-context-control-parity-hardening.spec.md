@@ -38,7 +38,7 @@ The active package Context Control path renders useful local context from Contex
 
 ### Excluded
 
-- Legacy `runtime/legacy_context.py` refactoring.
+- Archived legacy Context Guide refactoring.
 - MCP integration.
 - Full cross-Workroot retrieval.
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Accepted for 0.9.530; legacy-command requirement superseded by `041-runnable-legacy-compat-removal.spec.md`
 
 ## Priority
 
@@ -28,7 +28,7 @@ Final review found several focused hardening gaps. These gaps do not require a n
 - Do not redesign the 0.9.530 architecture.
 - Do not add MCP implementation.
 - Do not add vector database, remote embedding, or remote LLM dependency.
-- Do not remove legacy Public Seed capability.
+- Do not lose useful Public Seed era capabilities; runnable legacy compatibility removal is governed by Spec 041.
 - Do not add broad SQLite foreign-key enforcement in this pass.
 - Do not expose a full Work/Asset/Release/Relationship product CLI in this pass.
 - Do not run long E2E unless explicitly requested.
@@ -91,7 +91,7 @@ FR-012: Current docs must not contain local absolute developer paths outside exp
 
 FR-013: Current docs must not present old root-level Workroot script paths as active product implementation or current agent workflow.
 
-FR-014: `workroot legacy --help` must show useful legacy command help or delegate to the legacy parser.
+FR-014: Superseded by Spec 041. `workroot legacy --help` must fail as an invalid active command after runnable legacy compatibility removal.
 
 ### Non-functional Requirements
 
@@ -157,7 +157,6 @@ src/ai_workroot/indexing/providers/relationship_provider.py
 src/ai_workroot/runtime/relationships.py
 src/ai_workroot/core/relationships.py
 src/ai_workroot/cli/main.py
-src/ai_workroot/cli/legacy_seed.py
 tests/unit/test_runtime_release.py
 tests/unit/test_runtime_doctor.py
 tests/unit/test_release_target_resolver.py
@@ -190,13 +189,7 @@ AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite persona-smoke
 AI_WORKROOT_RUN_E2E=1 python3 -m tests.e2e.runner --suite longrun
 ```
 
-Legacy help:
-
-```bash
-workroot legacy --help
-```
-
-must display useful legacy command help without exposing legacy commands in default Clean Mode help.
+Legacy command handling is superseded by Spec 041: active CLI rejects legacy namespaces as invalid commands.
 
 ### Runtime Behavior
 
@@ -303,9 +296,7 @@ When `workroot --help` runs
 Then legacy command groups remain hidden.
 
 AC-011:
-Given legacy help
-When `workroot legacy --help` runs
-Then useful legacy command help is displayed.
+Superseded by Spec 041. Given legacy help, when `workroot legacy --help` runs, then the command fails as invalid.
 
 ## Test Plan
 

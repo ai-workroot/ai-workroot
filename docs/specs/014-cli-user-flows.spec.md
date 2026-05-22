@@ -26,12 +26,12 @@ workroot index ...
 workroot relationship ...
 ```
 
-## Legacy commands
+## Removed legacy commands
 
-Old seed commands must not appear as current Clean Workroot primary flow. If retained temporarily, put under:
+Old seed commands must not appear as current Clean Workroot primary flow. Runnable legacy compatibility is removed from the active package CLI by `041-runnable-legacy-compat-removal.spec.md`.
 
 ```text
-workroot legacy ...
+workroot legacy ...  # removed
 ```
 
 ## CLI rules
@@ -70,6 +70,6 @@ Dogfood only. No commit/tag/push.
 
 - `python -m ai_workroot --help` works.
 - `workroot --help` shows Clean Workroot primary commands.
-- legacy commands hidden or namespaced.
+- legacy commands rejected as invalid active commands.
 - context exposes hard token limit.
 - bootstrap-dev output confirms generated local entries are ignored.

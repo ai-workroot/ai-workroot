@@ -11,15 +11,16 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "scripts/compat/workroot_cli.py"
 
 
 class WorkrootInitCliTest(unittest.TestCase):
     def run_cli(self, env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
+        process_env = {**os.environ, **env}
+        process_env["PYTHONPATH"] = str(ROOT / "src")
         return subprocess.run(
-            [sys.executable, str(CLI), *args],
+            [sys.executable, "-m", "ai_workroot", *args],
             cwd=ROOT,
-            env={**os.environ, **env},
+            env=process_env,
             text=True,
             capture_output=True,
             check=False,
@@ -56,7 +57,7 @@ class WorkrootInitCliTest(unittest.TestCase):
             self.assertEqual(payload["version"], "0.9.530")
             self.assertEqual(payload["user_directory"], str(user_dir.resolve()))
 
-    def test_script_clean_init_delegates_to_package_cli_contract(self) -> None:
+    def test_package_clean_init_uses_package_cli_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             home = base / "home"
