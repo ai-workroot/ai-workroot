@@ -10,7 +10,9 @@ from pathlib import Path
 from ai_workroot.runtime.bootstrap import bootstrap_dev
 from ai_workroot.runtime.context import ContextRequest, build_context_package
 from ai_workroot.runtime.doctor import run_doctor, run_release_doctor
+from ai_workroot.runtime.environment import load_context_control_config
 from ai_workroot.runtime.init import initialize_workroot
+from ai_workroot.runtime.paths import resolve_ai_workroot_home
 from ai_workroot.runtime.registry import find_workroot_by_cwd, list_workroots
 
 
@@ -69,8 +71,8 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--cwd", default=".")
             command_parser.add_argument("--query", default="")
             command_parser.add_argument("--mode", choices=("fast", "standard", "quality", "deep"), default="standard")
-            command_parser.add_argument("--target-tokens", type=int, default=1200)
-            command_parser.add_argument("--hard-token-limit", type=int, default=2400)
+            command_parser.add_argument("--target-tokens", type=int)
+            command_parser.add_argument("--hard-token-limit", type=int)
             command_parser.add_argument("--debug", action="store_true")
         if command == "doctor":
             command_parser.add_argument("--cwd", default=".")
@@ -124,7 +126,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "context":
-        if args.target_tokens <= 0 or args.hard_token_limit <= 0 or args.target_tokens > args.hard_token_limit:
+        config = load_context_control_config(resolve_ai_workroot_home())
+        target_tokens = args.target_tokens if args.target_tokens is not None else config.default_target_tokens
+        hard_token_limit = args.hard_token_limit if args.hard_token_limit is not None else config.default_hard_token_limit
+        budget_source = "cli" if args.target_tokens is not None or args.hard_token_limit is not None else "config"
+        if target_tokens <= 0 or hard_token_limit <= 0 or target_tokens > hard_token_limit:
             parser.exit(1, "invalid context token budget\n")
         try:
             package = build_context_package(
@@ -133,9 +139,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     cwd=Path(args.cwd),
                     query=args.query,
                     mode=args.mode,
-                    target_tokens=args.target_tokens,
-                    hard_token_limit=args.hard_token_limit,
+                    target_tokens=target_tokens,
+                    hard_token_limit=hard_token_limit,
                     debug=args.debug,
+                    budget_source=budget_source,
                 )
             )
         except ValueError as exc:

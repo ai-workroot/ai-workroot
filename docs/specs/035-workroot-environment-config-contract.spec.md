@@ -19,6 +19,7 @@ P1
 - Record registered and active Workroot counts.
 - Record last registry update and last doctor run timestamps with second precision.
 - Reserve maintenance fields for future upgrade locks.
+- Provide global Context Control defaults for token budgets and diagnostic logging.
 
 ## Non-goals
 
@@ -36,6 +37,7 @@ P1
 - Summary counters.
 - Doctor status summary.
 - Maintenance lock placeholder.
+- Context Control default budgets and diagnostic logging controls.
 
 ### Excluded
 
@@ -68,6 +70,12 @@ FR-006: Doctor must record last doctor status and timestamp.
 
 FR-007: Timestamps must use UTC ISO-8601 with second precision.
 
+FR-008: `config.json` must include global Context Control defaults for `defaultTargetTokens` and `defaultHardTokenLimit`.
+
+FR-009: Context diagnostic logging must be disabled by default and must not include rendered Context Packages unless explicitly enabled.
+
+FR-010: Context diagnostic logs must be written under the per-Workroot managed state directory, not inside the user-selected directory.
+
 ### Non-functional Requirements
 
 NFR-001: Config writes must be local-only.
@@ -75,6 +83,8 @@ NFR-001: Config writes must be local-only.
 NFR-002: Config must not include absolute per-Workroot state lists by default.
 
 NFR-003: Config must remain small enough for quick human inspection.
+
+NFR-004: Context diagnostic logging must be bounded by retention settings so it does not grow without limit.
 
 ## Proposed Design
 
@@ -114,6 +124,19 @@ NFR-003: Config must remain small enough for quick human inspection.
     "message": null,
     "blocksWrites": true,
     "blocksContextGeneration": false
+  },
+  "contextControl": {
+    "defaultTargetTokens": 1200,
+    "defaultHardTokenLimit": 2400,
+    "diagnosticLogging": {
+      "enabled": false,
+      "includeRenderedPackage": false,
+      "includeTraceSummary": true,
+      "includeRetrievalSummary": true,
+      "includeTokenEstimate": true,
+      "retentionDays": 7,
+      "maxEntriesPerWorkroot": 200
+    }
   }
 }
 ```
@@ -129,10 +152,21 @@ No user-facing CLI is added in this spec. Runtime APIs:
 - `ensure_environment_config`
 - `refresh_environment_registry_summary`
 - `record_environment_doctor_summary`
+- `load_context_control_config`
+
+`workroot context` uses explicit CLI token flags first. If `--target-tokens` or `--hard-token-limit` is omitted, it uses global Context Control defaults from `AI_WORKROOT_HOME/config.json`.
 
 ### Runtime Behavior
 
 Environment initialization creates or merges config. Registration refreshes counts. Doctor records health summary.
+
+Context generation reads global Context Control defaults. When diagnostic logging is enabled, each context request writes a JSONL diagnostic record to:
+
+```text
+AI_WORKROOT_HOME/workroots/<workroot_id>/logs/context-requests.jsonl
+```
+
+The record may include budget source, token estimate, selected candidate IDs, release drops, fallback behavior, mode plan, and trim steps. The full rendered Context Package is included only when `includeRenderedPackage` is explicitly true.
 
 ### Error Handling
 
@@ -142,9 +176,13 @@ Malformed config should be treated as empty for this layer; lower-level state re
 
 Config must not include user knowledge, sensitive content, or full per-Workroot metadata lists.
 
+Diagnostic logs can include user-derived context summaries and, if explicitly enabled, rendered Context Packages. They must stay in managed state and must not be written into user-selected directories.
+
 ### Compatibility
 
 Existing custom fields remain. Removed experimental keys such as `workroots`, `policies`, `paths`, `layout`, and `agentIntegration` are not kept in the minimal contract.
+
+Existing configs without `contextControl` receive default values on the next environment config merge.
 
 ## Acceptance Criteria
 
@@ -163,19 +201,37 @@ Given doctor runs
 When it completes
 Then config records last doctor status and timestamp.
 
+AC-004:
+Given context budget defaults in config
+When `workroot context` runs without token flags
+Then the rendered package and trace use the configured target and hard limits.
+
+AC-005:
+Given context budget defaults in config
+When `workroot context` runs with token flags
+Then the CLI token flags override config and the trace records CLI as the budget source.
+
+AC-006:
+Given context diagnostic logging is enabled without rendered package logging
+When context generation runs
+Then a summary record is written under managed state logs and no logs directory is created in the user-selected directory.
+
 ## Test Plan
 
 ### Unit Tests
 
 - Environment helper tests if split later.
+- Context Control config merge helper tests if split later.
 
 ### Integration Tests
 
 - Covered through CLI smoke tests.
+- Context budget and diagnostic logging integration tests.
 
 ### Manual Verification
 
 - Inspect temporary `AI_WORKROOT_HOME/config.json` after smoke runs.
+- Inspect temporary `AI_WORKROOT_HOME/workroots/<workroot_id>/logs/context-requests.jsonl` after diagnostic smoke runs.
 
 ## Migration / Rollback
 
@@ -184,6 +240,8 @@ No schema migration is required. Existing unknown keys are preserved unless expl
 ## Observability / Debugging
 
 Config itself is the human-readable summary. Doctor also reports status through CLI.
+
+Context diagnostic logs are opt-in observability artifacts. They provide explainable retrieval and token budget evidence without changing normal context output.
 
 ## Task Breakdown
 
@@ -202,10 +260,26 @@ T3: Record doctor status
 - Files likely affected: `src/ai_workroot/runtime/doctor.py`
 - Verification: doctor summary smoke.
 
+T4: Add Context Control defaults
+- Change: Merge default token budgets and diagnostic logging controls into config.
+- Files likely affected: `src/ai_workroot/runtime/environment.py`
+- Verification: environment config smoke.
+
+T5: Use global Context Control budgets
+- Change: Resolve context token budgets from CLI flags, then config, then code defaults.
+- Files likely affected: `src/ai_workroot/cli/main.py`, `src/ai_workroot/runtime/context.py`
+- Verification: context CLI smoke.
+
+T6: Add opt-in diagnostic logging
+- Change: Write bounded context request summaries to per-Workroot managed logs when enabled.
+- Files likely affected: `src/ai_workroot/runtime/context.py`
+- Verification: context budget trace integration tests.
+
 ## Risks
 
 - Config may grow into a duplicate registry if not kept constrained.
 - Future maintenance lock behavior needs stricter write blocking semantics.
+- Rendered package logging can expose user content if enabled; keep it explicitly opt-in and bounded.
 
 ## Open Questions
 

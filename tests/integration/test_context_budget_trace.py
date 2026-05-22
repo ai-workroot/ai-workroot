@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
 from ai_workroot.indexing.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
-from ai_workroot.runtime.context import ContextRequest, build_context_package
+from ai_workroot.runtime.context import ContextRequest, build_context_package, estimate_tokens
 from ai_workroot.runtime.init import initialize_workroot
 from ai_workroot.runtime.work import create_task
 
@@ -178,6 +178,119 @@ class ContextBudgetTraceTest(unittest.TestCase):
             self.assertIn(("cand-persist", "selected"), selection_rows)
             self.assertIn(("rendered-package", "final-fallback"), trim_rows)
             self.assertEqual(use_count, 1)
+
+    def test_context_diagnostic_logging_writes_summary_to_managed_logs_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            config_path = home / "config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["contextControl"] = {
+                "defaultTargetTokens": 120,
+                "defaultHardTokenLimit": 240,
+                "diagnosticLogging": {
+                    "enabled": True,
+                    "includeRenderedPackage": False,
+                    "includeTraceSummary": True,
+                    "includeRetrievalSummary": True,
+                    "includeTokenEstimate": True,
+                    "retentionDays": 7,
+                    "maxEntriesPerWorkroot": 200,
+                },
+            }
+            config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-log",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-log",
+                        "title": "Diagnostic log candidate",
+                        "summary": "This summary should be selected but not copied as rendered package.",
+                        "importance": "critical",
+                    },
+                )
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="Diagnostic"),
+                ai_workroot_home=home,
+            )
+
+            log_path = home / f"workroots/{workroot_id}/logs/context-requests.jsonl"
+            self.assertTrue(log_path.is_file())
+            self.assertFalse((user_dir / "logs").exists())
+            record = json.loads(log_path.read_text(encoding="utf-8").splitlines()[-1])
+            self.assertEqual(record["workrootId"], workroot_id)
+            self.assertEqual(record["agent"], "codex")
+            self.assertEqual(record["mode"], "standard")
+            self.assertEqual(record["budget"]["source"], "config")
+            self.assertEqual(record["budget"]["targetTokens"], 120)
+            self.assertEqual(record["budget"]["hardTokenLimit"], 240)
+            self.assertEqual(record["tokenUsage"]["estimated"], estimate_tokens(package))
+            self.assertIn("retrieval", record)
+            self.assertIn("selectedCandidateIds", record["retrieval"])
+            self.assertNotIn("renderedPackage", record)
+
+    def test_context_diagnostic_logging_can_include_rendered_package_when_explicitly_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            config_path = home / "config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["contextControl"] = {
+                "diagnosticLogging": {
+                    "enabled": True,
+                    "includeRenderedPackage": True,
+                    "includeTraceSummary": True,
+                    "includeRetrievalSummary": True,
+                    "includeTokenEstimate": True,
+                },
+            }
+            config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="package"),
+                ai_workroot_home=home,
+            )
+
+            record = json.loads((home / f"workroots/{workroot_id}/logs/context-requests.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+            self.assertEqual(record["renderedPackage"], package)
+
+    def test_context_diagnostic_logging_respects_max_entries_per_workroot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            config_path = home / "config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["contextControl"] = {
+                "diagnosticLogging": {
+                    "enabled": True,
+                    "includeRenderedPackage": False,
+                    "maxEntriesPerWorkroot": 2,
+                },
+            }
+            config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+            for query in ("first", "second", "third"):
+                build_context_package(ContextRequest(agent="codex", cwd=user_dir, query=query), ai_workroot_home=home)
+
+            rows = [
+                json.loads(line)
+                for line in (home / f"workroots/{workroot_id}/logs/context-requests.jsonl").read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual([row["query"] for row in rows], ["second", "third"])
 
     def test_final_rendered_package_respects_hard_token_limit_after_trim_marker(self) -> None:
         from ai_workroot.runtime.context import estimate_tokens

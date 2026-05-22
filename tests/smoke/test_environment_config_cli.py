@@ -66,8 +66,65 @@ class EnvironmentConfigCliSmokeTest(unittest.TestCase):
             self.assertRegex(config["updatedAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
             self.assertEqual(config["summary"]["registeredWorkrootCount"], 1)
             self.assertEqual(config["summary"]["activeWorkrootCount"], 1)
+            self.assertEqual(
+                config["contextControl"],
+                {
+                    "defaultTargetTokens": 1200,
+                    "defaultHardTokenLimit": 2400,
+                    "diagnosticLogging": {
+                        "enabled": False,
+                        "includeRenderedPackage": False,
+                        "includeTraceSummary": True,
+                        "includeRetrievalSummary": True,
+                        "includeTokenEstimate": True,
+                        "retentionDays": 7,
+                        "maxEntriesPerWorkroot": 200,
+                    },
+                },
+            )
             self.assertNotIn("workroots", config)
             self.assertNotIn("policies", config)
+
+    def test_init_preserves_existing_context_control_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            home.mkdir()
+            (home / "config.json").write_text(
+                json.dumps(
+                    {
+                        "kind": "WorkrootEnvironment",
+                        "contextControl": {
+                            "defaultTargetTokens": 100,
+                            "defaultHardTokenLimit": 200,
+                            "diagnosticLogging": {
+                                "enabled": True,
+                                "includeRenderedPackage": True,
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = run_workroot_cli(
+                {"AI_WORKROOT_HOME": str(home)},
+                "init",
+                "--name",
+                "Config",
+                "--directory",
+                str(base / "project"),
+                "--no-native-agent-entry",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            context_control = json.loads((home / "config.json").read_text(encoding="utf-8"))["contextControl"]
+            self.assertEqual(context_control["defaultTargetTokens"], 100)
+            self.assertEqual(context_control["defaultHardTokenLimit"], 200)
+            self.assertTrue(context_control["diagnosticLogging"]["enabled"])
+            self.assertTrue(context_control["diagnosticLogging"]["includeRenderedPackage"])
+            self.assertTrue(context_control["diagnosticLogging"]["includeTraceSummary"])
+            self.assertTrue(context_control["diagnosticLogging"]["includeRetrievalSummary"])
 
 
 if __name__ == "__main__":

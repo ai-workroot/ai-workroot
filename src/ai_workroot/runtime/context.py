@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import json
 import re
 import sqlite3
@@ -22,7 +23,9 @@ from ai_workroot.indexing.providers.release_provider import (
 )
 from ai_workroot.indexing.providers.relationship_provider import RelationshipSignal, relationship_signals_for_sources
 from ai_workroot.indexing.providers.sqlite_fts import FtsMatch, search_fts
+from ai_workroot.runtime.environment import ContextControlConfig, load_context_control_config, utc_now
 from ai_workroot.runtime.registry import find_workroot_by_cwd
+from ai_workroot.storage.jsonl_registry import append_jsonl
 
 
 DEFAULT_TARGET_TOKENS = 1200
@@ -36,9 +39,10 @@ class ContextRequest:
     cwd: Path | str = "."
     query: str = ""
     mode: str = "standard"
-    target_tokens: int = DEFAULT_TARGET_TOKENS
-    hard_token_limit: int = DEFAULT_HARD_TOKEN_LIMIT
+    target_tokens: int | None = None
+    hard_token_limit: int | None = None
     debug: bool = False
+    budget_source: str = "default"
 
 
 @dataclass(frozen=True)
@@ -93,6 +97,8 @@ def build_context_package(
 ) -> str:
     started = time.perf_counter()
     record = find_workroot_by_cwd(request.cwd, ai_workroot_home=ai_workroot_home)
+    context_config = load_context_control_config(Path(record["stateDirectory"]).parents[1])
+    request = _resolve_context_request_budget(request, context_config)
     db_path = Path(record["stateDirectory"]) / "cache/workroot.sqlite"
     selected: list[CandidateMatch] = []
     fts_matches: list[FtsMatch] = []
@@ -210,6 +216,19 @@ def build_context_package(
                         mode_plan=mode_plan,
                         trim_steps=trim_steps,
                     )
+            _write_context_diagnostic_log(
+                record=record,
+                request=request,
+                rendered=rendered,
+                selected=selected,
+                release_report=release_report,
+                fts_release_report=fts_release_report,
+                relationship_release_report=relationship_release_report,
+                fallback_user_asset_candidates=fallback_user_asset_candidates,
+                mode_plan=mode_plan,
+                trim_steps=trim_steps,
+                logging_config=context_config.diagnostic_logging,
+            )
             return rendered
         rendered = _render_package(
             record=record,
@@ -251,7 +270,38 @@ def build_context_package(
                 mode_plan=mode_plan,
                 trim_steps=trim_steps,
             )
+    _write_context_diagnostic_log(
+        record=record,
+        request=request,
+        rendered=rendered,
+        selected=selected,
+        release_report=release_report,
+        fts_release_report=fts_release_report,
+        relationship_release_report=relationship_release_report,
+        fallback_user_asset_candidates=fallback_user_asset_candidates,
+        mode_plan=mode_plan,
+        trim_steps=trim_steps,
+        logging_config=context_config.diagnostic_logging,
+    )
     return rendered
+
+
+def _resolve_context_request_budget(request: ContextRequest, config: ContextControlConfig) -> ContextRequest:
+    target_tokens = request.target_tokens if request.target_tokens is not None else config.default_target_tokens
+    hard_token_limit = request.hard_token_limit if request.hard_token_limit is not None else config.default_hard_token_limit
+    budget_source = request.budget_source
+    if budget_source == "default":
+        budget_source = "config" if request.target_tokens is None or request.hard_token_limit is None else "request"
+    return ContextRequest(
+        agent=request.agent,
+        cwd=request.cwd,
+        query=request.query,
+        mode=request.mode,
+        target_tokens=target_tokens,
+        hard_token_limit=hard_token_limit,
+        debug=request.debug,
+        budget_source=budget_source,
+    )
 
 
 def estimate_tokens(text: str) -> int:
@@ -565,6 +615,7 @@ def _render_package(
                 "scoring: importance + candidate-fts-match + file-fts-match + relationship-edge",
                 f"timing: totalMs={latency_ms}",
                 f"tokenUsage: estimated={token_usage} target={request.target_tokens} hard={request.hard_token_limit}",
+                f"budgetSource: {request.budget_source}",
                 (
                     f"modePlan: mode={mode_plan.mode} behavior={mode_plan.behavior} "
                     f"candidateLimit={mode_plan.candidate_limit} hintLimit={mode_plan.hint_limit} "
@@ -647,6 +698,7 @@ def _render_compact_debug_package(
             "scoring: importance + candidate-fts-match + file-fts-match + relationship-edge",
             f"timing: totalMs={latency_ms}",
             f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
+            f"budgetSource: {request.budget_source}",
             (
                 f"modePlan: mode={mode_plan.mode} behavior={mode_plan.behavior} "
                 f"candidateLimit={mode_plan.candidate_limit} hintLimit={mode_plan.hint_limit} "
@@ -700,6 +752,7 @@ def _minimal_debug_package(
         "scoring: compact-debug-hard-trim",
         f"timing: totalMs={latency_ms}",
         f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
+        f"budgetSource: {request.budget_source}",
         f"trimSteps: {', '.join(trim_steps)}",
     ]
     return _finalize_rendered_token_usage("\n".join(lines) + "\n")
@@ -842,6 +895,7 @@ def _persist_context_runtime_state(
         "query": request.query,
         "targetTokens": request.target_tokens,
         "hardTokenLimit": request.hard_token_limit,
+        "budgetSource": request.budget_source,
         "selectedCandidateIds": [candidate.candidate_id for candidate in selected],
         "releaseDropped": list(release_report.dropped),
         "ftsReleaseDropped": list(fts_release_report.dropped),
@@ -893,3 +947,81 @@ def _persist_context_runtime_state(
             (f"trim_{uuid.uuid4().hex}", trace_id, "rendered-package", step),
         )
     conn.commit()
+
+
+def _write_context_diagnostic_log(
+    *,
+    record: dict[str, str],
+    request: ContextRequest,
+    rendered: str,
+    selected: list[CandidateMatch],
+    release_report: ReleaseFilterReport,
+    fts_release_report: FtsReleaseFilterReport,
+    relationship_release_report: RelationshipReleaseFilterReport,
+    fallback_user_asset_candidates: dict[str, object],
+    mode_plan: ModePlan,
+    trim_steps: list[str],
+    logging_config: object,
+) -> None:
+    if not getattr(logging_config, "enabled", False):
+        return
+    token_usage = estimate_tokens(rendered)
+    entry: dict[str, object] = {
+        "timestamp": utc_now(),
+        "workrootId": record["workrootId"],
+        "agent": request.agent,
+        "mode": request.mode,
+        "query": request.query,
+        "budget": {
+            "source": request.budget_source,
+            "targetTokens": request.target_tokens,
+            "hardTokenLimit": request.hard_token_limit,
+        },
+    }
+    if getattr(logging_config, "include_token_estimate", True):
+        entry["tokenUsage"] = {"estimated": token_usage}
+    if getattr(logging_config, "include_trace_summary", True):
+        entry["trace"] = {
+            "confidence": "0.70" if selected else "0.30",
+            "modePlan": mode_plan.trace_payload(),
+            "trimSteps": trim_steps,
+            "fallbackUserAssetCandidates": fallback_user_asset_candidates,
+        }
+    if getattr(logging_config, "include_retrieval_summary", True):
+        entry["retrieval"] = {
+            "selectedCandidateIds": [candidate.candidate_id for candidate in selected],
+            "releaseDropped": list(release_report.dropped),
+            "ftsReleaseDropped": list(fts_release_report.dropped),
+            "relationshipReleaseDropped": list(relationship_release_report.dropped),
+        }
+    if getattr(logging_config, "include_rendered_package", False):
+        entry["renderedPackage"] = rendered
+    log_path = Path(record["stateDirectory"]) / "logs/context-requests.jsonl"
+    append_jsonl(log_path, entry)
+    _prune_context_diagnostic_log(
+        log_path,
+        retention_days=int(getattr(logging_config, "retention_days", 7)),
+        max_entries=int(getattr(logging_config, "max_entries_per_workroot", 200)),
+    )
+
+
+def _prune_context_diagnostic_log(log_path: Path, *, retention_days: int, max_entries: int) -> None:
+    if not log_path.is_file():
+        return
+    lines = [line for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if retention_days > 0:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        kept: list[str] = []
+        for line in lines:
+            try:
+                timestamp = json.loads(line).get("timestamp")
+                parsed = datetime.strptime(str(timestamp), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            except (json.JSONDecodeError, ValueError):
+                kept.append(line)
+                continue
+            if parsed >= cutoff:
+                kept.append(line)
+        lines = kept
+    if max_entries > 0:
+        lines = lines[-max_entries:]
+    log_path.write_text(("\n".join(lines) + "\n") if lines else "", encoding="utf-8")

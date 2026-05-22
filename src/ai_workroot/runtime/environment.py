@@ -46,6 +46,24 @@ class WorkrootRegistration:
     state_directory: str
 
 
+@dataclass(frozen=True)
+class ContextDiagnosticLoggingConfig:
+    enabled: bool = False
+    include_rendered_package: bool = False
+    include_trace_summary: bool = True
+    include_retrieval_summary: bool = True
+    include_token_estimate: bool = True
+    retention_days: int = 7
+    max_entries_per_workroot: int = 200
+
+
+@dataclass(frozen=True)
+class ContextControlConfig:
+    default_target_tokens: int = 1200
+    default_hard_token_limit: int = 2400
+    diagnostic_logging: ContextDiagnosticLoggingConfig = ContextDiagnosticLoggingConfig()
+
+
 def initialize_environment(home: Path) -> WorkrootEnvironment:
     home = home.expanduser().resolve()
     for rel in (
@@ -93,6 +111,7 @@ def ensure_environment_config(home: Path, *, now: str | None = None) -> dict[str
         "updatedAt": str(existing.get("updatedAt") or timestamp),
         "summary": _merge_summary(existing.get("summary")),
         "maintenance": _merge_maintenance(existing.get("maintenance")),
+        "contextControl": _merge_context_control(existing.get("contextControl")),
     }
     for removed in ("paths", "layout", "policies", "agentIntegration", "workroots"):
         config.pop(removed, None)
@@ -185,6 +204,60 @@ def _merge_maintenance(value: object) -> dict[str, Any]:
         "blocksWrites": bool(existing.get("blocksWrites", True)),
         "blocksContextGeneration": bool(existing.get("blocksContextGeneration", False)),
     }
+
+
+def _merge_context_control(value: object) -> dict[str, Any]:
+    existing = value if isinstance(value, dict) else {}
+    diagnostics = existing.get("diagnosticLogging")
+    return {
+        "defaultTargetTokens": _positive_int(existing.get("defaultTargetTokens"), 1200),
+        "defaultHardTokenLimit": _positive_int(existing.get("defaultHardTokenLimit"), 2400),
+        "diagnosticLogging": _merge_context_diagnostic_logging(diagnostics),
+    }
+
+
+def _merge_context_diagnostic_logging(value: object) -> dict[str, Any]:
+    existing = value if isinstance(value, dict) else {}
+    return {
+        "enabled": bool(existing.get("enabled", False)),
+        "includeRenderedPackage": bool(existing.get("includeRenderedPackage", False)),
+        "includeTraceSummary": bool(existing.get("includeTraceSummary", True)),
+        "includeRetrievalSummary": bool(existing.get("includeRetrievalSummary", True)),
+        "includeTokenEstimate": bool(existing.get("includeTokenEstimate", True)),
+        "retentionDays": _positive_int(existing.get("retentionDays"), 7),
+        "maxEntriesPerWorkroot": _positive_int(existing.get("maxEntriesPerWorkroot"), 200),
+    }
+
+
+def _positive_int(value: object, default: int) -> int:
+    if isinstance(value, bool):
+        return default
+    try:
+        parsed = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def load_context_control_config(home: Path | str | None) -> ContextControlConfig:
+    if home is None:
+        return ContextControlConfig()
+    config_path = Path(home).expanduser().resolve() / "config.json"
+    merged = _merge_context_control(_read_json_object(config_path).get("contextControl"))
+    diagnostic = merged["diagnosticLogging"]
+    return ContextControlConfig(
+        default_target_tokens=int(merged["defaultTargetTokens"]),
+        default_hard_token_limit=int(merged["defaultHardTokenLimit"]),
+        diagnostic_logging=ContextDiagnosticLoggingConfig(
+            enabled=bool(diagnostic["enabled"]),
+            include_rendered_package=bool(diagnostic["includeRenderedPackage"]),
+            include_trace_summary=bool(diagnostic["includeTraceSummary"]),
+            include_retrieval_summary=bool(diagnostic["includeRetrievalSummary"]),
+            include_token_estimate=bool(diagnostic["includeTokenEstimate"]),
+            retention_days=int(diagnostic["retentionDays"]),
+            max_entries_per_workroot=int(diagnostic["maxEntriesPerWorkroot"]),
+        ),
+    )
 
 
 def register_workroot(home: Path, workroot_id: str, name: str, user_directory: Path) -> WorkrootRegistration:
