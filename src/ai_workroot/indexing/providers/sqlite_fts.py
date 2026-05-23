@@ -57,7 +57,9 @@ def index_file_chunk(
     conn.commit()
 
 
-def search_fts(conn: sqlite3.Connection, workroot_id: str, query: str, *, limit: int = 10) -> tuple[list[FtsMatch], str | None]:
+def search_fts(
+    conn: sqlite3.Connection, workroot_id: str, query: str, *, limit: int = 10
+) -> tuple[list[FtsMatch], str | None]:
     if not query.strip():
         return [], None
     conn.row_factory = sqlite3.Row

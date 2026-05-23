@@ -70,7 +70,9 @@ class RuntimeReleaseTest(unittest.TestCase):
         self.assertEqual(conn.execute("SELECT release_level FROM release_records").fetchone(), ("quiet",))
         self.assertEqual(conn.execute("SELECT symbolic_note FROM tombstones").fetchone(), ("Keep the lesson.",))
         self.assertEqual(conn.execute("SELECT redacted_fields FROM redactions").fetchone(), ("summary,body",))
-        self.assertEqual(conn.execute("SELECT minimum_audit_note FROM deletion_records").fetchone(), ("deleted by test",))
+        self.assertEqual(
+            conn.execute("SELECT minimum_audit_note FROM deletion_records").fetchone(), ("deleted by test",)
+        )
 
     def test_resolve_release_state_uses_most_protective_level(self) -> None:
         conn = self.open_db()
@@ -154,11 +156,15 @@ class RuntimeReleaseTest(unittest.TestCase):
             redaction_reason="sensitive",
         )
 
-        candidate = conn.execute("SELECT title, summary FROM context_candidates WHERE candidate_id = 'cand-sensitive'").fetchone()
+        candidate = conn.execute(
+            "SELECT title, summary FROM context_candidates WHERE candidate_id = 'cand-sensitive'"
+        ).fetchone()
         candidate_fts = conn.execute(
             "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH 'SECRETCANDIDATESUMMARY'"
         ).fetchall()
-        hint = conn.execute("SELECT title, summary FROM context_recall_hints WHERE hint_id = 'hint-sensitive'").fetchone()
+        hint = conn.execute(
+            "SELECT title, summary FROM context_recall_hints WHERE hint_id = 'hint-sensitive'"
+        ).fetchone()
         hint_fts = conn.execute(
             "SELECT hint_id FROM context_recall_hints_fts WHERE context_recall_hints_fts MATCH 'SECRETHINTSUMMARY'"
         ).fetchall()
@@ -226,7 +232,9 @@ class RuntimeReleaseTest(unittest.TestCase):
             redaction_reason="sensitive direct hint",
         )
 
-        hint_row = conn.execute("SELECT title, summary FROM context_recall_hints WHERE hint_id = 'hint-direct'").fetchone()
+        hint_row = conn.execute(
+            "SELECT title, summary FROM context_recall_hints WHERE hint_id = 'hint-direct'"
+        ).fetchone()
         hint_fts = conn.execute(
             "SELECT hint_id FROM context_recall_hints_fts WHERE context_recall_hints_fts MATCH 'SECRETDIRECTHINT'"
         ).fetchall()

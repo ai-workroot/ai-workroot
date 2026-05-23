@@ -81,7 +81,9 @@ def upsert_context_candidate(conn: sqlite3.Connection, payload: dict[str, Any]) 
     conn.commit()
 
 
-def query_context_candidates(conn: sqlite3.Connection, workroot_id: str, *, query: str = "", limit: int = 50) -> list[CandidateMatch]:
+def query_context_candidates(
+    conn: sqlite3.Connection, workroot_id: str, *, query: str = "", limit: int = 50
+) -> list[CandidateMatch]:
     _ensure_candidate_columns(conn)
     conn.row_factory = sqlite3.Row
     safe_rows = conn.execute(

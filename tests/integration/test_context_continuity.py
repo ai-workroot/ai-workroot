@@ -59,7 +59,9 @@ class ContextContinuityTest(unittest.TestCase):
             self.assertIn("Next: verify Context Control parity.", package)
             self.assertIn("continuitySources:", package)
             with sqlite3.connect(db_path) as conn:
-                trace_json = conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+                trace_json = conn.execute(
+                    "SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1"
+                ).fetchone()[0]
             trace = json.loads(trace_json)
             self.assertEqual(trace["continuity"]["activeTaskId"], "task-active-context")
             self.assertEqual(trace["continuity"]["checkpointId"], "checkpoint-active-context")

@@ -57,7 +57,11 @@ class InitCleanModeCliTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertRegex(result.stdout, r"^initialized wr_delegated_workroot_[a-z0-9]{8} registered\n$")
-            records = json.loads(run_workroot_cli({"AI_WORKROOT_HOME": str(home), "PYTHONPATH": str(ROOT / "src")}, "list", "--format", "json").stdout)
+            records = json.loads(
+                run_workroot_cli(
+                    {"AI_WORKROOT_HOME": str(home), "PYTHONPATH": str(ROOT / "src")}, "list", "--format", "json"
+                ).stdout
+            )
             workroot_id = records[0]["workrootId"]
             payload = json.loads((home / f"workroots/{workroot_id}/workroot.json").read_text(encoding="utf-8"))
             self.assertIn("workroot_id", payload)
@@ -98,13 +102,23 @@ class InitCleanModeCliTest(unittest.TestCase):
             second = base / "second"
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            self.assertEqual(run_workroot_cli(env, "init", "--name", "One", "--directory", str(first), "--no-native-agent-entry").returncode, 0)
+            self.assertEqual(
+                run_workroot_cli(
+                    env, "init", "--name", "One", "--directory", str(first), "--no-native-agent-entry"
+                ).returncode,
+                0,
+            )
             config_path = home / "config.json"
             config = json.loads(config_path.read_text(encoding="utf-8"))
             config["custom"] = "keep-me"
             config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
-            self.assertEqual(run_workroot_cli(env, "init", "--name", "Two", "--directory", str(second), "--no-native-agent-entry").returncode, 0)
+            self.assertEqual(
+                run_workroot_cli(
+                    env, "init", "--name", "Two", "--directory", str(second), "--no-native-agent-entry"
+                ).returncode,
+                0,
+            )
             updated = json.loads(config_path.read_text(encoding="utf-8"))
             self.assertEqual(updated["custom"], "keep-me")
 
@@ -116,8 +130,12 @@ class InitCleanModeCliTest(unittest.TestCase):
             child = parent / "child"
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            parent_result = run_workroot_cli(env, "init", "--name", "Parent", "--directory", str(parent), "--no-native-agent-entry")
-            child_result = run_workroot_cli(env, "init", "--name", "Child", "--directory", str(child), "--no-native-agent-entry")
+            parent_result = run_workroot_cli(
+                env, "init", "--name", "Parent", "--directory", str(parent), "--no-native-agent-entry"
+            )
+            child_result = run_workroot_cli(
+                env, "init", "--name", "Child", "--directory", str(child), "--no-native-agent-entry"
+            )
 
             self.assertEqual(parent_result.returncode, 0, parent_result.stderr)
             self.assertEqual(child_result.returncode, 0, child_result.stderr)
@@ -130,7 +148,9 @@ class InitCleanModeCliTest(unittest.TestCase):
             user_dir = base / "project"
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            result = run_workroot_cli(env, "init", "--name", "Doctor", "--directory", str(user_dir), "--no-native-agent-entry")
+            result = run_workroot_cli(
+                env, "init", "--name", "Doctor", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
 
             self.assertEqual(result.returncode, 0, result.stderr)
             doctor = run_workroot_cli(env, "doctor", "--cwd", str(user_dir))

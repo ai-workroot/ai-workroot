@@ -13,8 +13,20 @@ from ai_workroot.indexing.providers.context_recall_hint_provider import ContextR
 from ai_workroot.indexing.providers.sqlite_fts import index_file_chunk
 from ai_workroot.runtime.assets import create_internal_asset
 from ai_workroot.runtime.relationships import create_relationship_edge, create_relationship_node
-from ai_workroot.runtime.release import create_deletion_record, create_redaction, create_release_record, create_tombstone
-from ai_workroot.runtime.work import create_checkpoint, create_handoff, create_task, record_agent_run, record_invalidation, record_work_action
+from ai_workroot.runtime.release import (
+    create_deletion_record,
+    create_redaction,
+    create_release_record,
+    create_tombstone,
+)
+from ai_workroot.runtime.work import (
+    create_checkpoint,
+    create_handoff,
+    create_task,
+    record_agent_run,
+    record_invalidation,
+    record_work_action,
+)
 
 from tests.e2e.harness import CommandResult, REPO_ROOT, env_for, run_cli, validate_user_directory, write_user_files
 from tests.e2e.personas import PERSONAS, Persona
@@ -107,9 +119,13 @@ def run_longrun(
     else:
         listed = json.loads(list_result.stdout)
         if len(listed) != len(PERSONAS):
-            global_failures.append({"scope": "global", "failure": f"expected {len(PERSONAS)} Workroots, got {len(listed)}"})
+            global_failures.append(
+                {"scope": "global", "failure": f"expected {len(PERSONAS)} Workroots, got {len(listed)}"}
+            )
 
-    failures = [{"scope": result.persona_slug, "failure": failure} for result in persona_results for failure in result.failures]
+    failures = [
+        {"scope": result.persona_slug, "failure": failure} for result in persona_results for failure in result.failures
+    ]
     failures.extend(global_failures)
     audit_summary = _summarize_context_audit(level, tuple(persona_results), audits)
     matrix = _build_matrix(tuple(persona_results), audits)
@@ -121,9 +137,15 @@ def run_longrun(
     summary = _render_summary(level, run_root, ai_workroot_home, tuple(persona_results), audit_summary, failures)
     summary_path.write_text(summary, encoding="utf-8")
     failures_path.write_text(json.dumps(failures, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    context_audit_path.write_text(json.dumps(audit_summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    longrun_matrix_path.write_text(json.dumps(matrix, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    commands_path.write_text(json.dumps([command.as_dict() for command in commands], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    context_audit_path.write_text(
+        json.dumps(audit_summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    longrun_matrix_path.write_text(
+        json.dumps(matrix, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    commands_path.write_text(
+        json.dumps([command.as_dict() for command in commands], ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     client_report = _render_client_report(level, tuple(persona_results), audit_summary, failures, summary_path)
     return LongrunResult(
         level=level,
@@ -191,7 +213,11 @@ def _run_persona_longrun(
     for scenario in _context_probe_scenarios(scenarios):
         hard_limit = "180" if scenario.force_hard_trim else "900"
         target_tokens = "120" if scenario.force_hard_trim else "600"
-        context = run_cli(("context", "--agent", "codex", "--cwd", str(user_directory), "--query", scenario.query), env=env, cwd=REPO_ROOT)
+        context = run_cli(
+            ("context", "--agent", "codex", "--cwd", str(user_directory), "--query", scenario.query),
+            env=env,
+            cwd=REPO_ROOT,
+        )
         debug = run_cli(
             (
                 "context",
@@ -233,21 +259,69 @@ def _run_persona_longrun(
     )
 
 
-def _seed_longrun_sqlite(persona: Persona, scenarios: tuple[TaskScenario, ...], sqlite_path: Path, *, level: int) -> None:
+def _seed_longrun_sqlite(
+    persona: Persona, scenarios: tuple[TaskScenario, ...], sqlite_path: Path, *, level: int
+) -> None:
     with sqlite3.connect(sqlite_path) as conn:
         previous_asset_id = ""
         for index, scenario in enumerate(scenarios, start=1):
             suffix = f"{persona.slug.replace('persona-', '').replace('-', '_')}_{index:02d}"
             task_id = f"task_{suffix}"
             asset_id = f"asset_{suffix}"
-            create_task(conn, workroot_id=persona.workroot_id, task_id=task_id, title=f"{scenario.title}: {persona.name}", task_kind=scenario.kind, process_level="L2" if level >= 4 or index % 3 == 0 else "L1")
-            record_agent_run(conn, workroot_id=persona.workroot_id, run_id=f"run_{suffix}", task_id=task_id, status="completed", validity="valid")
-            record_work_action(conn, workroot_id=persona.workroot_id, action_id=f"action_{suffix}", task_id=task_id, action_type=scenario.kind, risk_level="high" if scenario.protection in {"deleted", "redacted"} else "normal")
-            create_checkpoint(conn, workroot_id=persona.workroot_id, checkpoint_id=f"checkpoint_{suffix}", task_id=task_id, current_status=f"{scenario.title} complete. Next query: {scenario.query}.")
-            create_handoff(conn, workroot_id=persona.workroot_id, handoff_id=f"handoff_{suffix}", title=f"Continue {scenario.title}")
+            create_task(
+                conn,
+                workroot_id=persona.workroot_id,
+                task_id=task_id,
+                title=f"{scenario.title}: {persona.name}",
+                task_kind=scenario.kind,
+                process_level="L2" if level >= 4 or index % 3 == 0 else "L1",
+            )
+            record_agent_run(
+                conn,
+                workroot_id=persona.workroot_id,
+                run_id=f"run_{suffix}",
+                task_id=task_id,
+                status="completed",
+                validity="valid",
+            )
+            record_work_action(
+                conn,
+                workroot_id=persona.workroot_id,
+                action_id=f"action_{suffix}",
+                task_id=task_id,
+                action_type=scenario.kind,
+                risk_level="high" if scenario.protection in {"deleted", "redacted"} else "normal",
+            )
+            create_checkpoint(
+                conn,
+                workroot_id=persona.workroot_id,
+                checkpoint_id=f"checkpoint_{suffix}",
+                task_id=task_id,
+                current_status=f"{scenario.title} complete. Next query: {scenario.query}.",
+            )
+            create_handoff(
+                conn,
+                workroot_id=persona.workroot_id,
+                handoff_id=f"handoff_{suffix}",
+                title=f"Continue {scenario.title}",
+            )
             if index % 4 == 0:
-                record_invalidation(conn, workroot_id=persona.workroot_id, invalidation_id=f"invalidation_{suffix}", invalidated_claim=f"Old assumption for {scenario.title}", reason="E2E longrun synthetic invalidation.")
-            create_internal_asset(conn, workroot_id=persona.workroot_id, asset_id=asset_id, asset_type="result", title=f"{scenario.title}: {persona.name}", summary=scenario.summary, updated_at=f"2026-05-21T00:{index:02d}:00Z")
+                record_invalidation(
+                    conn,
+                    workroot_id=persona.workroot_id,
+                    invalidation_id=f"invalidation_{suffix}",
+                    invalidated_claim=f"Old assumption for {scenario.title}",
+                    reason="E2E longrun synthetic invalidation.",
+                )
+            create_internal_asset(
+                conn,
+                workroot_id=persona.workroot_id,
+                asset_id=asset_id,
+                asset_type="result",
+                title=f"{scenario.title}: {persona.name}",
+                summary=scenario.summary,
+                updated_at=f"2026-05-21T00:{index:02d}:00Z",
+            )
             upsert_context_recall_hint(
                 conn,
                 ContextRecallHint(
@@ -267,12 +341,43 @@ def _seed_longrun_sqlite(persona: Persona, scenarios: tuple[TaskScenario, ...], 
                     updated_at=f"2026-05-21T00:{index:02d}:00Z",
                 ),
             )
-            index_file_chunk(conn, workroot_id=persona.workroot_id, file_id=f"file_{suffix}", chunk_id=f"chunk_{suffix}", relative_path=f"longrun/{index:02d}-{scenario.scenario_id}.md", body=f"{scenario.body}\n{scenario.summary}\nQuery marker: {scenario.query}", source_type="asset", source_id=asset_id)
-            create_relationship_node(conn, node_id=asset_id, workroot_id=persona.workroot_id, node_type="asset", title=scenario.title)
-            create_relationship_node(conn, node_id=task_id, workroot_id=persona.workroot_id, node_type="task", title=scenario.title)
-            create_relationship_edge(conn, edge_id=f"edge_{suffix}", workroot_id=persona.workroot_id, from_node_id=asset_id, to_node_id=task_id, relationship_type="supports", created_by="e2e-longrun", confidence=0.9)
+            index_file_chunk(
+                conn,
+                workroot_id=persona.workroot_id,
+                file_id=f"file_{suffix}",
+                chunk_id=f"chunk_{suffix}",
+                relative_path=f"longrun/{index:02d}-{scenario.scenario_id}.md",
+                body=f"{scenario.body}\n{scenario.summary}\nQuery marker: {scenario.query}",
+                source_type="asset",
+                source_id=asset_id,
+            )
+            create_relationship_node(
+                conn, node_id=asset_id, workroot_id=persona.workroot_id, node_type="asset", title=scenario.title
+            )
+            create_relationship_node(
+                conn, node_id=task_id, workroot_id=persona.workroot_id, node_type="task", title=scenario.title
+            )
+            create_relationship_edge(
+                conn,
+                edge_id=f"edge_{suffix}",
+                workroot_id=persona.workroot_id,
+                from_node_id=asset_id,
+                to_node_id=task_id,
+                relationship_type="supports",
+                created_by="e2e-longrun",
+                confidence=0.9,
+            )
             if previous_asset_id:
-                create_relationship_edge(conn, edge_id=f"edge_sequence_{suffix}", workroot_id=persona.workroot_id, from_node_id=asset_id, to_node_id=previous_asset_id, relationship_type="supersedes" if scenario.scenario_id == "tombstone" else "related_to", created_by="e2e-longrun", confidence=0.7)
+                create_relationship_edge(
+                    conn,
+                    edge_id=f"edge_sequence_{suffix}",
+                    workroot_id=persona.workroot_id,
+                    from_node_id=asset_id,
+                    to_node_id=previous_asset_id,
+                    relationship_type="supersedes" if scenario.scenario_id == "tombstone" else "related_to",
+                    created_by="e2e-longrun",
+                    confidence=0.7,
+                )
             previous_asset_id = asset_id
             if scenario.protection != "none":
                 _seed_protected_target(conn, persona, scenario, suffix)
@@ -282,23 +387,107 @@ def _seed_longrun_sqlite(persona: Persona, scenarios: tuple[TaskScenario, ...], 
 def _seed_protected_target(conn: sqlite3.Connection, persona: Persona, scenario: TaskScenario, suffix: str) -> None:
     protected_asset_id = f"asset_protected_{suffix}"
     protected_phrase = f"E2E_LONGRUN_{scenario.protection.upper()}_{suffix.upper()}"
-    create_internal_asset(conn, workroot_id=persona.workroot_id, asset_id=protected_asset_id, asset_type="note", title=f"Protected {scenario.title}", summary=protected_phrase, updated_at="2026-05-21T01:00:00Z")
-    upsert_context_recall_hint(conn, ContextRecallHint(hint_id=f"hint_protected_{suffix}", workroot_id=persona.workroot_id, target_type="asset", target_id=protected_asset_id, title=f"Protected {scenario.title}", summary=protected_phrase, priority="critical", recall_rule="always", origin="e2e-longrun", source_ref=f"asset:{protected_asset_id}"))
+    create_internal_asset(
+        conn,
+        workroot_id=persona.workroot_id,
+        asset_id=protected_asset_id,
+        asset_type="note",
+        title=f"Protected {scenario.title}",
+        summary=protected_phrase,
+        updated_at="2026-05-21T01:00:00Z",
+    )
+    upsert_context_recall_hint(
+        conn,
+        ContextRecallHint(
+            hint_id=f"hint_protected_{suffix}",
+            workroot_id=persona.workroot_id,
+            target_type="asset",
+            target_id=protected_asset_id,
+            title=f"Protected {scenario.title}",
+            summary=protected_phrase,
+            priority="critical",
+            recall_rule="always",
+            origin="e2e-longrun",
+            source_ref=f"asset:{protected_asset_id}",
+        ),
+    )
     target = ReleaseTargetRef(target_type="asset", target_id=protected_asset_id, workroot_id=persona.workroot_id)
-    create_release_record(conn, release_id=f"release_{suffix}", workroot_id=persona.workroot_id, target=target, release_level=scenario.protection, recall_rule="ordinary-context-excluded" if scenario.protection in {"redacted", "deleted"} else "symbolic-only")
+    create_release_record(
+        conn,
+        release_id=f"release_{suffix}",
+        workroot_id=persona.workroot_id,
+        target=target,
+        release_level=scenario.protection,
+        recall_rule="ordinary-context-excluded" if scenario.protection in {"redacted", "deleted"} else "symbolic-only",
+    )
     if scenario.protection == "deleted":
-        create_deletion_record(conn, deletion_id=f"delete_{suffix}", workroot_id=persona.workroot_id, target=target, minimum_audit_note="E2E longrun deleted synthetic detail.")
+        create_deletion_record(
+            conn,
+            deletion_id=f"delete_{suffix}",
+            workroot_id=persona.workroot_id,
+            target=target,
+            minimum_audit_note="E2E longrun deleted synthetic detail.",
+        )
     elif scenario.protection == "redacted":
-        create_redaction(conn, redaction_id=f"redact_{suffix}", workroot_id=persona.workroot_id, target=target, redacted_fields=("summary",), redaction_reason="E2E longrun synthetic privacy protection.")
+        create_redaction(
+            conn,
+            redaction_id=f"redact_{suffix}",
+            workroot_id=persona.workroot_id,
+            target=target,
+            redacted_fields=("summary",),
+            redaction_reason="E2E longrun synthetic privacy protection.",
+        )
     elif scenario.protection == "tombstone":
-        create_tombstone(conn, tombstone_id=f"tombstone_{suffix}", workroot_id=persona.workroot_id, target=target, title=f"Tombstone {scenario.title}", symbolic_note="E2E longrun tombstone annotation should be traceable.")
+        create_tombstone(
+            conn,
+            tombstone_id=f"tombstone_{suffix}",
+            workroot_id=persona.workroot_id,
+            target=target,
+            title=f"Tombstone {scenario.title}",
+            symbolic_note="E2E longrun tombstone annotation should be traceable.",
+        )
 
 
-def _seed_safe_release_companion(conn: sqlite3.Connection, persona: Persona, scenario: TaskScenario, suffix: str, task_id: str) -> None:
+def _seed_safe_release_companion(
+    conn: sqlite3.Connection, persona: Persona, scenario: TaskScenario, suffix: str, task_id: str
+) -> None:
     companion_asset_id = f"asset_safe_release_{suffix}"
-    create_internal_asset(conn, workroot_id=persona.workroot_id, asset_id=companion_asset_id, asset_type="result", title=f"{scenario.title}: safe context", summary=f"Safe companion context for {scenario.title}. Query marker: {scenario.query}.", updated_at="2026-05-21T01:30:00Z")
-    upsert_context_recall_hint(conn, ContextRecallHint(hint_id=f"hint_safe_release_{suffix}", workroot_id=persona.workroot_id, target_type="asset", target_id=companion_asset_id, title=scenario.title, summary=f"Safe release-control summary for {scenario.title}; query marker: {scenario.query}; protected details stay filtered.", scope_type="task", scope_id=task_id, priority="high", recall_rule="task-related", origin="e2e-longrun", source_ref=f"asset:{companion_asset_id}"))
-    index_file_chunk(conn, workroot_id=persona.workroot_id, file_id=f"file_safe_release_{suffix}", chunk_id=f"chunk_safe_release_{suffix}", relative_path=f"longrun/safe-{scenario.scenario_id}.md", body=f"{scenario.title} {scenario.query} safe release control companion.", source_type="asset", source_id=companion_asset_id)
+    create_internal_asset(
+        conn,
+        workroot_id=persona.workroot_id,
+        asset_id=companion_asset_id,
+        asset_type="result",
+        title=f"{scenario.title}: safe context",
+        summary=f"Safe companion context for {scenario.title}. Query marker: {scenario.query}.",
+        updated_at="2026-05-21T01:30:00Z",
+    )
+    upsert_context_recall_hint(
+        conn,
+        ContextRecallHint(
+            hint_id=f"hint_safe_release_{suffix}",
+            workroot_id=persona.workroot_id,
+            target_type="asset",
+            target_id=companion_asset_id,
+            title=scenario.title,
+            summary=f"Safe release-control summary for {scenario.title}; query marker: {scenario.query}; protected details stay filtered.",
+            scope_type="task",
+            scope_id=task_id,
+            priority="high",
+            recall_rule="task-related",
+            origin="e2e-longrun",
+            source_ref=f"asset:{companion_asset_id}",
+        ),
+    )
+    index_file_chunk(
+        conn,
+        workroot_id=persona.workroot_id,
+        file_id=f"file_safe_release_{suffix}",
+        chunk_id=f"chunk_safe_release_{suffix}",
+        relative_path=f"longrun/safe-{scenario.scenario_id}.md",
+        body=f"{scenario.title} {scenario.query} safe release control companion.",
+        source_type="asset",
+        source_id=companion_asset_id,
+    )
 
 
 def _context_probe_scenarios(scenarios: tuple[TaskScenario, ...]) -> tuple[TaskScenario, ...]:
@@ -349,12 +538,18 @@ def _validate_context_probe(
         "E2E_LONGRUN_REDACTED" in context.stdout or "E2E_LONGRUN_DELETED" in context.stdout
     ):
         failures.append(f"protected longrun marker leaked for {scenario.scenario_id}")
-    if persona.protected_phrase and persona.protection in {"redacted", "deleted"} and persona.protected_phrase in context.stdout:
+    if (
+        persona.protected_phrase
+        and persona.protection in {"redacted", "deleted"}
+        and persona.protected_phrase in context.stdout
+    ):
         failures.append(f"persona protected phrase leaked for {scenario.scenario_id}")
     return failures
 
 
-def _audit_context_probe(persona: Persona, scenario: TaskScenario, context: CommandResult, debug: CommandResult, *, hard_limit: int) -> dict[str, object]:
+def _audit_context_probe(
+    persona: Persona, scenario: TaskScenario, context: CommandResult, debug: CommandResult, *, hard_limit: int
+) -> dict[str, object]:
     token_usage = _parse_token_usage(context.stdout)
     debug_token_usage = _parse_token_usage(debug.stdout)
     return {
@@ -406,7 +601,9 @@ def _validate_longrun_sqlite(persona: Persona, sqlite_path: Path, *, task_count:
     failures: list[str] = []
     with sqlite3.connect(sqlite_path) as conn:
         for table, minimum in minimums.items():
-            count = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE workroot_id = ?", (persona.workroot_id,)).fetchone()[0]
+            count = conn.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE workroot_id = ?", (persona.workroot_id,)
+            ).fetchone()[0]
             if count < minimum:
                 failures.append(f"{table} has {count} rows, expected at least {minimum}")
     return failures
@@ -416,14 +613,35 @@ def _write_longrun_user_files(user_directory: Path, persona: Persona, scenarios:
     for index, scenario in enumerate(scenarios, start=1):
         path = user_directory / "longrun" / f"{index:02d}-{scenario.scenario_id}.md"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(f"# {scenario.title}\n\nPersona: {persona.name}\n\n{scenario.body}\n\nQuery: {scenario.query}\n", encoding="utf-8")
+        path.write_text(
+            f"# {scenario.title}\n\nPersona: {persona.name}\n\n{scenario.body}\n\nQuery: {scenario.query}\n",
+            encoding="utf-8",
+        )
 
 
-def _write_longrun_managed_surface(persona: Persona, scenarios: tuple[TaskScenario, ...], state_directory: Path) -> None:
+def _write_longrun_managed_surface(
+    persona: Persona, scenarios: tuple[TaskScenario, ...], state_directory: Path
+) -> None:
     files = {
-        "state/longrun-current.json": {"workrootId": persona.workroot_id, "taskCount": len(scenarios), "lastScenario": scenarios[-1].scenario_id if scenarios else ""},
-        "tasks/longrun-summary.json": [{"scenarioId": scenario.scenario_id, "title": scenario.title, "query": scenario.query, "kind": scenario.kind, "protection": scenario.protection} for scenario in scenarios],
-        "context/traces/longrun-audit-placeholder.json": {"workrootId": persona.workroot_id, "taskCount": len(scenarios)},
+        "state/longrun-current.json": {
+            "workrootId": persona.workroot_id,
+            "taskCount": len(scenarios),
+            "lastScenario": scenarios[-1].scenario_id if scenarios else "",
+        },
+        "tasks/longrun-summary.json": [
+            {
+                "scenarioId": scenario.scenario_id,
+                "title": scenario.title,
+                "query": scenario.query,
+                "kind": scenario.kind,
+                "protection": scenario.protection,
+            }
+            for scenario in scenarios
+        ],
+        "context/traces/longrun-audit-placeholder.json": {
+            "workrootId": persona.workroot_id,
+            "taskCount": len(scenarios),
+        },
     }
     for rel, payload in files.items():
         path = state_directory / rel
@@ -435,11 +653,36 @@ def _write_transcript(transcripts_dir: Path, persona: Persona, *results: Command
     path = transcripts_dir / f"{persona.slug}.md"
     sections = [f"# Longrun Transcript: {persona.name}", ""]
     for result in results:
-        sections.extend(["## Command", "", "```bash", " ".join(result.command), "```", "", f"Exit: {result.returncode}", "", "### stdout", "", "```text", result.stdout.rstrip(), "```", "", "### stderr", "", "```text", result.stderr.rstrip(), "```", ""])
+        sections.extend(
+            [
+                "## Command",
+                "",
+                "```bash",
+                " ".join(result.command),
+                "```",
+                "",
+                f"Exit: {result.returncode}",
+                "",
+                "### stdout",
+                "",
+                "```text",
+                result.stdout.rstrip(),
+                "```",
+                "",
+                "### stderr",
+                "",
+                "```text",
+                result.stderr.rstrip(),
+                "```",
+                "",
+            ]
+        )
     path.write_text("\n".join(sections), encoding="utf-8")
 
 
-def _summarize_context_audit(level: int, persona_results: tuple[PersonaLongrunResult, ...], audits: list[dict[str, object]]) -> dict[str, object]:
+def _summarize_context_audit(
+    level: int, persona_results: tuple[PersonaLongrunResult, ...], audits: list[dict[str, object]]
+) -> dict[str, object]:
     token_values = [int(audit["tokenUsage"]) for audit in audits]
     return {
         "level": level,
@@ -457,7 +700,9 @@ def _summarize_context_audit(level: int, persona_results: tuple[PersonaLongrunRe
     }
 
 
-def _build_matrix(persona_results: tuple[PersonaLongrunResult, ...], audits: list[dict[str, object]]) -> dict[str, object]:
+def _build_matrix(
+    persona_results: tuple[PersonaLongrunResult, ...], audits: list[dict[str, object]]
+) -> dict[str, object]:
     return {
         "personas": [
             {
@@ -473,7 +718,14 @@ def _build_matrix(persona_results: tuple[PersonaLongrunResult, ...], audits: lis
     }
 
 
-def _render_summary(level: int, run_root: Path, ai_workroot_home: Path, persona_results: tuple[PersonaLongrunResult, ...], audit_summary: dict[str, object], failures: list[dict[str, object]]) -> str:
+def _render_summary(
+    level: int,
+    run_root: Path,
+    ai_workroot_home: Path,
+    persona_results: tuple[PersonaLongrunResult, ...],
+    audit_summary: dict[str, object],
+    failures: list[dict[str, object]],
+) -> str:
     lines = [
         f"# AI Workroot Level {level} Longrun Report",
         "",
@@ -494,31 +746,51 @@ def _render_summary(level: int, run_root: Path, ai_workroot_home: Path, persona_
         "## Personas",
     ]
     for result in persona_results:
-        lines.extend([f"### {result.persona_slug}", f"- Tasks: {result.task_count}", f"- Context checks: {result.context_checks}", f"- Hard trim checks: {result.hard_trim_checks}", f"- Max token usage: {result.max_token_usage}", f"- Status: {'PASS' if result.passed else 'FAIL'}", ""])
+        lines.extend(
+            [
+                f"### {result.persona_slug}",
+                f"- Tasks: {result.task_count}",
+                f"- Context checks: {result.context_checks}",
+                f"- Hard trim checks: {result.hard_trim_checks}",
+                f"- Max token usage: {result.max_token_usage}",
+                f"- Status: {'PASS' if result.passed else 'FAIL'}",
+                "",
+            ]
+        )
     if failures:
         lines.extend(["## Failures", *[f"- {failure['scope']}: {failure['failure']}" for failure in failures], ""])
     return "\n".join(lines)
 
 
-def _render_client_report(level: int, persona_results: tuple[PersonaLongrunResult, ...], audit_summary: dict[str, object], failures: list[dict[str, object]], summary_path: Path) -> str:
-    return "\n".join(
-        [
-            f"AI Workroot Level {level} Longrun: {'PASS' if not failures else 'FAIL'}",
-            f"Personas: {len(persona_results)}",
-            f"Tasks: {audit_summary['taskCount']}",
-            f"Context checks: {audit_summary['contextChecks']}",
-            f"Debug traces: {audit_summary['debugTraceChecks']}",
-            f"Hard trims: {audit_summary['hardTrimChecks']}",
-            f"Zero token usages: {audit_summary['zeroTokenUsageCount']}",
-            f"Protected leaks: {audit_summary['protectedLeakCount']}",
-            f"Max token usage: {audit_summary['maxTokenUsage']}",
-            f"Summary: {summary_path}",
-        ]
-    ) + "\n"
+def _render_client_report(
+    level: int,
+    persona_results: tuple[PersonaLongrunResult, ...],
+    audit_summary: dict[str, object],
+    failures: list[dict[str, object]],
+    summary_path: Path,
+) -> str:
+    return (
+        "\n".join(
+            [
+                f"AI Workroot Level {level} Longrun: {'PASS' if not failures else 'FAIL'}",
+                f"Personas: {len(persona_results)}",
+                f"Tasks: {audit_summary['taskCount']}",
+                f"Context checks: {audit_summary['contextChecks']}",
+                f"Debug traces: {audit_summary['debugTraceChecks']}",
+                f"Hard trims: {audit_summary['hardTrimChecks']}",
+                f"Zero token usages: {audit_summary['zeroTokenUsageCount']}",
+                f"Protected leaks: {audit_summary['protectedLeakCount']}",
+                f"Max token usage: {audit_summary['maxTokenUsage']}",
+                f"Summary: {summary_path}",
+            ]
+        )
+        + "\n"
+    )
 
 
 def _read_failures(path: Path) -> list[dict[str, object]]:
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
+
 
 def main() -> int:
     if not require_e2e_opt_in():
@@ -528,7 +800,11 @@ def main() -> int:
     parser.add_argument("--level", type=int, choices=(3, 4), default=3)
     parser.add_argument("--tasks-per-persona", type=int)
     args = parser.parse_args()
-    result = run_longrun(run_root=Path(args.run_root) if args.run_root else new_default_run_root(), level=args.level, tasks_per_persona=args.tasks_per_persona)
+    result = run_longrun(
+        run_root=Path(args.run_root) if args.run_root else new_default_run_root(),
+        level=args.level,
+        tasks_per_persona=args.tasks_per_persona,
+    )
     print(result.client_report, end="")
     return 0 if result.passed else 1
 

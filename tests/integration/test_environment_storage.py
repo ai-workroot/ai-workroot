@@ -64,9 +64,7 @@ class EnvironmentStorageTest(unittest.TestCase):
             with sqlite3.connect(db_path) as connection:
                 tables = {
                     row[0]
-                    for row in connection.execute(
-                        "SELECT name FROM sqlite_master WHERE type IN ('table', 'virtual')"
-                    )
+                    for row in connection.execute("SELECT name FROM sqlite_master WHERE type IN ('table', 'virtual')")
                 }
 
             for table in (
@@ -102,17 +100,12 @@ class EnvironmentStorageTest(unittest.TestCase):
 
             with sqlite3.connect(db_path) as connection:
                 indexes = {
-                    row[1]
-                    for row in connection.execute(
-                        "SELECT type, name FROM sqlite_master WHERE type = 'index'"
-                    )
+                    row[1] for row in connection.execute("SELECT type, name FROM sqlite_master WHERE type = 'index'")
                 }
                 indexed_file_columns = {
                     row[1] for row in connection.execute("PRAGMA table_info(indexed_files)").fetchall()
                 }
-                migration_rows = connection.execute(
-                    "SELECT migration_id, appliedAt FROM schema_migrations"
-                ).fetchall()
+                migration_rows = connection.execute("SELECT migration_id, appliedAt FROM schema_migrations").fetchall()
                 migrations = {row[0] for row in migration_rows}
 
             for index_name in (
@@ -173,10 +166,7 @@ class EnvironmentStorageTest(unittest.TestCase):
             with sqlite3.connect(db_path) as connection:
                 time_columns = {row[1] for row in connection.execute("PRAGMA table_info(time_events)").fetchall()}
                 indexes = {
-                    row[1]
-                    for row in connection.execute(
-                        "SELECT type, name FROM sqlite_master WHERE type = 'index'"
-                    )
+                    row[1] for row in connection.execute("SELECT type, name FROM sqlite_master WHERE type = 'index'")
                 }
                 migrations = {
                     row[0] for row in connection.execute("SELECT migration_id FROM schema_migrations").fetchall()
@@ -256,10 +246,7 @@ class EnvironmentStorageTest(unittest.TestCase):
                     row[1] for row in connection.execute("PRAGMA table_info(indexed_files)").fetchall()
                 }
                 indexes = {
-                    row[1]
-                    for row in connection.execute(
-                        "SELECT type, name FROM sqlite_master WHERE type = 'index'"
-                    )
+                    row[1] for row in connection.execute("SELECT type, name FROM sqlite_master WHERE type = 'index'")
                 }
                 row = connection.execute(
                     "SELECT file_id, relative_path FROM indexed_files WHERE file_id = 'file-1'"
@@ -297,10 +284,7 @@ class EnvironmentStorageTest(unittest.TestCase):
             with sqlite3.connect(db_path) as connection:
                 columns = {row[1] for row in connection.execute("PRAGMA table_info(relationship_nodes)").fetchall()}
                 indexes = {
-                    row[1]
-                    for row in connection.execute(
-                        "SELECT type, name FROM sqlite_master WHERE type = 'index'"
-                    )
+                    row[1] for row in connection.execute("SELECT type, name FROM sqlite_master WHERE type = 'index'")
                 }
                 migrations = {
                     row[0] for row in connection.execute("SELECT migration_id FROM schema_migrations").fetchall()

@@ -65,7 +65,11 @@ class CurrentDocsContractTest(unittest.TestCase):
             "ROADMAP.md": ("Clean Workroot", "0.9.530", "Public Seed is historical"),
             "docs/architecture-map.md": ("Clean Workroot", "WorkrootEnvironment", "Relationship Network"),
             "docs/workroot-system-design.md": ("Clean Workroot", "AI_WORKROOT_HOME", "Native Agent Entry"),
-            "docs/kernel-implementation-specification.md": ("Clean Workroot", "Core / Contracts / Runtime / Storage / Indexing / Agent / CLI", "Release Control"),
+            "docs/kernel-implementation-specification.md": (
+                "Clean Workroot",
+                "Core / Contracts / Runtime / Storage / Indexing / Agent / CLI",
+                "Release Control",
+            ),
         }
         for rel, phrases in docs.items():
             with self.subTest(rel=rel):

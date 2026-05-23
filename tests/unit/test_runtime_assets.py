@@ -53,7 +53,9 @@ class RuntimeAssetsTest(unittest.TestCase):
         self.assertEqual(decision.publication_status, "internal")
         self.assertEqual(result.asset_type, "result")
         self.assertEqual(knowledge.asset_type, "knowledge")
-        self.assertEqual([asset.asset_id for asset in query_assets(conn, "wr_demo", asset_type="decision")], ["asset-decision"])
+        self.assertEqual(
+            [asset.asset_id for asset in query_assets(conn, "wr_demo", asset_type="decision")], ["asset-decision"]
+        )
         invalidations = {
             row
             for row in conn.execute(
@@ -215,11 +217,11 @@ class RuntimeAssetsTest(unittest.TestCase):
             title="Missing source",
         )
 
-        asset = mark_asset_missing(conn, workroot_id="wr_demo", asset_id="asset-missing", missing_since="2026-05-21T00:00:00Z")
+        asset = mark_asset_missing(
+            conn, workroot_id="wr_demo", asset_id="asset-missing", missing_since="2026-05-21T00:00:00Z"
+        )
 
-        row = conn.execute(
-            "SELECT lifecycle_status, updatedAt FROM assets WHERE asset_id = 'asset-missing'"
-        ).fetchone()
+        row = conn.execute("SELECT lifecycle_status, updatedAt FROM assets WHERE asset_id = 'asset-missing'").fetchone()
         self.assertEqual(asset.lifecycle_status, "missing")
         self.assertEqual(row, ("missing", "2026-05-21T00:00:00Z"))
 

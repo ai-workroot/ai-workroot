@@ -578,9 +578,7 @@ def verify_release_derived_index_safety(path: Path) -> list[str]:
     findings: list[str] = []
     with sqlite3.connect(path) as connection:
         for workroot_id, target_type, target_id, level in _strict_release_targets(connection):
-            findings.extend(
-                _leaky_context_candidates(connection, workroot_id, target_type, target_id, level)
-            )
+            findings.extend(_leaky_context_candidates(connection, workroot_id, target_type, target_id, level))
             findings.extend(_leaky_indexed_chunks(connection, workroot_id, target_type, target_id, level))
             findings.extend(_leaky_context_recall_hints(connection, workroot_id, target_type, target_id, level))
     return findings
@@ -854,15 +852,17 @@ def _leaky_context_recall_hints(
     target_id: str,
     level: str,
 ) -> list[str]:
-    rows = list(_fetchall_safely(
-        connection,
-        """
+    rows = list(
+        _fetchall_safely(
+            connection,
+            """
         SELECT hint_id, title, summary
         FROM context_recall_hints
         WHERE workroot_id = ? AND target_type = ? AND target_id = ?
         """,
-        (workroot_id, target_type, target_id),
-    ))
+            (workroot_id, target_type, target_id),
+        )
+    )
     if target_type == "context_recall_hint":
         rows.extend(
             _fetchall_safely(
@@ -950,16 +950,18 @@ def _context_recall_hint_fts_rows(
     target_type: str,
     target_id: str,
 ) -> list[tuple[object, ...]]:
-    rows = list(_fetchall_safely(
-        connection,
-        """
+    rows = list(
+        _fetchall_safely(
+            connection,
+            """
         SELECT f.hint_id, f.title, f.summary
         FROM context_recall_hints_fts f
         JOIN context_recall_hints h ON h.hint_id = f.hint_id
         WHERE h.workroot_id = ? AND h.target_type = ? AND h.target_id = ?
         """,
-        (workroot_id, target_type, target_id),
-    ))
+            (workroot_id, target_type, target_id),
+        )
+    )
     if target_type == "context_recall_hint":
         rows.extend(
             _fetchall_safely(

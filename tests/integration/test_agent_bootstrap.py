@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -64,12 +63,12 @@ class BootstrapDevReplacementTest(unittest.TestCase):
         (repo / "scripts").mkdir()
         (repo / "workroot.project.json").write_text(
             (
-                '{\n'
+                "{\n"
                 '  "project": "ai-workroot",\n'
                 '  "bootstrapDevSupported": true,\n'
                 '  "architecture": "clean-workroot",\n'
                 '  "version": "0.9.530"\n'
-                '}\n'
+                "}\n"
             ),
             encoding="utf-8",
         )

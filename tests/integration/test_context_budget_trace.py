@@ -99,7 +99,9 @@ class ContextBudgetTraceTest(unittest.TestCase):
             self.assertIn("modePlan: mode=deep", package)
             self.assertIn("deepExplicitlyRequested=true", package)
             with sqlite3.connect(db_path) as conn:
-                trace = json.loads(conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0])
+                trace = json.loads(
+                    conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+                )
             self.assertTrue(trace["modePlan"]["deepExplicitlyRequested"])
 
     def test_hard_token_limit_uses_final_fallback_and_records_trim(self) -> None:
@@ -125,7 +127,9 @@ class ContextBudgetTraceTest(unittest.TestCase):
                 )
 
             package = build_context_package(
-                ContextRequest(agent="codex", cwd=user_dir, query="Clean Mode", debug=True, hard_token_limit=80, target_tokens=40),
+                ContextRequest(
+                    agent="codex", cwd=user_dir, query="Clean Mode", debug=True, hard_token_limit=80, target_tokens=40
+                ),
                 ai_workroot_home=home,
             )
 
@@ -156,7 +160,9 @@ class ContextBudgetTraceTest(unittest.TestCase):
                 )
 
             package = build_context_package(
-                ContextRequest(agent="codex", cwd=user_dir, query="Persistence", debug=True, hard_token_limit=80, target_tokens=40),
+                ContextRequest(
+                    agent="codex", cwd=user_dir, query="Persistence", debug=True, hard_token_limit=80, target_tokens=40
+                ),
                 ai_workroot_home=home,
             )
 
@@ -267,7 +273,11 @@ class ContextBudgetTraceTest(unittest.TestCase):
                 ai_workroot_home=home,
             )
 
-            record = json.loads((home / f"workroots/{workroot_id}/logs/context-requests.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+            record = json.loads(
+                (home / f"workroots/{workroot_id}/logs/context-requests.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()[-1]
+            )
             self.assertEqual(record["renderedPackage"], package)
 
     def test_context_diagnostic_logging_respects_max_entries_per_workroot(self) -> None:
@@ -293,7 +303,9 @@ class ContextBudgetTraceTest(unittest.TestCase):
 
             rows = [
                 json.loads(line)
-                for line in (home / f"workroots/{workroot_id}/logs/context-requests.jsonl").read_text(encoding="utf-8").splitlines()
+                for line in (home / f"workroots/{workroot_id}/logs/context-requests.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
             ]
             self.assertEqual([row["query"] for row in rows], ["second", "third"])
 
@@ -322,7 +334,9 @@ class ContextBudgetTraceTest(unittest.TestCase):
                 )
 
             package = build_context_package(
-                ContextRequest(agent="codex", cwd=user_dir, query="中文", debug=True, hard_token_limit=60, target_tokens=30),
+                ContextRequest(
+                    agent="codex", cwd=user_dir, query="中文", debug=True, hard_token_limit=60, target_tokens=30
+                ),
                 ai_workroot_home=home,
             )
 

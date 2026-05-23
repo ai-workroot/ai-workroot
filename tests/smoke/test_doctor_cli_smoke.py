@@ -16,7 +16,9 @@ class DoctorCliSmokeTest(unittest.TestCase):
             home = base / "home"
             user_dir = base / "project"
             env = {"AI_WORKROOT_HOME": str(home)}
-            init = run_workroot_cli(env, "init", "--name", "Doctor Summary", "--directory", str(user_dir), "--no-native-agent-entry")
+            init = run_workroot_cli(
+                env, "init", "--name", "Doctor Summary", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
             self.assertEqual(init.returncode, 0, init.stderr)
 
             doctor = run_workroot_cli(env, "doctor", "--cwd", str(user_dir))
@@ -33,7 +35,9 @@ class DoctorCliSmokeTest(unittest.TestCase):
             fake_home = base / "fake-home"
             user_dir = base / "project"
             env = {"AI_WORKROOT_HOME": str(home)}
-            init = run_workroot_cli(env, "init", "--name", "Doctor Home", "--directory", str(user_dir), "--no-native-agent-entry")
+            init = run_workroot_cli(
+                env, "init", "--name", "Doctor Home", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
             self.assertEqual(init.returncode, 0, init.stderr)
             record_path = home / "registry/workroots.jsonl"
             record = json.loads(record_path.read_text(encoding="utf-8").splitlines()[0])
@@ -60,7 +64,9 @@ class DoctorCliSmokeTest(unittest.TestCase):
             home = base / "home"
             user_dir = base / "project"
             env = {"AI_WORKROOT_HOME": str(home)}
-            init = run_workroot_cli(env, "init", "--name", "Demo", "--directory", str(user_dir), "--no-native-agent-entry")
+            init = run_workroot_cli(
+                env, "init", "--name", "Demo", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
             self.assertEqual(init.returncode, 0, init.stderr)
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:

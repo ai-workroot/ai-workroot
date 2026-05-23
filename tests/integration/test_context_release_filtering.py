@@ -18,7 +18,9 @@ class ContextReleaseFilteringTest(unittest.TestCase):
             home = base / "home"
             user_dir = base / "project"
             user_dir.mkdir()
-            (user_dir / "redacted-payroll-secret.md").write_text("fallback should not expose this filename\n", encoding="utf-8")
+            (user_dir / "redacted-payroll-secret.md").write_text(
+                "fallback should not expose this filename\n", encoding="utf-8"
+            )
             init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
@@ -52,9 +54,13 @@ class ContextReleaseFilteringTest(unittest.TestCase):
 
             self.assertNotIn("redacted-payroll-secret.md", package)
             self.assertIn("- No context candidates selected.", package)
-            self.assertIn("fallbackUserAssetCandidates: attempted=false reason=disabled_due_to_release_protected_drop", package)
+            self.assertIn(
+                "fallbackUserAssetCandidates: attempted=false reason=disabled_due_to_release_protected_drop", package
+            )
             with sqlite3.connect(db_path) as conn:
-                trace_json = conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+                trace_json = conn.execute(
+                    "SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1"
+                ).fetchone()[0]
             import json
 
             trace = json.loads(trace_json)

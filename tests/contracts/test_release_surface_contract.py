@@ -37,7 +37,9 @@ class ReleaseSurfaceContractTest(unittest.TestCase):
                 "generated managed state path must not be committed for release: .ai-workroot-local/context-packages/latest.md",
                 text,
             )
-            self.assertIn("generated managed state path must not be committed for release: context/debug/latest.json", text)
+            self.assertIn(
+                "generated managed state path must not be committed for release: context/debug/latest.json", text
+            )
             self.assertIn("generated store must not be committed for release: workroot.sqlite", text)
 
     def test_release_validation_ignores_gitignored_local_metadata(self) -> None:

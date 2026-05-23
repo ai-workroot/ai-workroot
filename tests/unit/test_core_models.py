@@ -130,7 +130,9 @@ class CoreModelsTest(unittest.TestCase):
             edge.attach_evidence(evidence)
 
     def test_index_manifest_staleness(self) -> None:
-        manifest = IndexManifest(index_id="idx_1", index_kind="fts", source_high_watermark="10", built_high_watermark="9")
+        manifest = IndexManifest(
+            index_id="idx_1", index_kind="fts", source_high_watermark="10", built_high_watermark="9"
+        )
 
         self.assertTrue(manifest.is_stale())
 

@@ -41,7 +41,12 @@ class RepositoryRootContractTest(unittest.TestCase):
     def test_no_stale_public_text_patterns(self) -> None:
         hits: list[str] = []
         for path in ROOT.rglob("*"):
-            if ".git" in path.parts or not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
+            if (
+                ".git" in path.parts
+                or ".venv" in path.parts
+                or not path.is_file()
+                or path.suffix.lower() not in TEXT_SUFFIXES
+            ):
                 continue
             if path == Path(__file__):
                 continue

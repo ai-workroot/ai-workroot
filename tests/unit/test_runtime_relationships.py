@@ -26,7 +26,9 @@ class RuntimeRelationshipsTest(unittest.TestCase):
         conn = self.open_db()
 
         source = create_relationship_node(conn, node_id="task-1", workroot_id="wr_demo", node_type="task", title="Task")
-        target = create_relationship_node(conn, node_id="asset-1", workroot_id="wr_demo", node_type="asset", title="Asset")
+        target = create_relationship_node(
+            conn, node_id="asset-1", workroot_id="wr_demo", node_type="asset", title="Asset"
+        )
         edge = create_relationship_edge(
             conn,
             edge_id="edge-1",
@@ -53,7 +55,9 @@ class RuntimeRelationshipsTest(unittest.TestCase):
         self.assertEqual(evidence.edge_id, "edge-1")
         self.assertEqual([item.edge_id for item in relationships], ["edge-1"])
         self.assertEqual(
-            conn.execute("SELECT evidence_type, source_ref FROM relationship_evidence WHERE evidence_id = 'evidence-1'").fetchone(),
+            conn.execute(
+                "SELECT evidence_type, source_ref FROM relationship_evidence WHERE evidence_id = 'evidence-1'"
+            ).fetchone(),
             ("context_trace", "ctxtrace-1"),
         )
         invalidations = {

@@ -22,8 +22,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="List available E2E suites.")
     parser.add_argument("--suite", choices=sorted(SUITES), action="append", help="E2E suite to run. May be repeated.")
-    parser.add_argument("--dry-run", action="store_true", help="Validate opt-in and print selected suites without running them.")
-    parser.add_argument("--sandbox-base", help="Sandbox base for preserved run roots. Defaults to ~/tmp/ai-workroot-e2e-sandboxes.")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Validate opt-in and print selected suites without running them."
+    )
+    parser.add_argument(
+        "--sandbox-base", help="Sandbox base for preserved run roots. Defaults to ~/tmp/ai-workroot-e2e-sandboxes."
+    )
     parser.add_argument("--run-root", help="Explicit run-* root under the sandbox base.")
     return parser
 

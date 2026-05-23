@@ -7,9 +7,7 @@ from tests.contracts.helpers import ROOT
 
 class ScriptsClosureContractTest(unittest.TestCase):
     def test_scripts_to_src_migration_closure_is_explicit(self) -> None:
-        text = (ROOT / "docs/dev/runnable-legacy-compat-removal-architecture.md").read_text(
-            encoding="utf-8"
-        )
+        text = (ROOT / "docs/dev/runnable-legacy-compat-removal-architecture.md").read_text(encoding="utf-8")
         archive_manifest = (ROOT / "docs/history/public-seed/code-archive/MANIFEST.md").read_text(encoding="utf-8")
         script_rows = [
             [cell.strip() for cell in row.strip("|").split("|")]
@@ -26,13 +24,32 @@ class ScriptsClosureContractTest(unittest.TestCase):
         self.assertIn("retired runnable Public Seed script", archive_manifest)
         for cells in script_rows:
             self.assertGreaterEqual(len(cells), 7, cells)
-            self.assertIn(cells[3], {"migrated", "wrapper", "dev-helper", "legacy-quarantine", "retired", "deferred", "release validation helper"}, cells)
-        actual_scripts = {
-            path.relative_to(ROOT).as_posix()
-            for path in (ROOT / "scripts").rglob("*")
-            if path.is_file()
-        }
-        self.assertEqual(actual_scripts, {"scripts/README.md", "scripts/dev/README.md", "scripts/dev/bootstrap-dev.ps1", "scripts/dev/bootstrap-dev.sh", "scripts/dev/export-review-zip.sh", "scripts/dev/validate-release.sh"})
+            self.assertIn(
+                cells[3],
+                {
+                    "migrated",
+                    "wrapper",
+                    "dev-helper",
+                    "legacy-quarantine",
+                    "retired",
+                    "deferred",
+                    "release validation helper",
+                },
+                cells,
+            )
+        actual_scripts = {path.relative_to(ROOT).as_posix() for path in (ROOT / "scripts").rglob("*") if path.is_file()}
+        self.assertEqual(
+            actual_scripts,
+            {
+                "scripts/README.md",
+                "scripts/dev/README.md",
+                "scripts/dev/bootstrap-dev.ps1",
+                "scripts/dev/bootstrap-dev.sh",
+                "scripts/dev/export-review-zip.sh",
+                "scripts/dev/setup-dev.sh",
+                "scripts/dev/validate-release.sh",
+            },
+        )
 
     def test_scripts_root_has_no_python_product_or_compat_files(self) -> None:
         root_python = sorted(path.name for path in (ROOT / "scripts").glob("*.py"))

@@ -70,7 +70,16 @@ class E2EOptInPolicyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             sandbox_base = Path(tmp) / "ai-workroot-e2e-sandboxes"
             result = subprocess.run(
-                [sys.executable, "-m", "tests.e2e.runner", "--suite", "persona-smoke", "--dry-run", "--sandbox-base", str(sandbox_base)],
+                [
+                    sys.executable,
+                    "-m",
+                    "tests.e2e.runner",
+                    "--suite",
+                    "persona-smoke",
+                    "--dry-run",
+                    "--sandbox-base",
+                    str(sandbox_base),
+                ],
                 cwd=ROOT,
                 env={**os.environ, "PYTHONPATH": str(ROOT / "src"), "AI_WORKROOT_RUN_E2E": "1"},
                 text=True,
@@ -136,11 +145,15 @@ class E2EOptInPolicyTest(unittest.TestCase):
                 "AI_WORKROOT_HOME": str(run_root / "ai-workroot-home"),
                 "PYTHONPATH": str(ROOT / "src"),
             }
-            with patch.dict(os.environ, {"PATH": os.environ.get("PATH", ""), "CODEX_HOME": str(real_codex_home)}, clear=True):
+            with patch.dict(
+                os.environ, {"PATH": os.environ.get("PATH", ""), "CODEX_HOME": str(real_codex_home)}, clear=True
+            ):
                 live_env = build_live_agent_environment(base_env, run_root=run_root)
 
             sandbox_codex_home = Path(live_env["CODEX_HOME"])
-            self.assertEqual(sorted(path.name for path in sandbox_codex_home.iterdir()), ["AGENTS.md", "auth.json", "config.toml"])
+            self.assertEqual(
+                sorted(path.name for path in sandbox_codex_home.iterdir()), ["AGENTS.md", "auth.json", "config.toml"]
+            )
             self.assertFalse((sandbox_codex_home / "history.jsonl").exists())
             self.assertFalse((sandbox_codex_home / "logs_2.sqlite").exists())
             self.assertFalse((sandbox_codex_home / "sessions").exists())

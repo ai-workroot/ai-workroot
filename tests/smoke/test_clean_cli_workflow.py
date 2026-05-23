@@ -18,7 +18,9 @@ class CleanCliWorkflowSmokeTest(unittest.TestCase):
             (user_dir / "note.md").write_text("Clean Workroot note\n", encoding="utf-8")
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            init = run_workroot_cli(env, "init", "--name", "Demo Workroot", "--directory", str(user_dir), "--no-native-agent-entry")
+            init = run_workroot_cli(
+                env, "init", "--name", "Demo Workroot", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
 
             self.assertEqual(init.returncode, 0, init.stderr)
             self.assertIn("initialized", init.stdout)
@@ -42,7 +44,9 @@ class CleanCliWorkflowSmokeTest(unittest.TestCase):
             self.assertIn("Demo Workroot", status.stdout)
             self.assertIn(workroot_id, status.stdout)
 
-            context = run_workroot_cli(env, "context", "--agent", "codex", "--cwd", str(user_dir), "--query", "Clean Mode")
+            context = run_workroot_cli(
+                env, "context", "--agent", "codex", "--cwd", str(user_dir), "--query", "Clean Mode"
+            )
             self.assertEqual(context.returncode, 0, context.stderr)
             self.assertIn("# AI Workroot Context Package", context.stdout)
             self.assertIn("Mode: standard", context.stdout)
@@ -93,8 +97,12 @@ class CleanCliWorkflowSmokeTest(unittest.TestCase):
                 "--native-agent-entry",
             )
             self.assertEqual(with_entry.returncode, 0, with_entry.stderr)
-            self.assertIn("workroot context --agent codex --cwd .", (second_user_dir / "AGENTS.md").read_text(encoding="utf-8"))
-            self.assertIn("workroot context --agent claude --cwd .", (second_user_dir / "CLAUDE.md").read_text(encoding="utf-8"))
+            self.assertIn(
+                "workroot context --agent codex --cwd .", (second_user_dir / "AGENTS.md").read_text(encoding="utf-8")
+            )
+            self.assertIn(
+                "workroot context --agent claude --cwd .", (second_user_dir / "CLAUDE.md").read_text(encoding="utf-8")
+            )
 
 
 if __name__ == "__main__":

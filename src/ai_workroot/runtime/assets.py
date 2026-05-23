@@ -218,7 +218,14 @@ def _store_publication(
         SET publication_status = ?, surface_id = ?, current_path = ?, lifecycle_status = ?, updatedAt = COALESCE(updatedAt, '')
         WHERE workroot_id = ? AND asset_id = ?
         """,
-        (asset.publication_status, asset.surface_id, asset.current_path, asset.lifecycle_status, workroot_id, asset.asset_id),
+        (
+            asset.publication_status,
+            asset.surface_id,
+            asset.current_path,
+            asset.lifecycle_status,
+            workroot_id,
+            asset.asset_id,
+        ),
     )
     conn.execute(
         """

@@ -55,7 +55,9 @@ def run_persona_smoke(*, run_root: Path, sandbox_base: Path | None = None) -> Pe
             cwd=REPO_ROOT,
         )
         status = run_cli(("status", "--cwd", str(user_directory)), env=env, cwd=REPO_ROOT)
-        context = run_cli(("context", "--agent", "codex", "--cwd", str(user_directory), "--query", "Clean Mode"), env=env)
+        context = run_cli(
+            ("context", "--agent", "codex", "--cwd", str(user_directory), "--query", "Clean Mode"), env=env
+        )
         doctor = run_cli(("doctor", "--cwd", str(user_directory)), env=env)
         commands.extend([init, status, context, doctor])
         for label, result in (("init", init), ("status", status), ("context", context), ("doctor", doctor)):
@@ -63,7 +65,10 @@ def run_persona_smoke(*, run_root: Path, sandbox_base: Path | None = None) -> Pe
                 failures.append(f"{persona.slug} {label} failed: {result.stderr or result.stdout}")
         if "TokenUsage:" not in context.stdout:
             failures.append(f"{persona.slug} context missing token usage")
-        failures.extend(f"{persona.slug} {failure}" for failure in validate_user_directory(persona, user_directory, ai_workroot_home))
+        failures.extend(
+            f"{persona.slug} {failure}"
+            for failure in validate_user_directory(persona, user_directory, ai_workroot_home)
+        )
 
     listed = run_cli(("list", "--format", "json"), env=env)
     commands.append(listed)
@@ -80,7 +85,9 @@ def run_persona_smoke(*, run_root: Path, sandbox_base: Path | None = None) -> Pe
     client_report = _render_client_report(run_root, failures)
     report_path.write_text(client_report, encoding="utf-8")
     failures_path.write_text(json.dumps(failures, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    commands_path.write_text(json.dumps([command.as_dict() for command in commands], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    commands_path.write_text(
+        json.dumps([command.as_dict() for command in commands], ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return PersonaSmokeResult(
         run_root=run_root,
         ai_workroot_home=ai_workroot_home,

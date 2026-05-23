@@ -2,20 +2,37 @@ from __future__ import annotations
 
 import unittest
 
-from tests.contracts.helpers import PUBLIC_SEED, ROOT
+from tests.contracts.helpers import ROOT
 
 
 ARCHIVE = ROOT / "docs/history/public-seed/code-archive"
 
 
 class ReleaseGates0529Test(unittest.TestCase):
+    def test_python_quality_gate_is_minimal_and_release_checked(self) -> None:
+        pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        validate_release = (ROOT / "scripts/dev/validate-release.sh").read_text(encoding="utf-8")
+
+        self.assertIn('"ruff>=0.15,<1"', pyproject)
+        self.assertIn("[tool.ruff]", pyproject)
+        self.assertIn("line-length = 120", pyproject)
+        self.assertIn('target-version = "py39"', pyproject)
+        self.assertIn("[tool.ruff.lint]", pyproject)
+        self.assertIn('select = ["E9", "F"]', pyproject)
+        self.assertIn("run_ruff format --check src scripts tests", validate_release)
+        self.assertIn("run_ruff check src scripts tests", validate_release)
+        self.assertIn("scripts/dev/setup-dev.sh", validate_release)
+        self.assertNotIn("uvx", validate_release)
+
     def test_rebuild_sqlite_is_archived_as_non_runnable_legacy_tooling(self) -> None:
         script = (ARCHIVE / "scripts/legacy/public_seed/rebuild_sqlite.py.txt").read_text(encoding="utf-8")
         instantiate = (ROOT / "docs/instantiate-workroot.md").read_text(encoding="utf-8")
 
         self.assertIn("Legacy public-seed SQLite rebuild tool", script)
         self.assertIn("legacy public seed", instantiate)
-        self.assertNotIn("Clean Mode users should run `python3 scripts/legacy/public_seed/rebuild_sqlite.py`", instantiate)
+        self.assertNotIn(
+            "Clean Mode users should run `python3 scripts/legacy/public_seed/rebuild_sqlite.py`", instantiate
+        )
 
     def test_release_notes_include_known_limitations(self) -> None:
         release_notes = (ROOT / "docs/releases/0.9.529.md").read_text(encoding="utf-8")
@@ -55,7 +72,6 @@ class ReleaseGates0529Test(unittest.TestCase):
         )
         checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
         context_source = (ROOT / "src/ai_workroot/runtime/context.py").read_text(encoding="utf-8")
-
 
         self.assertIn("runtime-hints.json", spec)
         self.assertIn("Deep Mode requires explicit request", checklist)

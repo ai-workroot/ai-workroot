@@ -104,14 +104,14 @@ class MigrationRunner:
                     raise SystemExit(f"migration failed: {migration.migration_id}: {exc}") from exc
                 append_migration_record(
                     self.record_path(scope),
-                        {
-                            "migrationId": migration.migration_id,
-                            "scope": scope,
-                            "status": "applied",
-                            "startedAt": started_at,
-                            "completedAt": now_utc(),
-                            "checksum": "",
-                            "error": "",
-                        },
+                    {
+                        "migrationId": migration.migration_id,
+                        "scope": scope,
+                        "status": "applied",
+                        "startedAt": started_at,
+                        "completedAt": now_utc(),
+                        "checksum": "",
+                        "error": "",
+                    },
                 )
                 applied.add(migration.migration_id)

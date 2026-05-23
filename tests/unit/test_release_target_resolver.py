@@ -5,7 +5,11 @@ import unittest
 
 from ai_workroot.core.release import ReleaseTargetRef
 from ai_workroot.indexing.providers.candidate_provider import CandidateMatch, upsert_context_candidate
-from ai_workroot.indexing.providers.relationship_provider import RelationshipSignal, upsert_relationship_edge, upsert_relationship_node
+from ai_workroot.indexing.providers.relationship_provider import (
+    RelationshipSignal,
+    upsert_relationship_edge,
+    upsert_relationship_node,
+)
 from ai_workroot.indexing.providers.release_provider import (
     CandidateReleaseTargetResolver,
     evaluate_release_targets,

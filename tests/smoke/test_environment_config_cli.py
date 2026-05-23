@@ -29,13 +29,19 @@ class EnvironmentConfigCliSmokeTest(unittest.TestCase):
             )
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            first = run_workroot_cli(env, "init", "--name", "First", "--directory", str(base / "first"), "--no-native-agent-entry")
-            second = run_workroot_cli(env, "init", "--name", "Second", "--directory", str(base / "second"), "--no-native-agent-entry")
+            first = run_workroot_cli(
+                env, "init", "--name", "First", "--directory", str(base / "first"), "--no-native-agent-entry"
+            )
+            second = run_workroot_cli(
+                env, "init", "--name", "Second", "--directory", str(base / "second"), "--no-native-agent-entry"
+            )
 
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertEqual(second.returncode, 0, second.stderr)
             config = json.loads((home / "config.json").read_text(encoding="utf-8"))
-            operator_preferences = json.loads((home / "preferences/operator-preferences.json").read_text(encoding="utf-8"))
+            operator_preferences = json.loads(
+                (home / "preferences/operator-preferences.json").read_text(encoding="utf-8")
+            )
             policy_defaults = json.loads((home / "preferences/policy-defaults.json").read_text(encoding="utf-8"))
             self.assertEqual(config["custom"], "keep-me")
             self.assertEqual(config["kind"], "WorkrootEnvironment")
@@ -55,7 +61,9 @@ class EnvironmentConfigCliSmokeTest(unittest.TestCase):
             home = base / "home"
             env = {"AI_WORKROOT_HOME": str(home), "AI_WORKROOT_TIMEZONE": "Asia/Shanghai"}
 
-            result = run_workroot_cli(env, "init", "--name", "Summary", "--directory", str(base / "project"), "--no-native-agent-entry")
+            result = run_workroot_cli(
+                env, "init", "--name", "Summary", "--directory", str(base / "project"), "--no-native-agent-entry"
+            )
 
             self.assertEqual(result.returncode, 0, result.stderr)
             config = json.loads((home / "config.json").read_text(encoding="utf-8"))

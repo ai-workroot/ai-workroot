@@ -22,8 +22,7 @@ OWNED_CHILD_DIRS = ("ai-workroot-home", "home", "user-dirs", "reports", "transcr
 E2E_OPT_IN_ENV = "AI_WORKROOT_RUN_E2E"
 E2E_OPT_IN_VALUE = "1"
 E2E_OPT_IN_MESSAGE = (
-    "E2E tests are opt-in only. Set AI_WORKROOT_RUN_E2E=1 and run "
-    "python3 -m tests.e2e.runner --suite <suite>."
+    "E2E tests are opt-in only. Set AI_WORKROOT_RUN_E2E=1 and run python3 -m tests.e2e.runner --suite <suite>."
 )
 
 

@@ -198,12 +198,16 @@ def build_context_package(
             if fallback_steps and "final-fallback" not in trim_steps:
                 trim_steps.extend(fallback_steps)
             if fallback_steps and "## Debug Trace" not in rendered:
-                rendered = _minimal_debug_package(record=record, request=request, started=started, trim_steps=trim_steps)
+                rendered = _minimal_debug_package(
+                    record=record, request=request, started=started, trim_steps=trim_steps
+                )
             rendered = _append_trim_marker(rendered, trim_steps)
             rendered, _ = _enforce_hard_token_limit(rendered, request.hard_token_limit)
             rendered = _refresh_rendered_token_usage(rendered, request.hard_token_limit)
             if "## Debug Trace" not in rendered:
-                rendered = _minimal_debug_package(record=record, request=request, started=started, trim_steps=trim_steps)
+                rendered = _minimal_debug_package(
+                    record=record, request=request, started=started, trim_steps=trim_steps
+                )
                 rendered, _ = _enforce_hard_token_limit(rendered, request.hard_token_limit)
                 rendered = _refresh_rendered_token_usage(rendered, request.hard_token_limit)
             if db_path.is_file():
@@ -294,7 +298,9 @@ def build_context_package(
 
 def _resolve_context_request_budget(request: ContextRequest, config: ContextControlConfig) -> ContextRequest:
     target_tokens = request.target_tokens if request.target_tokens is not None else config.default_target_tokens
-    hard_token_limit = request.hard_token_limit if request.hard_token_limit is not None else config.default_hard_token_limit
+    hard_token_limit = (
+        request.hard_token_limit if request.hard_token_limit is not None else config.default_hard_token_limit
+    )
     budget_source = request.budget_source
     if budget_source == "default":
         budget_source = "config" if request.target_tokens is None or request.hard_token_limit is None else "request"
@@ -334,7 +340,9 @@ def rendered_token_usage(rendered: str) -> int:
 def _resolve_mode_plan(mode: str) -> ModePlan:
     normalized = (mode or "standard").lower().strip()
     if normalized == "fast":
-        return ModePlan("fast", candidate_limit=4, hint_limit=4, fts_limit=2, relationship_limit=0, behavior="fast-local")
+        return ModePlan(
+            "fast", candidate_limit=4, hint_limit=4, fts_limit=2, relationship_limit=0, behavior="fast-local"
+        )
     if normalized == "quality":
         return ModePlan(
             "quality",
@@ -354,7 +362,9 @@ def _resolve_mode_plan(mode: str) -> ModePlan:
             behavior="deep-explicit-local",
             deep_explicitly_requested=True,
         )
-    return ModePlan("standard", candidate_limit=8, hint_limit=8, fts_limit=5, relationship_limit=10, behavior="standard-local")
+    return ModePlan(
+        "standard", candidate_limit=8, hint_limit=8, fts_limit=5, relationship_limit=10, behavior="standard-local"
+    )
 
 
 def _select_candidates(
@@ -390,12 +400,20 @@ def _select_candidates(
     return selected[:limit]
 
 
-def _apply_release_filters(candidates: list[CandidateMatch], release_report: ReleaseFilterReport) -> list[CandidateMatch]:
+def _apply_release_filters(
+    candidates: list[CandidateMatch], release_report: ReleaseFilterReport
+) -> list[CandidateMatch]:
     filtered: list[CandidateMatch] = []
     for candidate in candidates:
-        if candidate.candidate_id in release_report.protected_candidate_ids or candidate.source_id in release_report.protected_source_ids:
+        if (
+            candidate.candidate_id in release_report.protected_candidate_ids
+            or candidate.source_id in release_report.protected_source_ids
+        ):
             continue
-        if candidate.candidate_id in release_report.tombstone_candidate_ids or candidate.source_id in release_report.tombstone_source_ids:
+        if (
+            candidate.candidate_id in release_report.tombstone_candidate_ids
+            or candidate.source_id in release_report.tombstone_source_ids
+        ):
             filtered.append(
                 CandidateMatch(
                     candidate_id=candidate.candidate_id,
@@ -420,9 +438,7 @@ def _boost_relationship_candidates(
     relationship_signals: list[RelationshipSignal],
 ) -> list[CandidateMatch]:
     related_sources = {
-        node_id
-        for signal in relationship_signals
-        for node_id in (signal.from_node_id, signal.to_node_id)
+        node_id for signal in relationship_signals for node_id in (signal.from_node_id, signal.to_node_id)
     }
     boosted: list[CandidateMatch] = []
     for candidate in candidates:
@@ -616,9 +632,7 @@ def _render_package(
     if relationship_signals:
         lines.extend(["", "## Relationship Signals"])
         for signal in relationship_signals:
-            lines.append(
-                f"- {signal.edge_id}: {signal.from_node_id} {signal.relationship_type} {signal.to_node_id}"
-            )
+            lines.append(f"- {signal.edge_id}: {signal.from_node_id} {signal.relationship_type} {signal.to_node_id}")
     if request.debug:
         lines.extend(
             [
@@ -655,11 +669,17 @@ def _render_package(
             lines.append(f"releaseFilters: dropped={dropped} annotated={annotations}")
         if fts_release_report.dropped or fts_release_report.tombstones:
             dropped = ", ".join(f"{chunk_id}:{reason}" for chunk_id, reason in fts_release_report.dropped) or "none"
-            tombstones = ", ".join(f"{chunk_id}:{reason}" for chunk_id, reason in fts_release_report.tombstones) or "none"
+            tombstones = (
+                ", ".join(f"{chunk_id}:{reason}" for chunk_id, reason in fts_release_report.tombstones) or "none"
+            )
             lines.append(f"ftsReleaseFilters: dropped={dropped} annotated={tombstones}")
         if relationship_release_report.dropped or relationship_release_report.tombstones:
-            dropped = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.dropped) or "none"
-            tombstones = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.tombstones) or "none"
+            dropped = (
+                ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.dropped) or "none"
+            )
+            tombstones = (
+                ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.tombstones) or "none"
+            )
             lines.append(f"relationshipReleaseFilters: dropped={dropped} annotated={tombstones}")
         lines.append(
             "fallbackUserAssetCandidates: "
@@ -734,7 +754,9 @@ def _render_compact_debug_package(
         lines.append(f"ftsReleaseFilters: dropped={dropped} annotated={tombstones}")
     if relationship_release_report.dropped or relationship_release_report.tombstones:
         dropped = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.dropped) or "none"
-        tombstones = ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.tombstones) or "none"
+        tombstones = (
+            ", ".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.tombstones) or "none"
+        )
         lines.append(f"relationshipReleaseFilters: dropped={dropped} annotated={tombstones}")
     lines.append(
         "fallbackUserAssetCandidates: "
@@ -811,7 +833,9 @@ def _refresh_rendered_token_usage(rendered: str, hard_token_limit: int) -> str:
     token_usage = 1
     refreshed = rendered
     for _ in range(3):
-        refreshed = re.sub(r"^TokenUsage:\s*\d+/\d+\s*$", f"TokenUsage: {token_usage}/{hard_token_limit}", rendered, flags=re.MULTILINE)
+        refreshed = re.sub(
+            r"^TokenUsage:\s*\d+/\d+\s*$", f"TokenUsage: {token_usage}/{hard_token_limit}", rendered, flags=re.MULTILINE
+        )
         refreshed = re.sub(
             r"^tokenUsage:\s*estimated=\d+\s+target=",
             f"tokenUsage: estimated={token_usage} target=",
@@ -823,7 +847,9 @@ def _refresh_rendered_token_usage(rendered: str, hard_token_limit: int) -> str:
             return refreshed
         token_usage = next_usage
     final_usage = estimate_tokens(refreshed)
-    refreshed = re.sub(r"^TokenUsage:\s*\d+/\d+\s*$", f"TokenUsage: {final_usage}/{hard_token_limit}", refreshed, flags=re.MULTILINE)
+    refreshed = re.sub(
+        r"^TokenUsage:\s*\d+/\d+\s*$", f"TokenUsage: {final_usage}/{hard_token_limit}", refreshed, flags=re.MULTILINE
+    )
     return re.sub(
         r"^tokenUsage:\s*estimated=\d+\s+target=",
         f"tokenUsage: estimated={final_usage} target=",

@@ -18,8 +18,12 @@ class InitSafetyCliTest(unittest.TestCase):
             user_dir = base / "project"
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            first = run_workroot_cli(env, "init", "--name", "One", "--directory", str(user_dir), "--no-native-agent-entry")
-            second = run_workroot_cli(env, "init", "--name", "Two", "--directory", str(user_dir), "--no-native-agent-entry")
+            first = run_workroot_cli(
+                env, "init", "--name", "One", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
+            second = run_workroot_cli(
+                env, "init", "--name", "Two", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
 
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertNotEqual(second.returncode, 0)
@@ -32,8 +36,12 @@ class InitSafetyCliTest(unittest.TestCase):
             user_dir = base / "project"
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            first = run_workroot_cli(env, "init", "--name", "Same", "--directory", str(user_dir), "--no-native-agent-entry")
-            second = run_workroot_cli(env, "init", "--name", "Same", "--directory", str(user_dir), "--no-native-agent-entry")
+            first = run_workroot_cli(
+                env, "init", "--name", "Same", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
+            second = run_workroot_cli(
+                env, "init", "--name", "Same", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
 
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertNotEqual(second.returncode, 0)
@@ -47,8 +55,28 @@ class InitSafetyCliTest(unittest.TestCase):
             user_dir = base / "project"
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            first = run_workroot_cli(env, "init", "--name", "One", "--id", "wr_existing", "--directory", str(user_dir), "--no-native-agent-entry")
-            second = run_workroot_cli(env, "init", "--name", "Two", "--id", "wr_other", "--directory", str(user_dir), "--no-native-agent-entry")
+            first = run_workroot_cli(
+                env,
+                "init",
+                "--name",
+                "One",
+                "--id",
+                "wr_existing",
+                "--directory",
+                str(user_dir),
+                "--no-native-agent-entry",
+            )
+            second = run_workroot_cli(
+                env,
+                "init",
+                "--name",
+                "Two",
+                "--id",
+                "wr_other",
+                "--directory",
+                str(user_dir),
+                "--no-native-agent-entry",
+            )
 
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertNotEqual(second.returncode, 0)
@@ -62,8 +90,12 @@ class InitSafetyCliTest(unittest.TestCase):
             file_path.write_text("not a directory", encoding="utf-8")
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            file_result = run_workroot_cli(env, "init", "--name", "File", "--directory", str(file_path), "--no-native-agent-entry")
-            home_result = run_workroot_cli(env, "init", "--name", "Home", "--directory", str(home), "--no-native-agent-entry")
+            file_result = run_workroot_cli(
+                env, "init", "--name", "File", "--directory", str(file_path), "--no-native-agent-entry"
+            )
+            home_result = run_workroot_cli(
+                env, "init", "--name", "Home", "--directory", str(home), "--no-native-agent-entry"
+            )
 
             self.assertNotEqual(file_result.returncode, 0)
             self.assertIn("not a directory", file_result.stderr)

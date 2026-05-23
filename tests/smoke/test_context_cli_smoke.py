@@ -46,7 +46,9 @@ class ContextCliSmokeTest(unittest.TestCase):
                 encoding="utf-8",
             )
             env = {"AI_WORKROOT_HOME": str(home)}
-            init = run_workroot_cli(env, "init", "--name", "Budget", "--directory", str(user_dir), "--no-native-agent-entry")
+            init = run_workroot_cli(
+                env, "init", "--name", "Budget", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
             self.assertEqual(init.returncode, 0, init.stderr)
 
             context = run_workroot_cli(env, "context", "--agent", "codex", "--cwd", str(user_dir), "--debug")
@@ -77,7 +79,9 @@ class ContextCliSmokeTest(unittest.TestCase):
                 encoding="utf-8",
             )
             env = {"AI_WORKROOT_HOME": str(home)}
-            init = run_workroot_cli(env, "init", "--name", "Budget", "--directory", str(user_dir), "--no-native-agent-entry")
+            init = run_workroot_cli(
+                env, "init", "--name", "Budget", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
             self.assertEqual(init.returncode, 0, init.stderr)
 
             context = run_workroot_cli(

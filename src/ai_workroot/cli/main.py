@@ -33,7 +33,9 @@ class CleanHelpFormatter(argparse.HelpFormatter):
         for action in actions:
             if isinstance(action, argparse._SubParsersAction):  # type: ignore[attr-defined]
                 action._choices_actions = [  # type: ignore[attr-defined]
-                    choice for choice in action._choices_actions if choice.help is not argparse.SUPPRESS  # type: ignore[attr-defined]
+                    choice
+                    for choice in action._choices_actions
+                    if choice.help is not argparse.SUPPRESS  # type: ignore[attr-defined]
                 ]
             if action.help is not argparse.SUPPRESS:
                 visible_actions.append(action)
@@ -78,7 +80,9 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--cwd", default=".")
             command_parser.add_argument("--release", action="store_true")
         if command == "bootstrap-dev":
-            command_parser.add_argument("--dry-run", action="store_true", help="Validate bootstrap-dev inputs without writes.")
+            command_parser.add_argument(
+                "--dry-run", action="store_true", help="Validate bootstrap-dev inputs without writes."
+            )
             command_parser.add_argument("--cwd", default=".", help="Repository directory to bootstrap.")
     return parser
 
@@ -128,7 +132,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "context":
         config = load_context_control_config(resolve_ai_workroot_home())
         target_tokens = args.target_tokens if args.target_tokens is not None else config.default_target_tokens
-        hard_token_limit = args.hard_token_limit if args.hard_token_limit is not None else config.default_hard_token_limit
+        hard_token_limit = (
+            args.hard_token_limit if args.hard_token_limit is not None else config.default_hard_token_limit
+        )
         budget_source = "cli" if args.target_tokens is not None or args.hard_token_limit is not None else "config"
         if target_tokens <= 0 or hard_token_limit <= 0 or target_tokens > hard_token_limit:
             parser.exit(1, "invalid context token budget\n")

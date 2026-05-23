@@ -96,10 +96,22 @@ def run_release_doctor(root: Path | str = ".") -> DoctorResult:
         _check_path(repo, "src/ai_workroot/storage", "storage package"),
         _check_path(repo, "src/ai_workroot/indexing/providers", "indexing providers"),
         _check_path(repo, "src/ai_workroot/agent/native_entry.py", "Agent Interface"),
-        _check_path(repo, "src/ai_workroot/resources/templates/native_agent_entry/AGENTS.md.template", "Native Agent Entry templates"),
-        _check_path(repo, "tests/negative/test_release_protection_context.py", "Release Control context protection tests"),
-        _check_path(repo, "tests/negative/test_release_protection_targets.py", "Release Control target protection tests"),
-        _check_path(repo, "tests/negative/test_release_protection_relationships.py", "Release Control relationship protection tests"),
+        _check_path(
+            repo,
+            "src/ai_workroot/resources/templates/native_agent_entry/AGENTS.md.template",
+            "Native Agent Entry templates",
+        ),
+        _check_path(
+            repo, "tests/negative/test_release_protection_context.py", "Release Control context protection tests"
+        ),
+        _check_path(
+            repo, "tests/negative/test_release_protection_targets.py", "Release Control target protection tests"
+        ),
+        _check_path(
+            repo,
+            "tests/negative/test_release_protection_relationships.py",
+            "Release Control relationship protection tests",
+        ),
         _check_path(repo, "install/unix/install.sh", "Clean Workroot install script"),
         _check_import_boundaries(repo),
         _check_no_remote_vector_dependency(repo),
@@ -120,7 +132,9 @@ def _check_import_boundaries(repo: Path) -> DoctorFinding:
     core = repo / "src/ai_workroot/core"
     cli = repo / "src/ai_workroot/cli"
     _scan_forbidden_imports(contracts, ("ai_workroot.",), errors)
-    _scan_forbidden_imports(core, ("ai_workroot.storage", "ai_workroot.indexing", "ai_workroot.agent", "ai_workroot.cli"), errors)
+    _scan_forbidden_imports(
+        core, ("ai_workroot.storage", "ai_workroot.indexing", "ai_workroot.agent", "ai_workroot.cli"), errors
+    )
     _scan_forbidden_imports(cli, ("ai_workroot.storage", "ai_workroot.indexing"), errors)
     if errors:
         return DoctorFinding("FAIL", "import boundaries: " + "; ".join(errors[:3]))

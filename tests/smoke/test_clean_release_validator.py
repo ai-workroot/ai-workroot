@@ -36,7 +36,11 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
         result = subprocess.run(
             [str(ROOT / "scripts/dev/validate-release.sh")],
             cwd=ROOT,
-            env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+            env={
+                **os.environ,
+                "PATH": f"{ROOT / '.venv/bin'}{os.pathsep}{os.environ.get('PATH', '')}",
+                "PYTHONPATH": str(ROOT / "src"),
+            },
             text=True,
             capture_output=True,
             check=False,
@@ -44,6 +48,17 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Clean Workroot release validation passed", result.stdout)
+
+    def test_setup_dev_script_is_explicit_developer_environment_setup(self) -> None:
+        script = ROOT / "scripts/dev/setup-dev.sh"
+        result = subprocess.run(["bash", "-n", str(script)], text=True, capture_output=True, check=False)
+        text = script.read_text(encoding="utf-8")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('python3 -m pip install -e ".[dev]"', text)
+        self.assertIn("AI_WORKROOT_DEV_VENV", text)
+        self.assertNotIn("uvx", text)
+        self.assertNotIn("workroot init", text)
 
     def test_release_doctor_fails_tracked_public_seed_root_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -70,7 +85,9 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             ):
                 (repo / rel).parent.mkdir(parents=True, exist_ok=True)
                 (repo / rel).write_text("", encoding="utf-8")
-            (repo / "src/ai_workroot/resources/templates/native_agent_entry/AGENTS.md.template").write_text("", encoding="utf-8")
+            (repo / "src/ai_workroot/resources/templates/native_agent_entry/AGENTS.md.template").write_text(
+                "", encoding="utf-8"
+            )
             (repo / "AGENTS.md").write_text("tracked seed entry\n", encoding="utf-8")
             subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
             subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
@@ -112,7 +129,9 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             ):
                 (repo / rel).parent.mkdir(parents=True, exist_ok=True)
                 (repo / rel).write_text("", encoding="utf-8")
-            (repo / "src/ai_workroot/resources/templates/native_agent_entry/AGENTS.md.template").write_text("", encoding="utf-8")
+            (repo / "src/ai_workroot/resources/templates/native_agent_entry/AGENTS.md.template").write_text(
+                "", encoding="utf-8"
+            )
             subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
 
             result = subprocess.run(
@@ -149,8 +168,15 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             (repo / "AGENTS.md").write_text("local agent entry\n", encoding="utf-8")
             (repo / "CLAUDE.md").write_text("local claude entry\n", encoding="utf-8")
             subprocess.run(["git", "add", ".gitignore", "src", "scripts"], cwd=repo, check=True, capture_output=True)
-            subprocess.run(["git", "config", "user.name", "AI Workroot Test"], cwd=repo, check=True, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "ai-workroot-test@example.invalid"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "AI Workroot Test"], cwd=repo, check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "ai-workroot-test@example.invalid"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
             subprocess.run(["git", "commit", "-m", "seed"], cwd=repo, check=True, capture_output=True)
 
             result = subprocess.run(

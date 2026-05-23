@@ -28,7 +28,12 @@ class LongrunE2ETest(unittest.TestCase):
         else:
             with tempfile.TemporaryDirectory() as tmp:
                 sandbox_base = Path(tmp) / "ai-workroot-e2e-sandboxes"
-                result = run_longrun(run_root=new_default_run_root(base=sandbox_base), sandbox_base=sandbox_base, level=3, tasks_per_persona=6)
+                result = run_longrun(
+                    run_root=new_default_run_root(base=sandbox_base),
+                    sandbox_base=sandbox_base,
+                    level=3,
+                    tasks_per_persona=6,
+                )
 
         self.assertTrue(result.passed, result.failures_path.read_text(encoding="utf-8"))
         self.assertEqual(result.task_count, 30)
@@ -45,7 +50,12 @@ class LongrunE2ETest(unittest.TestCase):
         else:
             with tempfile.TemporaryDirectory() as tmp:
                 sandbox_base = Path(tmp) / "ai-workroot-e2e-sandboxes"
-                result = run_longrun(run_root=new_default_run_root(base=sandbox_base), sandbox_base=sandbox_base, level=4, tasks_per_persona=8)
+                result = run_longrun(
+                    run_root=new_default_run_root(base=sandbox_base),
+                    sandbox_base=sandbox_base,
+                    level=4,
+                    tasks_per_persona=8,
+                )
 
         self.assertTrue(result.passed, result.failures_path.read_text(encoding="utf-8"))
         self.assertEqual(result.task_count, 40)

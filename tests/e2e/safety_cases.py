@@ -20,7 +20,16 @@ from tests.e2e.safety import (
 
 class E2ESafetyTest(unittest.TestCase):
     def test_validate_run_root_rejects_empty_current_root_and_repo_paths(self) -> None:
-        unsafe = ("", ".", "..", "/", str(Path.home()), str(REPO_ROOT), str(REPO_ROOT.parent), str(REPO_ROOT.parent.parent))
+        unsafe = (
+            "",
+            ".",
+            "..",
+            "/",
+            str(Path.home()),
+            str(REPO_ROOT),
+            str(REPO_ROOT.parent),
+            str(REPO_ROOT.parent.parent),
+        )
 
         for value in unsafe:
             with self.subTest(value=value):
@@ -126,7 +135,10 @@ class E2ESafetyTest(unittest.TestCase):
             self.assertEqual(failures, [])
 
     def test_classify_shell_command_rejects_destructive_and_same_line_env_reference(self) -> None:
-        self.assertEqual(classify_shell_command('RUN_ROOT=/x python3 -m tests.e2e.longrun --run-root "$RUN_ROOT"').classification, "forbidden")
+        self.assertEqual(
+            classify_shell_command('RUN_ROOT=/x python3 -m tests.e2e.longrun --run-root "$RUN_ROOT"').classification,
+            "forbidden",
+        )
         self.assertEqual(classify_shell_command("rm -rf some-dir").classification, "destructive")
         self.assertEqual(classify_shell_command(("python3", "-m", "tests.e2e.longrun")).classification, "safe")
 

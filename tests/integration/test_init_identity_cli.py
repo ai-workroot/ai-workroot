@@ -17,8 +17,12 @@ class InitIdentityCliTest(unittest.TestCase):
             second = base / "second"
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            first_result = run_workroot_cli(env, "init", "--name", "Demo", "--directory", str(first), "--no-native-agent-entry")
-            second_result = run_workroot_cli(env, "init", "--name", "Demo", "--directory", str(second), "--no-native-agent-entry")
+            first_result = run_workroot_cli(
+                env, "init", "--name", "Demo", "--directory", str(first), "--no-native-agent-entry"
+            )
+            second_result = run_workroot_cli(
+                env, "init", "--name", "Demo", "--directory", str(second), "--no-native-agent-entry"
+            )
 
             self.assertEqual(first_result.returncode, 0, first_result.stderr)
             self.assertEqual(second_result.returncode, 0, second_result.stderr)
@@ -36,8 +40,12 @@ class InitIdentityCliTest(unittest.TestCase):
             second = base / "second"
             env = {"AI_WORKROOT_HOME": str(home)}
 
-            first_result = run_workroot_cli(env, "init", "--name", "One", "--id", "wr_fixed", "--directory", str(first), "--no-native-agent-entry")
-            second_result = run_workroot_cli(env, "init", "--name", "Two", "--id", "wr_fixed", "--directory", str(second), "--no-native-agent-entry")
+            first_result = run_workroot_cli(
+                env, "init", "--name", "One", "--id", "wr_fixed", "--directory", str(first), "--no-native-agent-entry"
+            )
+            second_result = run_workroot_cli(
+                env, "init", "--name", "Two", "--id", "wr_fixed", "--directory", str(second), "--no-native-agent-entry"
+            )
 
             self.assertEqual(first_result.returncode, 0, first_result.stderr)
             self.assertNotEqual(second_result.returncode, 0)
@@ -110,7 +118,10 @@ class InitIdentityCliTest(unittest.TestCase):
                         "--id",
                         bad_id,
                         "--directory",
-                        str(base / f"project-{bad_id.replace('/', 'slash').replace(':', 'colon').replace(chr(92), 'backslash')}"),
+                        str(
+                            base
+                            / f"project-{bad_id.replace('/', 'slash').replace(':', 'colon').replace(chr(92), 'backslash')}"
+                        ),
                         "--no-native-agent-entry",
                     )
 

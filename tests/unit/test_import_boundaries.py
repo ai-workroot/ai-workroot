@@ -29,10 +29,7 @@ class ImportBoundariesTest(unittest.TestCase):
                 self.assertTrue((SRC / "ai_workroot" / name / "__init__.py").is_file())
 
     def test_tests_root_contains_no_loose_test_modules(self) -> None:
-        loose_tests = sorted(
-            path.relative_to(ROOT).as_posix()
-            for path in (ROOT / "tests").glob("test_*.py")
-        )
+        loose_tests = sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / "tests").glob("test_*.py"))
 
         self.assertEqual(loose_tests, [])
 

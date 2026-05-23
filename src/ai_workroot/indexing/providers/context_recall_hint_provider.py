@@ -153,10 +153,7 @@ def materialize_context_recall_hints(
     hints = query_context_recall_hints(conn, workroot_id, query=query, limit=limit)
     if query.strip() and not hints:
         hints = query_context_recall_hints(conn, workroot_id, query="", limit=min(limit, 10))
-    return [
-        materialize_context_recall_hint(conn, hint)
-        for hint in hints
-    ]
+    return [materialize_context_recall_hint(conn, hint) for hint in hints]
 
 
 def _hint_fts_ids(conn: sqlite3.Connection, query: str) -> set[str]:
