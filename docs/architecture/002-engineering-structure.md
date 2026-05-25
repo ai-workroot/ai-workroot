@@ -2,27 +2,34 @@
 
 ## Design decision
 
-Use DDD only for strategic domain clarity. Do not implement a heavyweight DDD directory tree.
+Use DDD only for strategic domain clarity. Source code is command-first, capability-owned, and shared-minimal.
 
-Use this lightweight structure:
+Docs remain domain-language-first. Code should show the executable path first, then the capability that owns each behavior.
+
+The active lightweight structure is:
 
 ```text
 src/ai_workroot/
-  core/
-  contracts/
-  runtime/
-  storage/
-  indexing/
-  agent/
   cli/
-  resources/
+  commands/
+  state/
+  work/
+  assets/
+  relationships/
+  retrieval/
+  context/
+  release/
+  agent_entry/
+  diagnostics/
+  shared/
+  templates/
 ```
 
-## Module responsibilities
+Old layer-first packages are removed from the active source tree. Do not restore them as import compatibility layers.
 
 ## Migration status
 
-`src/ai_workroot/` is the active architecture target. New Clean Workroot behavior should land here.
+`src/ai_workroot/` is the active architecture target. New Clean Workroot behavior should land in `commands/` or the owning capability module.
 
 `scripts/` is support-only and no longer carries active Clean Workroot product implementation:
 
@@ -33,209 +40,176 @@ scripts/
 
 Runnable legacy Public Seed compatibility is removed from active paths. Old source remains inspectable only as non-runnable history under `docs/history/public-seed/code-archive/`.
 
-When touching a capability that exists in both places:
-
-- prefer the `src/ai_workroot/` package for new Clean Workroot runtime behavior;
-- keep `scripts/` changes limited to developer, release validation, and review helpers;
-- add tests that make the intended active path explicit;
-- do not restore runnable legacy compatibility as a fallback.
-
-### `core/`
-
-Core concepts, behavior, value objects, policies, lightweight events.
-
-MVP layout:
-
-```text
-core/common.py
-core/environment.py
-core/work.py
-core/assets.py
-core/release.py
-core/relationships.py
-core/retrieval.py
-core/context.py
-core/agent.py
-core/health.py
-core/extensions.py
-```
-
-Rules:
-
-- Keep files by domain area, not one class per file.
-- Core may use contracts only when necessary.
-- Core must not import storage/indexing/agent/cli/runtime.
-- Core entities are not property bags. They must hold local behavior and invariants.
-
-### `contracts/`
-
-Protocol layer. This is the ports layer of the architecture, but the project uses the friendlier name `contracts`.
-
-MVP files:
-
-```text
-contracts/storage.py
-contracts/retrieval.py
-contracts/filesystem.py
-contracts/git.py
-contracts/templates.py
-contracts/events.py
-contracts/clock.py
-```
-
-Rules:
-
-- Contracts must not import core.
-- Contracts must not import runtime/storage/indexing/agent/cli.
-- Contracts should define protocol DTOs using standard library types.
-- Storage/indexing/agent adapters implement contracts.
-
-### `runtime/`
-
-Application runtime and orchestration.
-
-MVP files:
-
-```text
-runtime/container.py
-runtime/unit_of_work.py
-runtime/environment.py
-runtime/bootstrap.py
-runtime/workroot.py
-runtime/context.py
-runtime/assets.py
-runtime/release.py
-runtime/relationships.py
-runtime/indexing.py
-runtime/doctor.py
-runtime/migrations.py
-```
-
-Rules:
-
-- Runtime wires core + contracts + adapters.
-- Runtime owns transaction boundaries and workflow orchestration.
-- Runtime is not the retired `.workroot/runtime` directory.
-
-### `storage/`
-
-Persistence implementations.
-
-```text
-storage/sqlite/
-storage/jsonl/
-storage/filesystem/
-```
-
-Rules:
-
-- Storage implements contracts.
-- Storage must not contain business decisions.
-- Storage may map between DTOs and persisted rows.
-
-### `indexing/`
-
-Indexing/projection/retrieval provider implementations.
-
-```text
-indexing/catalog.py
-indexing/pipeline.py
-indexing/refresh.py
-indexing/invalidation.py
-indexing/health.py
-indexing/global_indexes.py
-indexing/candidates.py
-indexing/fts.py
-indexing/relationship_projection.py
-indexing/providers/
-```
-
-Rules:
-
-- Indexing implements retrieval/index contracts.
-- Indexing maintains derived read models and projections.
-- Relationship truth is not owned by indexing.
-- Vector/search adapters are reserved interfaces only in 0.9.530.
-
-### `agent/`
-
-Agent interface implementation.
-
-```text
-agent/native_entry.py
-agent/managed_block.py
-agent/templates.py
-agent/startup.py
-agent/permissions.py
-agent/adapters/
-```
-
-Rules:
-
-- Native Agent Entry generation is here.
-- Agent adapter protocol logic is here.
-- Agent does not own Context Control decisions.
+## Module responsibilities
 
 ### `cli/`
 
-Command interface.
+Terminal adapter only.
+
+Rules:
+
+- Parse terminal input.
+- Call `commands/`.
+- Format terminal output and return exit codes.
+- Do not call storage, retrieval, state, release, context, or diagnostics internals directly.
+
+### `commands/`
+
+Application-level command entrypoints.
+
+Current command modules:
 
 ```text
-cli/main.py
-cli/commands/init.py
-cli/commands/list.py
-cli/commands/status.py
-cli/commands/context.py
-cli/commands/doctor.py
-cli/commands/bootstrap_dev.py
+commands/init_workroot.py
+commands/list_workroots.py
+commands/show_status.py
+commands/build_context.py
+commands/run_doctor.py
+commands/bootstrap_dev.py
 ```
 
 Rules:
 
-- CLI is thin.
-- CLI calls runtime.
-- CLI does not contain business logic.
+- Coordinate capability modules.
+- Express primary executable paths.
+- Keep SQL, rendering algorithms, release policy, and template mechanics in capability modules.
+- Be reusable from CLI, tests, future API/MCP/GUI adapters, and automation.
+
+### `state/`
+
+Managed state support.
+
+Owns:
+
+- `AI_WORKROOT_HOME` resolution and directory validation.
+- WorkrootEnvironment config.
+- global registry and directory bindings.
+- JSONL helpers.
+- SQLite schema initialization and verification.
+- migrations and file locks.
+
+Rules:
+
+- Do not own Context Control, Retrieval, Release Control, Handoff, or Work facts.
+- Do not introduce ORM or one-repository-per-table structure.
+- SQLite schema changes remain explicitly scoped and tested.
+
+### `work/`
+
+Durable work facts and time events.
+
+Owns:
+
+- Task.
+- AgentRun.
+- WorkAction.
+- WorkCheckpoint.
+- InvalidationRecord.
+- Handoff records as durable work facts.
+- TimeEvent runtime operations.
+
+### `assets/`
+
+Asset metadata, lifecycle, publication, and asset runtime operations.
+
+### `relationships/`
+
+Canonical Relationship Network truth and relationship runtime operations.
+
+Retrieval may consume relationship signals, but relationship truth is owned here.
+
+### `retrieval/`
+
+Indexing, FTS, candidate providers, recall hints, release-aware retrieval filters, and global index read models.
+
+Retrieval finds candidates. It does not decide final context package structure and does not own relationship truth.
+
+### `context/`
+
+Context package building, selection, budget handling, rendering, debug trace, and diagnostic logging.
+
+Context consumes retrieval output and release filters. It does not own durable work truth.
+
+### `release/`
+
+Release Control models and authoring operations.
+
+Owns release, quiet/archive semantics where present, tombstone, redaction, deletion overlays, and strict release-derived index sanitization.
+
+### `agent_entry/`
+
+Native Agent Entry templates, managed blocks, validation, and permission hints.
+
+AI Workroot is not an agent runtime; this package only owns the entry files that let agents enter a Workroot safely.
+
+### `diagnostics/`
+
+Doctor, release surface validation, health models, and actionable diagnostic reporting.
+
+### `shared/`
+
+Small shared primitives and standard-library-only contracts.
+
+Allowed:
+
+```text
+shared/model.py
+shared/extensions.py
+shared/contracts/
+```
+
+Rules:
+
+- Shared code must be stable and cross-capability.
+- Do not move capability-specific policy, models, or operations here.
+- `shared/contracts/` must not import project modules.
+
+### `templates/`
+
+Packaged templates used by runtime capabilities such as Native Agent Entry.
 
 ## Dependency rules
 
 ```text
-cli -> runtime
-runtime -> core
-runtime -> contracts
-storage -> contracts
-indexing -> contracts
-agent -> contracts
-agent -> runtime where needed
-core -> contracts only when necessary
-contracts -> standard library only
+cli
+  -> commands
+
+commands
+  -> state
+  -> work
+  -> assets
+  -> relationships
+  -> retrieval
+  -> context
+  -> release
+  -> agent_entry
+  -> diagnostics
+  -> shared
+
+capability modules
+  -> shared
+  -> state when persistence is needed
+  -> other capabilities only when consuming their public capability output
+
+state
+  -> shared
+
+shared/contracts
+  -> standard library only
 ```
 
 Forbidden:
 
 ```text
-contracts -> core
-contracts -> runtime
-contracts -> storage
-contracts -> indexing
-contracts -> agent
-core -> storage
-core -> indexing
-core -> agent
-core -> cli
-cli -> storage directly
-cli -> indexing directly
+cli -> command implementation internals below commands/
+shared -> capability modules
+state -> commands or cli
+retrieval owns canonical relationship truth
+context owns durable work facts
+release owns retrieval indexes
+agent_entry owns durable Workroot truth
 ```
 
 ## Why not pure DDD directories
 
-Pure DDD directories are heavier and less obvious for open-source contributors. The project uses DDD strategically, but implementation is capability-based:
-
-- Core concepts in `core`.
-- Protocols in `contracts`.
-- Orchestration in `runtime`.
-- Persistence in `storage`.
-- Indexing/projections in `indexing`.
-- Agent protocols in `agent`.
-- Commands in `cli`.
-
-This keeps the project simple without losing architectural rigor.
+Pure DDD directories are heavier and less obvious for open-source contributors and AI coding agents. The project uses DDD strategically for language and constraints, while implementation is organized by executable commands and owning capabilities.

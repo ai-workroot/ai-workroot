@@ -5,10 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
-from ai_workroot.indexing.providers.relationship_provider import upsert_relationship_edge, upsert_relationship_node
-from ai_workroot.runtime.context import ContextRequest, build_context_package
-from ai_workroot.runtime.init import initialize_workroot
+from ai_workroot.retrieval.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.relationships.operations import create_relationship_edge, create_relationship_node
+from ai_workroot.context.builder import ContextRequest, build_context_package
+from ai_workroot.commands.init_workroot import initialize_workroot
 
 
 class ReleaseProtectionRelationshipsNegativeTest(unittest.TestCase):
@@ -57,25 +57,37 @@ class ReleaseProtectionRelationshipsNegativeTest(unittest.TestCase):
                         "importance": "low",
                     },
                 )
-                upsert_relationship_node(conn, "asset-seed", workroot_id, "asset", "Seed asset")
-                upsert_relationship_node(conn, "task-deleted", workroot_id, "task", "Deleted node")
-                upsert_relationship_node(conn, "task-tombstone", workroot_id, "task", "Tombstone node")
-                upsert_relationship_edge(
+                create_relationship_node(
+                    conn, node_id="asset-seed", workroot_id=workroot_id, node_type="asset", title="Seed asset"
+                )
+                create_relationship_node(
+                    conn, node_id="task-deleted", workroot_id=workroot_id, node_type="task", title="Deleted node"
+                )
+                create_relationship_node(
+                    conn,
+                    node_id="task-tombstone",
+                    workroot_id=workroot_id,
+                    node_type="task",
+                    title="Tombstone node",
+                )
+                create_relationship_edge(
                     conn,
                     edge_id="edge-deleted",
                     workroot_id=workroot_id,
                     from_node_id="asset-seed",
                     to_node_id="task-deleted",
                     relationship_type="supports",
+                    created_by="test",
                     confidence=0.9,
                 )
-                upsert_relationship_edge(
+                create_relationship_edge(
                     conn,
                     edge_id="edge-tombstone",
                     workroot_id=workroot_id,
                     from_node_id="asset-seed",
                     to_node_id="task-tombstone",
-                    relationship_type="documents",
+                    relationship_type="references",
+                    created_by="test",
                     confidence=0.8,
                 )
                 conn.execute(

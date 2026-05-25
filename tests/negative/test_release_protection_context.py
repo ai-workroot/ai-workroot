@@ -5,9 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
-from ai_workroot.runtime.context import ContextRequest, build_context_package
-from ai_workroot.runtime.init import initialize_workroot
+from ai_workroot.retrieval.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.context.builder import ContextRequest, build_context_package
+from ai_workroot.commands.init_workroot import initialize_workroot
 
 
 class ReleaseProtectionContextNegativeTest(unittest.TestCase):

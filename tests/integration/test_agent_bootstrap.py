@@ -6,13 +6,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.agent.native_entry import (
+from ai_workroot.agent_entry.native import (
     MANAGED_BLOCK_BEGIN,
     MANAGED_BLOCK_END,
     render_native_agent_entry,
     sync_native_agent_entry,
 )
-from ai_workroot.runtime.bootstrap import bootstrap_dev
+from ai_workroot.commands.bootstrap_dev import bootstrap_dev
 
 
 ROOT = Path(__file__).resolve().parents[2]

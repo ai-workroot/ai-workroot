@@ -32,25 +32,31 @@ The active source layout is lightweight, not heavy DDD:
 
 ```text
 src/ai_workroot/
-  core/
-  contracts/
-  runtime/
-  storage/
-  indexing/
-  agent/
   cli/
-  resources/
+  commands/
+  state/
+  work/
+  assets/
+  relationships/
+  retrieval/
+  context/
+  release/
+  agent_entry/
+  diagnostics/
+  shared/
+  templates/
 ```
 
-DDD is used only for strategic modeling. Implementation follows capability boundaries:
+DDD is used only for strategic modeling. Implementation is command-first and capability-owned:
 
-- `core`: domain models, policies, and invariants.
-- `contracts`: standard-library-only protocol boundaries.
-- `runtime`: orchestration flows and transaction boundaries.
-- `storage`: filesystem, JSONL, SQLite, locking, and migrations.
-- `indexing`: local FTS, candidates, projections, and retrieval providers.
-- `agent`: Native Agent Entry templates and managed blocks.
-- `cli`: thin command interface.
+- `cli`: thin terminal adapter.
+- `commands`: application command entrypoints.
+- `state`: managed state, registry, SQLite, JSONL, locking, and migrations.
+- `work`, `assets`, `relationships`, `retrieval`, `context`, `release`, `agent_entry`, and `diagnostics`: capability-owned models and operations.
+- `shared`: small cross-capability primitives and standard-library-only contracts.
+- `templates`: packaged templates.
+
+Old layer-first packages are not part of the active source tree.
 
 ## Core Concepts
 
@@ -83,9 +89,9 @@ Work keeps factual process continuity:
 - Handoff
 - OperationTransaction
 
-Legacy seed commands still exist as compatibility tooling where preserved, but Clean Workroot users should use the primary commands: `init`, `list`, `status`, `context`, `doctor`, and `bootstrap-dev`.
+Legacy seed commands are not active compatibility tooling. Clean Workroot users should use the primary commands: `init`, `list`, `status`, `context`, `doctor`, and `bootstrap-dev`.
 
-The old Agent Operation Layer capability is preserved as compatibility behavior. In Clean Workroot it is implemented through Work records, Runtime orchestration, CLI commands, Context Control, and Agent Interface rather than through active root Public Seed files.
+The old Agent Operation Layer capability has been migrated into active Clean Workroot behavior through Work records, application commands, CLI, Context Control, and Agent Interface rather than through active root Public Seed files.
 
 ## Runtime Layout
 

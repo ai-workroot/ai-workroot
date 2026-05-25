@@ -12,14 +12,19 @@ Reset the source tree from Public Seed to Clean Workroot architecture and establ
 Create or migrate toward:
 
 ```text
-src/ai_workroot/core/
-src/ai_workroot/contracts/
-src/ai_workroot/runtime/
-src/ai_workroot/storage/
-src/ai_workroot/indexing/
-src/ai_workroot/agent/
 src/ai_workroot/cli/
-src/ai_workroot/resources/
+src/ai_workroot/commands/
+src/ai_workroot/state/
+src/ai_workroot/work/
+src/ai_workroot/assets/
+src/ai_workroot/relationships/
+src/ai_workroot/retrieval/
+src/ai_workroot/context/
+src/ai_workroot/release/
+src/ai_workroot/agent_entry/
+src/ai_workroot/diagnostics/
+src/ai_workroot/shared/
+src/ai_workroot/templates/
 install/unix/install.sh
 install/windows/install.ps1
 scripts/dev/
@@ -90,7 +95,7 @@ The repo may contain templates:
 ```text
 templates/native-agent-entry/AGENTS.md.template
 templates/native-agent-entry/CLAUDE.md.template
-src/ai_workroot/resources/templates/native-agent-entry/...
+src/ai_workroot/templates/native_agent_entry/...
 ```
 
 The repo must not track generated root:

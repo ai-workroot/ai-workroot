@@ -7,7 +7,7 @@ The active architecture is Clean Workroot:
 ```text
 user-selected directory   user assets, optional authorized Native Agent Entry
 AI_WORKROOT_HOME          WorkrootEnvironment and managed state
-src/ai_workroot/          Core / Contracts / Runtime / Storage / Indexing / Agent / CLI
+src/ai_workroot/          CLI / Commands / Capability Modules / Shared / Templates
 ```
 
 Public Seed is historical and lives under `docs/history/public-seed/` only.
@@ -19,10 +19,10 @@ flowchart LR
   User[person] --> Agent[AI agent]
   Agent --> Entry[Native Agent Entry<br/>authorized launcher files]
   Agent --> CLI[workroot CLI]
-  CLI --> Runtime[Runtime orchestration]
-  Runtime --> Env[WorkrootEnvironment<br/>AI_WORKROOT_HOME]
+  CLI --> Commands[Application commands]
+  Commands --> Env[WorkrootEnvironment<br/>AI_WORKROOT_HOME]
   Env --> WR[Per-Workroot managed state]
-  UserDir[User-selected directory<br/>user assets] --> Runtime
+  UserDir[User-selected directory<br/>user assets] --> Commands
   WR --> Context[Context Control<br/>Context Package]
   WR --> Release[Release Control]
   WR --> Rel[Relationship Network]
@@ -37,17 +37,24 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  CLI[CLI<br/>thin commands] --> Runtime[Runtime<br/>orchestration]
-  Runtime --> Core[Core<br/>domain behavior]
-  Runtime --> Contracts[Contracts<br/>standard library protocols]
-  Storage[Storage<br/>filesystem, JSONL, SQLite, locks] --> Contracts
-  Indexing[Indexing<br/>FTS, candidates, projections, providers] --> Contracts
-  Agent[Agent<br/>Native Agent Entry, templates] --> Contracts
-  Agent --> Runtime
-  Resources[Resources<br/>templates] --> Agent
+  CLI[CLI<br/>terminal adapter] --> Commands[Commands<br/>application entrypoints]
+  Commands --> State[State<br/>managed state]
+  Commands --> Work[Work]
+  Commands --> Assets[Assets]
+  Commands --> Relationships[Relationships]
+  Commands --> Retrieval[Retrieval]
+  Commands --> Context[Context]
+  Commands --> Release[Release]
+  Commands --> AgentEntry[Agent Entry]
+  Commands --> Diagnostics[Diagnostics]
+  State --> Shared[Shared<br/>small primitives and contracts]
+  Retrieval --> Shared
+  Context --> Shared
+  Release --> Shared
+  Templates[Templates] --> AgentEntry
 ```
 
-The historical Agent Operation Layer is preserved as compatibility capability. Clean Workroot maps it into the CLI, Runtime, Work, Context Control, and Agent Interface layers instead of requiring active Public Seed root files.
+The historical Agent Operation Layer is preserved as compatibility capability. Clean Workroot maps it into CLI, Commands, Work, Context Control, and Agent Interface capabilities instead of requiring active Public Seed root files.
 
 ## Domain Concepts
 

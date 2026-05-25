@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from ai_workroot.runtime.environment import ensure_environment_config, write_environment_config
+from ai_workroot.state.environment import ensure_environment_config, write_environment_config
 from tests.e2e.personas import Persona
 
 

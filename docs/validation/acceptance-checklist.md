@@ -14,12 +14,14 @@
 
 ## Source tree
 
-- [ ] `src/ai_workroot/core` exists.
-- [ ] `src/ai_workroot/contracts` exists.
-- [ ] `src/ai_workroot/runtime` exists.
-- [ ] `src/ai_workroot/storage` exists.
-- [ ] `src/ai_workroot/indexing` exists.
-- [ ] `src/ai_workroot/agent` exists.
+- [ ] `src/ai_workroot/commands` exists.
+- [ ] `src/ai_workroot/state` exists.
+- [ ] `src/ai_workroot/context` exists.
+- [ ] `src/ai_workroot/retrieval` exists.
+- [ ] `src/ai_workroot/release` exists.
+- [ ] `src/ai_workroot/relationships` exists.
+- [ ] `src/ai_workroot/agent_entry` exists.
+- [ ] `src/ai_workroot/shared` exists.
 - [ ] `src/ai_workroot/cli` exists.
 - [ ] user install scripts under `install/`.
 - [ ] scripts are dev wrappers only.

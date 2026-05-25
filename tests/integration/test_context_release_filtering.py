@@ -5,10 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
-from ai_workroot.indexing.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
-from ai_workroot.runtime.context import ContextRequest, build_context_package
-from ai_workroot.runtime.init import initialize_workroot
+from ai_workroot.retrieval.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.retrieval.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
+from ai_workroot.context.builder import ContextRequest, build_context_package
+from ai_workroot.commands.init_workroot import initialize_workroot
 
 
 class ContextReleaseFilteringTest(unittest.TestCase):

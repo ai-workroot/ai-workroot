@@ -8,18 +8,18 @@ import json
 from pathlib import Path
 import sqlite3
 
-from ai_workroot.core.release import ReleaseTargetRef
-from ai_workroot.indexing.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
-from ai_workroot.indexing.providers.sqlite_fts import index_file_chunk
-from ai_workroot.runtime.assets import create_internal_asset
-from ai_workroot.runtime.relationships import create_relationship_edge, create_relationship_node
-from ai_workroot.runtime.release import (
+from ai_workroot.release.model import ReleaseTargetRef
+from ai_workroot.retrieval.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
+from ai_workroot.retrieval.providers.sqlite_fts import index_file_chunk
+from ai_workroot.assets.operations import create_internal_asset
+from ai_workroot.relationships.operations import create_relationship_edge, create_relationship_node
+from ai_workroot.release.operations import (
     create_deletion_record,
     create_redaction,
     create_release_record,
     create_tombstone,
 )
-from ai_workroot.runtime.work import (
+from ai_workroot.work.operations import (
     create_checkpoint,
     create_handoff,
     create_task,

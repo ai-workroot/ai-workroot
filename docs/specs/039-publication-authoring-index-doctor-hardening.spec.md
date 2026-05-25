@@ -123,20 +123,20 @@ No broad foreign-key migration is required.
 Likely changed files:
 
 ```text
-src/ai_workroot/runtime/assets.py
-src/ai_workroot/runtime/work.py
-src/ai_workroot/runtime/release.py
-src/ai_workroot/runtime/relationships.py
-src/ai_workroot/indexing/global_indexes.py
-src/ai_workroot/storage/sqlite.py
-src/ai_workroot/runtime/doctor.py
+src/ai_workroot/assets/operations.py
+src/ai_workroot/work/operations.py
+src/ai_workroot/release/operations.py
+src/ai_workroot/relationships/operations.py
+src/ai_workroot/retrieval/global_indexes.py
+src/ai_workroot/state/sqlite.py
+src/ai_workroot/diagnostics/doctor.py
 scripts/dev/export-review-zip.sh
 scripts/dev/validate-release.sh
 docs/dev/0.9.530/active-authoring-surfaces.md
-tests/unit/test_runtime_assets.py
-tests/unit/test_runtime_work.py
-tests/unit/test_runtime_release.py
-tests/unit/test_runtime_relationships.py
+tests/unit/test_assets_operations.py
+tests/unit/test_work_operations.py
+tests/unit/test_release_operations.py
+tests/unit/test_relationship_operations.py
 tests/unit/test_global_indexes.py
 tests/smoke/test_clean_release_validator.py
 ```
@@ -251,7 +251,7 @@ No required schema migration beyond using existing tables. Rollback is a normal 
 
 T1: Asset publication semantic split
 - Change: Add tests and API for metadata-only vs file-writing publication.
-- Files likely affected: `src/ai_workroot/runtime/assets.py`, `tests/unit/test_runtime_assets.py`
+- Files likely affected: `src/ai_workroot/assets/operations.py`, `tests/unit/test_assets_operations.py`
 - Verification: Asset tests pass.
 
 T2: Active authoring surface documentation
@@ -266,7 +266,7 @@ T3: Index invalidation on active writes
 
 T4: Doctor integrity checks
 - Change: Add logic integrity queries and tests.
-- Files likely affected: `src/ai_workroot/storage/sqlite.py`, `src/ai_workroot/runtime/doctor.py`
+- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/diagnostics/doctor.py`
 - Verification: Doctor smoke tests pass.
 
 T5: Clean export helper

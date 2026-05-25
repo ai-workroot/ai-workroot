@@ -16,7 +16,7 @@ This Spec completed the remaining lightweight parity layer before runnable legac
 
 ## Goals
 
-- Add a minimal `TimeEvent` active runtime path.
+- Add a minimal `TimeEvent` active Work capability path.
 - Reserve lightweight `TimeRange` and `TemporalScope` value objects.
 - Store time events in managed SQLite state.
 - Add GlobalTaskIndex, GlobalAssetIndex, GlobalTimeIndex, and WorkrootTimeIndex projections.
@@ -36,7 +36,7 @@ This Spec completed the remaining lightweight parity layer before runnable legac
 ### Included
 
 - `time_events` SQLite table, index, and migration marker.
-- `runtime/time.py` minimal record/query API.
+- `work/time.py` minimal record/query API.
 - `global-index/tasks.index.jsonl`.
 - `global-index/assets.index.jsonl`.
 - `global-index/time.index.jsonl`.
@@ -69,9 +69,9 @@ FR-002: SQLite initialization must create `idx_time_events_workroot_subject`.
 
 FR-003: SQLite initialization must record `006-time-events`.
 
-FR-004: `runtime/time.py` must provide `record_time_event`.
+FR-004: `work/time.py` must provide `record_time_event`.
 
-FR-005: `runtime/time.py` must provide `query_time_events`.
+FR-005: `work/time.py` must provide `query_time_events`.
 
 FR-006: Global Index must refresh and query Workroot task entries.
 
@@ -125,10 +125,10 @@ CREATE TABLE IF NOT EXISTS time_events (
 ### File Layout
 
 ```text
-src/ai_workroot/runtime/time.py
-src/ai_workroot/indexing/global_indexes.py
-src/ai_workroot/storage/sqlite.py
-tests/unit/test_runtime_time.py
+src/ai_workroot/work/time.py
+src/ai_workroot/retrieval/global_indexes.py
+src/ai_workroot/state/sqlite.py
+tests/unit/test_work_time.py
 tests/unit/test_global_indexes.py
 tests/integration/test_environment_storage.py
 ```
@@ -194,7 +194,7 @@ Then every script row has a P0/P1/P2/P3 migration priority.
 
 ### Unit Tests
 
-- `tests/unit/test_runtime_time.py`
+- `tests/unit/test_work_time.py`
 - `tests/unit/test_global_indexes.py`
 
 ### Integration Tests
@@ -217,17 +217,17 @@ Global projection files are inspectable JSONL. Per-Workroot `global_index_entrie
 
 T1: Add TimeEvent schema
 - Change: Add `time_events`, index, and migration marker.
-- Files likely affected: `src/ai_workroot/storage/sqlite.py`, `tests/integration/test_environment_storage.py`.
+- Files likely affected: `src/ai_workroot/state/sqlite.py`, `tests/integration/test_environment_storage.py`.
 - Verification: targeted environment storage test.
 
 T2: Add TimeEvent runtime
 - Change: Add `record_time_event` and `query_time_events`.
-- Files likely affected: `src/ai_workroot/runtime/time.py`, `tests/unit/test_runtime_time.py`.
+- Files likely affected: `src/ai_workroot/work/time.py`, `tests/unit/test_work_time.py`.
 - Verification: targeted runtime time tests.
 
 T3: Add Global Task/Asset/Time Index projections
 - Change: Add refresh/query helpers and JSONL outputs.
-- Files likely affected: `src/ai_workroot/indexing/global_indexes.py`, `tests/unit/test_global_indexes.py`.
+- Files likely affected: `src/ai_workroot/retrieval/global_indexes.py`, `tests/unit/test_global_indexes.py`.
 - Verification: targeted global index tests.
 
 T4: Add migration priorities

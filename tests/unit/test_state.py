@@ -6,30 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.runtime.environment import initialize_environment
-from ai_workroot.runtime.init import initialize_workroot
+from ai_workroot.state.environment import initialize_environment
+from ai_workroot.commands.init_workroot import initialize_workroot
 
 
-class WorkrootStateRetirementTest(unittest.TestCase):
-    def test_old_compatibility_state_initializers_are_retired(self) -> None:
-        from ai_workroot.runtime import state
-
-        with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp) / "home"
-            user_dir = Path(tmp) / "project"
-
-            with self.assertRaisesRegex(RuntimeError, "retired"):
-                state.initialize_ai_workroot_home(home, now="2026-05-19T00:00:00Z")
-
-            with self.assertRaisesRegex(RuntimeError, "retired"):
-                state.initialize_workroot_state(
-                    home,
-                    workroot_id="wr_demo",
-                    name="Demo",
-                    user_directory=user_dir,
-                    now="2026-05-19T00:00:00Z",
-                )
-
+class WorkrootStateTest(unittest.TestCase):
     def test_active_environment_initialization_replaces_old_state_initializer(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"

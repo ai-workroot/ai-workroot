@@ -28,14 +28,14 @@ This Spec closes the P0 safety gap without redesigning Release Control or changi
 - Do not implement remote deletion workflows.
 - Do not introduce a vector database, remote embedding, or remote LLM dependency.
 - Do not make Tombstone hard-excluded by default.
-- Do not remove legacy compatibility paths.
+- Do not restore legacy compatibility paths.
 
 ## Scope
 
 ### Included
 
 - Active `src/ai_workroot/` Release Control and Context Control paths.
-- Fallback candidate behavior in `runtime/context.py`.
+- Fallback candidate behavior in `src/ai_workroot/context/builder.py`.
 - Derived index sanitation for key SQLite tables.
 - Release propagation event and index invalidation records.
 - Doctor checks for key release-derived leakage.
@@ -55,10 +55,10 @@ This Spec closes the P0 safety gap without redesigning Release Control or changi
 - `010-context-control.spec.md`
 - `013-storage-sqlite-schema.spec.md`
 - `032-part2-capability-parity-small-specs.spec.md`
-- `src/ai_workroot/runtime/context.py`
-- `src/ai_workroot/runtime/release.py`
-- `src/ai_workroot/indexing/providers/release_provider.py`
-- `src/ai_workroot/storage/sqlite.py`
+- `src/ai_workroot/context/builder.py`
+- `src/ai_workroot/release/operations.py`
+- `src/ai_workroot/retrieval/providers/release_provider.py`
+- `src/ai_workroot/state/sqlite.py`
 
 ## Requirements
 
@@ -137,15 +137,15 @@ idxinv:<release-id>:context-recall-hints
 Likely changed files:
 
 ```text
-src/ai_workroot/runtime/context.py
-src/ai_workroot/runtime/release.py
-src/ai_workroot/indexing/providers/context_recall_hint_provider.py
-src/ai_workroot/indexing/providers/release_provider.py
-src/ai_workroot/storage/sqlite.py
-src/ai_workroot/runtime/doctor.py
+src/ai_workroot/context/builder.py
+src/ai_workroot/release/operations.py
+src/ai_workroot/retrieval/providers/context_recall_hint_provider.py
+src/ai_workroot/retrieval/providers/release_provider.py
+src/ai_workroot/state/sqlite.py
+src/ai_workroot/diagnostics/doctor.py
 tests/negative/test_release_protection_context.py, tests/negative/test_release_protection_targets.py, tests/negative/test_release_protection_relationships.py
 split Context Control integration tests under tests/integration/
-tests/unit/test_runtime_release.py
+tests/unit/test_release_operations.py
 tests/unit/test_context_recall_hints.py
 ```
 
@@ -266,22 +266,22 @@ T1: Add fallback disabled regression test
 
 T2: Implement protected-drop fallback gating
 - Change: Compute protected drop state and pass fallback behavior into trace/render.
-- Files likely affected: `src/ai_workroot/runtime/context.py`
+- Files likely affected: `src/ai_workroot/context/builder.py`
 - Verification: Targeted context fallback test passes.
 
 T3: Add derived sanitation tests
 - Change: Add tests for redaction/deletion sanitation of candidates, FTS, chunks, and hints.
-- Files likely affected: `tests/unit/test_runtime_release.py`, `tests/unit/test_context_recall_hints.py`
+- Files likely affected: `tests/unit/test_release_operations.py`, `tests/unit/test_context_recall_hints.py`
 - Verification: Tests fail before implementation.
 
 T4: Implement release sanitation and propagation records
 - Change: Add sanitation helper and call it from strict release APIs.
-- Files likely affected: `src/ai_workroot/runtime/release.py`
+- Files likely affected: `src/ai_workroot/release/operations.py`
 - Verification: Unit tests pass.
 
 T5: Add Doctor release-derived leakage check
 - Change: Add `verify_release_derived_index_safety` and include it in active Doctor.
-- Files likely affected: `src/ai_workroot/storage/sqlite.py`, `src/ai_workroot/runtime/doctor.py`, tests.
+- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/diagnostics/doctor.py`, tests.
 - Verification: Doctor leakage test passes.
 
 T6: Run release safety validation

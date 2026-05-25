@@ -17,7 +17,7 @@ class ContextCliSmokeTest(unittest.TestCase):
         self.assertIn("--target-tokens", result.stdout)
 
     def test_context_hard_token_limit_has_final_estimator_fallback(self) -> None:
-        from ai_workroot.runtime.context import _enforce_hard_token_limit, estimate_tokens
+        from ai_workroot.context.builder import _enforce_hard_token_limit, estimate_tokens
 
         rendered = "# AI Workroot Context Package\n" + ("这是没有空格的中文内容" * 100)
 

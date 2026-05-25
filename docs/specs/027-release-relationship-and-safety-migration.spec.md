@@ -105,11 +105,11 @@ indexed_chunks(file_id, chunk_id, source_type, source_id)
 ### File Layout
 
 ```text
-src/ai_workroot/core/release.py
-src/ai_workroot/core/relationships.py
-src/ai_workroot/indexing/providers/release_provider.py
-src/ai_workroot/indexing/providers/relationship_provider.py
-src/ai_workroot/runtime/context.py
+src/ai_workroot/release/model.py
+src/ai_workroot/relationships/model.py
+src/ai_workroot/retrieval/providers/release_provider.py
+src/ai_workroot/retrieval/providers/relationship_provider.py
+src/ai_workroot/context/builder.py
 ```
 
 ### CLI / API
@@ -175,17 +175,17 @@ Debug trace must show release target refs, strongest release level, safety polic
 
 T1: Harden resolver coverage
 - Change: Ensure all required source types resolve through `CandidateReleaseTargetResolver`.
-- Files likely affected: `src/ai_workroot/indexing/providers/release_provider.py`.
+- Files likely affected: `src/ai_workroot/retrieval/providers/release_provider.py`.
 - Verification: resolver unit tests.
 
 T2: Enforce safety defaults
 - Change: Make candidate queries exclude blocked safety policies by default.
-- Files likely affected: `src/ai_workroot/indexing/providers/candidate_provider.py`.
+- Files likely affected: `src/ai_workroot/retrieval/providers/candidate_provider.py`.
 - Verification: safety filtering tests.
 
 T3: Relationship-only signals
 - Change: Ensure rendered signals come from real edges and seed explanations render separately.
-- Files likely affected: `src/ai_workroot/indexing/providers/relationship_provider.py`, `src/ai_workroot/runtime/context.py`.
+- Files likely affected: `src/ai_workroot/retrieval/providers/relationship_provider.py`, `src/ai_workroot/context/builder.py`.
 - Verification: relationship signal tests.
 
 T4: Replace graph wording

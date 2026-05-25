@@ -7,13 +7,12 @@ from collections.abc import Sequence
 import json
 from pathlib import Path
 
-from ai_workroot.runtime.bootstrap import bootstrap_dev
-from ai_workroot.runtime.context import ContextRequest, build_context_package
-from ai_workroot.runtime.doctor import run_doctor, run_release_doctor
-from ai_workroot.runtime.environment import load_context_control_config
-from ai_workroot.runtime.init import initialize_workroot
-from ai_workroot.runtime.paths import resolve_ai_workroot_home
-from ai_workroot.runtime.registry import find_workroot_by_cwd, list_workroots
+from ai_workroot.commands.bootstrap_dev import bootstrap_dev
+from ai_workroot.commands.build_context import build_context
+from ai_workroot.commands.init_workroot import initialize_workroot
+from ai_workroot.commands.list_workroots import list_workroots
+from ai_workroot.commands.run_doctor import run_doctor, run_release_doctor
+from ai_workroot.commands.show_status import find_workroot_by_cwd
 
 
 PRIMARY_COMMANDS = ("init", "list", "status", "context", "doctor", "bootstrap-dev")
@@ -130,26 +129,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "context":
-        config = load_context_control_config(resolve_ai_workroot_home())
-        target_tokens = args.target_tokens if args.target_tokens is not None else config.default_target_tokens
-        hard_token_limit = (
-            args.hard_token_limit if args.hard_token_limit is not None else config.default_hard_token_limit
-        )
-        budget_source = "cli" if args.target_tokens is not None or args.hard_token_limit is not None else "config"
-        if target_tokens <= 0 or hard_token_limit <= 0 or target_tokens > hard_token_limit:
-            parser.exit(1, "invalid context token budget\n")
         try:
-            package = build_context_package(
-                ContextRequest(
-                    agent=args.agent,
-                    cwd=Path(args.cwd),
-                    query=args.query,
-                    mode=args.mode,
-                    target_tokens=target_tokens,
-                    hard_token_limit=hard_token_limit,
-                    debug=args.debug,
-                    budget_source=budget_source,
-                )
+            package = build_context(
+                agent=args.agent,
+                cwd=Path(args.cwd),
+                query=args.query,
+                mode=args.mode,
+                target_tokens=args.target_tokens,
+                hard_token_limit=args.hard_token_limit,
+                debug=args.debug,
             )
         except ValueError as exc:
             parser.exit(1, f"{exc}\n")

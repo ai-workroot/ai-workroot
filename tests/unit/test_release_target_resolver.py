@@ -3,19 +3,14 @@ from __future__ import annotations
 import sqlite3
 import unittest
 
-from ai_workroot.core.release import ReleaseTargetRef
-from ai_workroot.indexing.providers.candidate_provider import CandidateMatch, upsert_context_candidate
-from ai_workroot.indexing.providers.relationship_provider import (
-    RelationshipSignal,
-    upsert_relationship_edge,
-    upsert_relationship_node,
-)
-from ai_workroot.indexing.providers.release_provider import (
-    CandidateReleaseTargetResolver,
-    evaluate_release_targets,
-)
-from ai_workroot.indexing.providers.sqlite_fts import index_file_chunk, search_fts
-from ai_workroot.storage.sqlite import initialize_workroot_sqlite
+from ai_workroot.release.model import ReleaseTargetRef
+from ai_workroot.release.evaluation import evaluate_release_targets
+from ai_workroot.relationships.model import RelationshipSignal
+from ai_workroot.relationships.operations import create_relationship_edge, create_relationship_node
+from ai_workroot.retrieval.providers.candidate_provider import CandidateMatch, upsert_context_candidate
+from ai_workroot.retrieval.providers.release_provider import CandidateReleaseTargetResolver
+from ai_workroot.retrieval.providers.sqlite_fts import index_file_chunk, search_fts
+from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 
 class ReleaseTargetResolverTest(unittest.TestCase):
@@ -108,15 +103,16 @@ class ReleaseTargetResolverTest(unittest.TestCase):
     def test_relationship_signal_resolver_includes_edge_and_related_node_targets(self) -> None:
         conn = self.open_db()
         with conn:
-            upsert_relationship_node(conn, "asset-1", "wr_demo", "asset", "Asset")
-            upsert_relationship_node(conn, "task-1", "wr_demo", "task", "Task")
-            upsert_relationship_edge(
+            create_relationship_node(conn, node_id="asset-1", workroot_id="wr_demo", node_type="asset", title="Asset")
+            create_relationship_node(conn, node_id="task-1", workroot_id="wr_demo", node_type="task", title="Task")
+            create_relationship_edge(
                 conn,
                 edge_id="edge-1",
                 workroot_id="wr_demo",
                 from_node_id="asset-1",
                 to_node_id="task-1",
                 relationship_type="supports",
+                created_by="test",
                 confidence=0.9,
             )
             signal = RelationshipSignal(
@@ -137,31 +133,32 @@ class ReleaseTargetResolverTest(unittest.TestCase):
     def test_relationship_signal_resolver_uses_explicit_node_canonical_target(self) -> None:
         conn = self.open_db()
         with conn:
-            upsert_relationship_node(
+            create_relationship_node(
                 conn,
-                "graph-asset-node-1",
-                "wr_demo",
-                "asset",
-                "Asset node",
+                node_id="graph-asset-node-1",
+                workroot_id="wr_demo",
+                node_type="asset",
+                title="Asset node",
                 target_type="asset",
                 target_id="asset-1",
             )
-            upsert_relationship_node(
+            create_relationship_node(
                 conn,
-                "graph-task-node-1",
-                "wr_demo",
-                "task",
-                "Task node",
+                node_id="graph-task-node-1",
+                workroot_id="wr_demo",
+                node_type="task",
+                title="Task node",
                 target_type="task",
                 target_id="task-1",
             )
-            upsert_relationship_edge(
+            create_relationship_edge(
                 conn,
                 edge_id="edge-canonical",
                 workroot_id="wr_demo",
                 from_node_id="graph-asset-node-1",
                 to_node_id="graph-task-node-1",
                 relationship_type="supports",
+                created_by="test",
                 confidence=0.9,
             )
             signal = RelationshipSignal(

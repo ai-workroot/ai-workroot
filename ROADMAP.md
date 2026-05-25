@@ -20,7 +20,7 @@ Within each priority level, the order in the table is the default execution orde
 | Order | Item | Type | Notes |
 |---:|---|---|---|
 | 1 | Keep Clean Mode strict | Engineering | User-selected directories stay clean by default; managed state stays under `AI_WORKROOT_HOME`. |
-| 2 | Stabilize the package structure | Engineering | Keep `Core / Contracts / Runtime / Storage / Indexing / Agent / CLI` import boundaries enforced by tests. |
+| 2 | Stabilize the package structure | Engineering | Keep command-first, capability-owned import boundaries enforced by tests. |
 | 3 | Keep scripts closed over support roles | Engineering | `scripts/dev` is the only active scripts support surface; active product logic stays in `src/ai_workroot`. |
 | 4 | Finish bootstrap-dev dogfood | Engineering | Source repo dogfood uses `workroot.project.json`, ignored Native Agent Entry files, and `.ai-workroot-local/` without commits, tags, or pushes. |
 | 5 | Preserve legacy knowledge safely | History | Old Public Seed source is preserved as non-runnable history/fixtures, not as active root layout or runnable compatibility. |

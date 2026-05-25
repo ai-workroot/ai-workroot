@@ -6,9 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.runtime.context import ContextRequest, build_context_package
-from ai_workroot.runtime.init import initialize_workroot
-from ai_workroot.runtime.work import create_checkpoint, create_handoff, create_task
+from ai_workroot.context.builder import ContextRequest, build_context_package
+from ai_workroot.commands.init_workroot import initialize_workroot
+from ai_workroot.work.operations import create_checkpoint, create_handoff, create_task
 
 
 class ContextContinuityTest(unittest.TestCase):

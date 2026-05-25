@@ -80,26 +80,38 @@ The active source structure is:
 
 ```text
 src/ai_workroot/
-  core/
-  contracts/
-  runtime/
-  storage/
-  indexing/
-  agent/
   cli/
-  resources/
+  commands/
+  state/
+  work/
+  assets/
+  relationships/
+  retrieval/
+  context/
+  release/
+  agent_entry/
+  diagnostics/
+  shared/
+  templates/
 ```
 
 Responsibilities:
 
-- `core`: domain models, value objects, policies, and invariants.
-- `contracts`: standard-library-only protocols and DTOs.
-- `runtime`: orchestration, command flows, migrations, doctor, and context assembly.
-- `storage`: filesystem, JSONL, SQLite, locks, and schema helpers.
-- `indexing`: FTS, candidate pools, Relationship Network projections, and retrieval providers.
-- `agent`: Native Agent Entry templates and managed block handling.
 - `cli`: thin command entry points.
-- `resources`: packaged templates.
+- `commands`: reusable application-level command entrypoints.
+- `state`: managed state layout, environment config, registry, SQLite, JSONL, migrations, and locks.
+- `work`: durable work facts and time events.
+- `assets`: asset metadata, lifecycle, and publication operations.
+- `relationships`: canonical Relationship Network truth and operations.
+- `retrieval`: indexing, FTS, candidate pools, recall hints, global indexes, and retrieval providers.
+- `context`: context package building, selection, rendering, tracing, and diagnostic logging.
+- `release`: Release Control models and operations.
+- `agent_entry`: Native Agent Entry templates and managed block handling.
+- `diagnostics`: doctor, release surface validation, health models, and reports.
+- `shared`: small cross-capability primitives and standard-library-only contracts.
+- `templates`: packaged templates.
+
+Old layer-first source package names are removed from the active source tree and must not be restored.
 
 Migration status:
 
@@ -112,17 +124,15 @@ Migration status:
 Dependency rules:
 
 ```text
-cli -> runtime
-runtime -> core
-runtime -> contracts
-storage -> contracts
-indexing -> contracts
-agent -> contracts
-agent -> runtime where needed
-contracts -> standard library only
+cli -> commands
+commands -> capability modules
+capability modules -> shared
+capability modules -> state when persistence is needed
+state -> shared
+shared/contracts -> standard library only
 ```
 
-CLI must not import storage or indexing directly. Core must not import storage, indexing, agent, or CLI.
+CLI must not bypass `commands`. `shared/contracts` must not import project modules.
 
 ## AI_WORKROOT_HOME Layout
 
@@ -253,7 +263,7 @@ Public Seed is retired as active architecture. It is preserved in:
 docs/history/public-seed/
 ```
 
-Legacy scripts and tests may use this material as explicit compatibility fixtures. Current architecture tests must not require tracked root `space/`, `.workroot/`, `AGENTS.md`, or `CLAUDE.md`.
+Historical tests may reference this material as non-runnable archive fixtures. Current architecture tests must not require tracked root `space/`, `.workroot/`, `AGENTS.md`, or `CLAUDE.md`.
 
 ## References
 

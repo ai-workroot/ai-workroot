@@ -5,7 +5,7 @@ import unittest
 from importlib import import_module
 from pathlib import Path
 
-from ai_workroot.storage.migrations import (
+from ai_workroot.state.migrations import (
     Migration,
     MigrationRunner,
     migration_lock,
@@ -65,7 +65,7 @@ class WorkrootMigrationsTest(unittest.TestCase):
             self.assertNotIn("completedAtUtc", records[0])
 
     def test_migration_runner_is_active_package_owner_without_legacy_wrapper(self) -> None:
-        active_migrations = import_module("ai_workroot.storage.migrations")
+        active_migrations = import_module("ai_workroot.state.migrations")
 
         self.assertIs(active_migrations.MigrationRunner, MigrationRunner)
         with self.assertRaises(ModuleNotFoundError):

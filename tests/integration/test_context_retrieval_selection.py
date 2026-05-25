@@ -5,12 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
-from ai_workroot.indexing.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
-from ai_workroot.indexing.providers.relationship_provider import upsert_relationship_edge, upsert_relationship_node
-from ai_workroot.indexing.providers.sqlite_fts import index_file_chunk
-from ai_workroot.runtime.context import ContextRequest, build_context_package
-from ai_workroot.runtime.init import initialize_workroot
+from ai_workroot.retrieval.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.retrieval.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
+from ai_workroot.relationships.operations import create_relationship_edge, create_relationship_node
+from ai_workroot.retrieval.providers.sqlite_fts import index_file_chunk
+from ai_workroot.context.builder import ContextRequest, build_context_package
+from ai_workroot.commands.init_workroot import initialize_workroot
 
 
 class ContextRetrievalSelectionTest(unittest.TestCase):
@@ -70,16 +70,23 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
                     relative_path="design.md",
                     body="Clean Mode keeps managed state outside user directories.",
                 )
-                upsert_relationship_node(conn, "node-task", workroot_id, "task", "Clean Mode task")
-                upsert_relationship_node(conn, "asset-clean", workroot_id, "asset", "Clean Mode Design")
-                upsert_relationship_node(conn, "asset-weak", workroot_id, "asset", "Weak query-only node")
-                upsert_relationship_edge(
+                create_relationship_node(
+                    conn, node_id="node-task", workroot_id=workroot_id, node_type="task", title="Clean Mode task"
+                )
+                create_relationship_node(
+                    conn, node_id="asset-clean", workroot_id=workroot_id, node_type="asset", title="Clean Mode Design"
+                )
+                create_relationship_node(
+                    conn, node_id="asset-weak", workroot_id=workroot_id, node_type="asset", title="Weak query-only node"
+                )
+                create_relationship_edge(
                     conn,
                     edge_id="edge-clean",
                     workroot_id=workroot_id,
                     from_node_id="node-task",
                     to_node_id="asset-clean",
                     relationship_type="supports",
+                    created_by="test",
                     confidence=0.9,
                 )
 

@@ -11,7 +11,7 @@ Migrate product logic from `scripts/` into `src/ai_workroot/` without losing cap
 
 1. Create new package structure.
 2. Move or wrap CLI entry.
-3. Move product logic gradually into core/runtime/storage/indexing/agent/cli.
+3. Move product logic into command-first, capability-owned package modules.
 4. Keep scripts as wrappers/dev utilities only.
 5. Do not delete old capability until mapped and tested.
 
@@ -19,14 +19,14 @@ Migrate product logic from `scripts/` into `src/ai_workroot/` without losing cap
 
 | Old script area | New module |
 |---|---|
-| workroot paths/state | core/environment + runtime/environment + storage/filesystem |
-| sqlite schema | storage/sqlite |
-| context guide | core/context + runtime/context + indexing providers |
-| candidates/FTS | indexing/candidates + indexing/fts + storage/sqlite |
-| bootstrap | runtime/bootstrap + agent/native_entry |
-| agent entry | agent/native_entry |
-| doctor | core/health + runtime/doctor |
-| CLI | cli/ |
+| workroot paths/state | state/model + state/environment + state/layout |
+| sqlite schema | state/sqlite |
+| context guide | context/model + context/builder + retrieval providers |
+| candidates/FTS | retrieval/providers + state/sqlite |
+| bootstrap | commands/bootstrap_dev + agent_entry/native |
+| agent entry | agent_entry/native + templates/native_agent_entry |
+| doctor | diagnostics/model + diagnostics/doctor |
+| CLI | cli/ + commands/ |
 | install | install/ |
 
 ## Formatting requirement

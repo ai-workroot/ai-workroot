@@ -3,97 +3,82 @@
 ## Layer overview
 
 ```text
-cli -> runtime
-runtime -> core + contracts
-core -> contracts only when necessary
-storage -> contracts
-indexing -> contracts (+ core for interpretation where unavoidable)
-agent -> contracts + resources (+ runtime for workflows)
-contracts -> standard library only
+cli -> commands
+
+commands -> state
+commands -> work/assets/relationships/retrieval/context/release/agent_entry/diagnostics
+commands -> shared
+
+capability modules -> shared
+capability modules -> state when persistence is needed
+
+state -> shared
+shared/contracts -> standard library only
 ```
 
-## Contracts
-
-`contracts/` is the protocol layer.
-
-Rules:
-
-1. `contracts` must not import `core`.
-2. `contracts` must not import `runtime`.
-3. `contracts` must not import `storage`, `indexing`, `agent`, or `cli`.
-4. `contracts` may use dataclasses, typing, protocols, enums, and standard library only.
-5. Port DTOs may duplicate some fields from core entities to preserve independence.
-
-## Core
-
-`core/` owns domain language and core behavior.
-
-Rules:
-
-1. Core entities are not property bags.
-2. Core should contain behavior, invariants, lifecycle transitions, and policies.
-3. Core must not import storage/indexing/agent/cli/runtime.
-4. Core may import contracts only when a core service needs an abstract capability.
-5. Entities should usually not hold contract implementations as long-lived fields.
-6. For external capabilities, prefer core services or runtime orchestration.
-
-## Runtime
-
-`runtime/` orchestrates workflows.
-
-Rules:
-
-1. Runtime loads data, invokes core behavior, calls contracts, coordinates transactions, and persists results.
-2. Runtime must not contain low-level storage implementation.
-3. Runtime must not hide domain rules that belong in core.
-
-## Storage
-
-`storage/` implements persistence contracts.
-
-Rules:
-
-1. Storage does not decide domain policy.
-2. Storage does not publish assets.
-3. Storage does not decide context selection.
-4. Storage may map port DTOs to SQLite/JSONL rows.
-
-## Indexing
-
-`indexing/` implements index/retrieval contracts and projection pipelines.
-
-Rules:
-
-1. Indexing owns derived read models and provider implementations.
-2. Indexing does not own canonical Relationship truth.
-3. Indexing must observe Release Control redaction/deletion rules.
-4. Vector/search adapters are reserved only in 0.9.530; no actual dependency.
-
-## Agent
-
-`agent/` implements Agent Interface capabilities.
-
-Rules:
-
-1. Agent may generate Native Agent Entry from templates.
-2. Agent does not own Context Control decisions.
-3. Agent must not expose state paths or private IDs in user entry files.
+Old layer-first packages are not active source packages. Do not restore them as compatibility layers.
 
 ## CLI
 
-`cli/` is thin.
+`cli/` is the terminal adapter.
 
 Rules:
 
-1. CLI parses commands.
-2. CLI calls runtime.
-3. CLI formats output.
-4. CLI does not implement core logic.
+1. CLI parses arguments.
+2. CLI calls `commands`.
+3. CLI formats terminal output and exit codes.
+4. CLI must not import state, storage, retrieval, indexing, runtime internals, or capability implementation details directly.
+
+## Commands
+
+`commands/` owns application-level entrypoints.
+
+Rules:
+
+1. Commands coordinate capabilities.
+2. Commands may call capability public modules.
+3. Commands should not implement SQL, retrieval scoring, release policy internals, or context rendering internals.
+
+## Capability Modules
+
+Capability modules own local models and operations:
+
+```text
+state/
+work/
+assets/
+relationships/
+retrieval/
+context/
+release/
+agent_entry/
+diagnostics/
+```
+
+Rules:
+
+1. Models stay local to the owning capability unless they are stable cross-capability primitives.
+2. Retrieval consumes relationship signals but does not own relationship truth.
+3. Context consumes retrieval output but does not own durable work facts.
+4. Release filters and sanitizes protected content but does not own retrieval indexes.
+5. Agent Entry generates entry files but is not an agent runtime.
+
+## Shared
+
+`shared/` owns only small stable primitives and standard-library-only contracts.
+
+Rules:
+
+1. `shared/contracts/` must not import project modules.
+2. `shared/` must not become a new `core/`.
+3. Capability-specific policy and behavior should stay with the owning capability.
 
 ## Import check
 
-Codex must add a lightweight import-boundary check or test that prevents the most dangerous violations:
+Tests must prevent the most dangerous violations:
 
-- contracts importing core/runtime/storage/indexing/agent/cli
-- core importing storage/indexing/agent/cli
-- cli importing storage directly
+- CLI bypassing `commands`.
+- `shared/contracts` importing project modules.
+- old layer-first package directories reappearing.
+- capability modules importing CLI.
+- state importing commands or CLI.

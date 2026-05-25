@@ -4,7 +4,7 @@ import re
 import unittest
 from pathlib import Path
 
-from ai_workroot.runtime.release_validation import is_git_ignored
+from ai_workroot.diagnostics.release_validation import is_git_ignored
 
 from tests.contracts.helpers import FORBIDDEN_TEXT_PATTERNS, ROOT, TEXT_SUFFIXES
 

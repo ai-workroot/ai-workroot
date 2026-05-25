@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.agent.native_entry import (
+from ai_workroot.agent_entry.native import (
     NativeAgentEntryError,
     apply_managed_block,
     codex_block,

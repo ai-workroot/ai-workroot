@@ -49,9 +49,9 @@ P1
 
 ## Dependencies
 
-- `src/ai_workroot/runtime/environment.py`
-- `src/ai_workroot/runtime/doctor.py`
-- `src/ai_workroot/storage/jsonl_registry.py`
+- `src/ai_workroot/state/environment.py`
+- `src/ai_workroot/diagnostics/doctor.py`
+- `src/ai_workroot/state/jsonl.py`
 
 ## Requirements
 
@@ -265,32 +265,32 @@ Context diagnostic logs are opt-in observability artifacts. They provide explain
 
 T1: Define config helpers
 - Change: Add config creation and merge helpers.
-- Files likely affected: `src/ai_workroot/runtime/environment.py`
+- Files likely affected: `src/ai_workroot/state/environment.py`
 - Verification: CLI smoke tests.
 
 T2: Refresh registry counts
 - Change: Update summary during Workroot registration.
-- Files likely affected: `src/ai_workroot/runtime/environment.py`
+- Files likely affected: `src/ai_workroot/state/environment.py`
 - Verification: repeated init smoke.
 
 T3: Record doctor status
 - Change: Update config summary after doctor runs.
-- Files likely affected: `src/ai_workroot/runtime/doctor.py`
+- Files likely affected: `src/ai_workroot/diagnostics/doctor.py`
 - Verification: doctor summary smoke.
 
 T4: Add Context Control defaults
 - Change: Merge default token budgets and diagnostic logging controls into config.
-- Files likely affected: `src/ai_workroot/runtime/environment.py`
+- Files likely affected: `src/ai_workroot/state/environment.py`
 - Verification: environment config smoke.
 
 T5: Use global Context Control budgets
 - Change: Resolve context token budgets from CLI flags, then config, then code defaults.
-- Files likely affected: `src/ai_workroot/cli/main.py`, `src/ai_workroot/runtime/context.py`
+- Files likely affected: `src/ai_workroot/cli/main.py`, `src/ai_workroot/context/builder.py`
 - Verification: context CLI smoke.
 
 T6: Add opt-in diagnostic logging
 - Change: Write bounded context request summaries to per-Workroot managed logs when enabled.
-- Files likely affected: `src/ai_workroot/runtime/context.py`
+- Files likely affected: `src/ai_workroot/context/builder.py`
 - Verification: context budget trace integration tests.
 
 ## Risks

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ai_workroot.runtime.paths import (
+from ai_workroot.state.layout import (
     CleanModeBoundaryError,
     assert_clean_mode_boundary,
     resolve_ai_workroot_home,

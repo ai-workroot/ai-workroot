@@ -10,7 +10,7 @@ The retired Public Seed kernel specification is preserved under `docs/history/pu
 
 - Clean Workroot user-directory behavior.
 - `AI_WORKROOT_HOME` managed state through WorkrootEnvironment.
-- Core / Contracts / Runtime / Storage / Indexing / Agent / CLI source boundaries.
+- Command-first, capability-owned source boundaries.
 - bootstrap-dev dogfood support for this source repository.
 - SQLite schema and migrations for per-Workroot state.
 - Context Control with explainable local retrieval.
@@ -22,22 +22,28 @@ The retired Public Seed kernel specification is preserved under `docs/history/pu
 
 ```text
 src/ai_workroot/
-  core/
-  contracts/
-  runtime/
-  storage/
-  indexing/
-  agent/
   cli/
-  resources/
+  commands/
+  state/
+  work/
+  assets/
+  relationships/
+  retrieval/
+  context/
+  release/
+  agent_entry/
+  diagnostics/
+  shared/
+  templates/
 ```
 
 Required import rules:
 
-- `contracts` uses only the Python standard library.
-- `core` must not import `storage`, `indexing`, `agent`, or `cli`.
-- `cli` calls `runtime`; it does not call `storage` or `indexing` directly.
-- `storage`, `indexing`, and `agent` implement contracts and stay adapter-oriented.
+- `cli` calls `commands`; it does not call state, retrieval, storage, indexing, or runtime internals directly.
+- `commands` coordinates capability modules.
+- capability modules own local models and operations.
+- `shared/contracts` uses only the Python standard library.
+- old layer-first package directories must not exist in active source.
 
 ## User Directory Rules
 

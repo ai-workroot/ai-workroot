@@ -6,11 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.indexing.providers.candidate_provider import upsert_context_candidate
-from ai_workroot.indexing.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
-from ai_workroot.runtime.context import ContextRequest, build_context_package, estimate_tokens
-from ai_workroot.runtime.init import initialize_workroot
-from ai_workroot.runtime.work import create_task
+from ai_workroot.retrieval.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.retrieval.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
+from ai_workroot.context.builder import ContextRequest, build_context_package, estimate_tokens
+from ai_workroot.commands.init_workroot import initialize_workroot
+from ai_workroot.work.operations import create_task
 
 from tests.integration.context_helpers import parse_token_usage
 
@@ -310,7 +310,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             self.assertEqual([row["query"] for row in rows], ["second", "third"])
 
     def test_final_rendered_package_respects_hard_token_limit_after_trim_marker(self) -> None:
-        from ai_workroot.runtime.context import estimate_tokens
+        from ai_workroot.context.builder import estimate_tokens
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -343,7 +343,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             self.assertLessEqual(estimate_tokens(package), 60)
 
     def test_debug_trace_survives_hard_token_trim(self) -> None:
-        from ai_workroot.runtime.context import estimate_tokens
+        from ai_workroot.context.builder import estimate_tokens
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

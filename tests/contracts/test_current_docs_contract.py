@@ -67,7 +67,7 @@ class CurrentDocsContractTest(unittest.TestCase):
             "docs/workroot-system-design.md": ("Clean Workroot", "AI_WORKROOT_HOME", "Native Agent Entry"),
             "docs/kernel-implementation-specification.md": (
                 "Clean Workroot",
-                "Core / Contracts / Runtime / Storage / Indexing / Agent / CLI",
+                "Command-first, capability-owned source boundaries",
                 "Release Control",
             ),
         }

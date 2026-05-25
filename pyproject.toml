@@ -26,7 +26,7 @@ workroot = "ai_workroot.cli.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"ai_workroot.resources.templates.native_agent_entry" = ["*.template"]
+"ai_workroot.templates.native_agent_entry" = ["*.template"]
 
 [tool.ruff]
 line-length = 120

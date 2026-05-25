@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-Earlier 0.9.530 work used `ai_workroot.runtime.legacy_seed.client` as a temporary compatibility owner for mature Public Seed capabilities. Spec 041 removes runnable legacy compatibility from active paths. The important product capabilities must remain owned by active Clean Workroot runtime modules under `src/ai_workroot/`.
+Earlier 0.9.530 work used temporary compatibility owners for mature Public Seed capabilities. Spec 041 removes runnable legacy compatibility from active paths. The important product capabilities must remain owned by active Clean Workroot capability modules under `src/ai_workroot/`.
 
 ## Goals
 
@@ -102,12 +102,12 @@ Legacy `mind`, `knowledge`, `decision`, and `artifact` rows map to `Asset.asset_
 ### File Layout
 
 ```text
-src/ai_workroot/runtime/work.py
-src/ai_workroot/runtime/assets.py
-src/ai_workroot/runtime/release.py
-src/ai_workroot/storage/repositories.py
-src/ai_workroot/core/work.py
-src/ai_workroot/core/assets.py
+src/ai_workroot/work/operations.py
+src/ai_workroot/assets/operations.py
+src/ai_workroot/release/operations.py
+src/ai_workroot/state/sqlite.py
+src/ai_workroot/work/model.py
+src/ai_workroot/assets/model.py
 ```
 
 No Work/Asset runtime state is written into the user directory by default.
@@ -182,27 +182,27 @@ Work operations should produce diagnostic events where useful. Batch rollback sh
 
 T1: Add storage repositories for Work records
 - Change: Implement repository functions for tasks/runs/actions/checkpoints/handoffs.
-- Files likely affected: `src/ai_workroot/storage/repositories.py`, `src/ai_workroot/storage/sqlite.py`.
+- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/state/sqlite.py`.
 - Verification: repository integration tests.
 
 T2: Add Work runtime service
 - Change: Implement package runtime operations equivalent to legacy task/run/action basics.
-- Files likely affected: `src/ai_workroot/runtime/work.py`.
+- Files likely affected: `src/ai_workroot/work/operations.py`.
 - Verification: package Work integration tests.
 
 T3: Add Asset runtime service
 - Change: Implement asset create/update/publication metadata and legacy mapping.
-- Files likely affected: `src/ai_workroot/runtime/assets.py`.
+- Files likely affected: `src/ai_workroot/assets/operations.py`.
 - Verification: asset integration tests.
 
 T4: Preserve batch rollback
 - Change: Port transaction journal/rollback behavior from legacy client.
-- Files likely affected: `src/ai_workroot/runtime/work.py`, `src/ai_workroot/storage/repositories.py`.
+- Files likely affected: `src/ai_workroot/work/operations.py`, `src/ai_workroot/state/sqlite.py`.
 - Verification: failure rollback tests.
 
 T5: Verify capability parity after legacy removal
 - Change: Ensure Work/Asset runtime tests cover capabilities formerly represented by Public Seed scripts.
-- Files likely affected: `src/ai_workroot/runtime/work.py`, `src/ai_workroot/runtime/assets.py`, `tests/unit/`, `tests/integration/`.
+- Files likely affected: `src/ai_workroot/work/operations.py`, `src/ai_workroot/assets/operations.py`, `tests/unit/`, `tests/integration/`.
 - Verification: full unittest suite.
 
 ## Risks

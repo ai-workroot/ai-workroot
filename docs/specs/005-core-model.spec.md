@@ -1,26 +1,26 @@
-# Spec 005 — Core Model
+# Spec 005 - Capability Model
 
-Status: accepted
+Status: accepted; source package names updated by the command-first architecture refactor
 Target: 0.9.530
 
 ## Purpose
 
-Define core model files and lightweight implementation style.
+Define capability model files and lightweight implementation style.
 
-## Core files
+## Capability files
 
 ```text
-core/common.py
-core/environment.py
-core/work.py
-core/assets.py
-core/release.py
-core/relationships.py
-core/retrieval.py
-core/context.py
-core/agent.py
-core/health.py
-core/extensions.py
+shared/model.py
+state/model.py
+work/model.py
+assets/model.py
+release/model.py
+relationships/model.py
+retrieval/model.py
+context/model.py
+agent_entry/model.py
+diagnostics/model.py
+shared/extensions.py
 ```
 
 Do not create one file per entity unless a file grows too large.
@@ -41,7 +41,7 @@ It must not become a garbage bin.
 
 ## Rich model rules
 
-Core objects must include behavior when local to the concept:
+Capability objects must include behavior when local to the concept:
 
 Examples:
 
@@ -66,18 +66,18 @@ Do not require:
 
 ## External capabilities
 
-Core may use contracts only when necessary.
+Capability modules may use shared contracts only when necessary.
 
 Prefer:
 
-- core policies for pure rules;
-- runtime orchestration for workflows;
-- contracts for abstract external capabilities;
-- storage/indexing/agent for implementations.
+- capability-local policies for pure rules;
+- command entrypoints for workflows;
+- shared contracts for abstract external capabilities;
+- state/retrieval/agent_entry for implementation ownership.
 
 ## Acceptance
 
-- core files contain domain behavior, not just dataclasses.
-- core does not import storage/indexing/agent/cli/runtime.
-- contracts imports are minimal and justified.
+- capability files contain domain behavior, not just dataclasses.
+- capability modules do not import `cli` or old layer-first packages.
+- shared contract imports are minimal and justified.
 - retired terms are not present as active entity names.

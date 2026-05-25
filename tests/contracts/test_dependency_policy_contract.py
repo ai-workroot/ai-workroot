@@ -9,14 +9,14 @@ from tests.contracts.helpers import ROOT
 class DependencyPolicyContractTest(unittest.TestCase):
     def test_p0_code_paths_do_not_require_vector_or_remote_embeddings(self) -> None:
         p0_files = [
-            "src/ai_workroot/runtime/bootstrap.py",
-            "src/ai_workroot/runtime/context.py",
-            "src/ai_workroot/runtime/doctor.py",
-            "src/ai_workroot/runtime/init.py",
-            "src/ai_workroot/runtime/paths.py",
-            "src/ai_workroot/runtime/state.py",
-            "src/ai_workroot/storage/sqlite.py",
-            "src/ai_workroot/indexing/providers/sqlite_fts.py",
+            "src/ai_workroot/commands/bootstrap_dev.py",
+            "src/ai_workroot/commands/init_workroot.py",
+            "src/ai_workroot/context/builder.py",
+            "src/ai_workroot/diagnostics/doctor.py",
+            "src/ai_workroot/state/layout.py",
+            "src/ai_workroot/state/environment.py",
+            "src/ai_workroot/state/sqlite.py",
+            "src/ai_workroot/retrieval/providers/sqlite_fts.py",
             "src/ai_workroot/cli/main.py",
         ]
         forbidden_import_roots = {"openai", "requests", "httpx", "chromadb", "faiss"}

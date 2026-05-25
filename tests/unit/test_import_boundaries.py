@@ -14,19 +14,39 @@ SRC = ROOT / "src"
 class ImportBoundariesTest(unittest.TestCase):
     def test_required_package_directories_exist(self) -> None:
         required = [
-            "core",
-            "contracts",
-            "runtime",
-            "storage",
-            "indexing",
-            "agent",
+            "agent_entry",
+            "assets",
+            "commands",
+            "context",
+            "diagnostics",
+            "relationships",
+            "release",
+            "retrieval",
+            "shared",
+            "state",
             "cli",
-            "resources",
+            "templates",
+            "work",
         ]
 
         for name in required:
             with self.subTest(name=name):
                 self.assertTrue((SRC / "ai_workroot" / name / "__init__.py").is_file())
+
+    def test_legacy_compatibility_package_directories_do_not_exist(self) -> None:
+        forbidden = [
+            "agent",
+            "contracts",
+            "core",
+            "indexing",
+            "resources",
+            "runtime",
+            "storage",
+        ]
+
+        for name in forbidden:
+            with self.subTest(name=name):
+                self.assertFalse((SRC / "ai_workroot" / name).exists())
 
     def test_tests_root_contains_no_loose_test_modules(self) -> None:
         loose_tests = sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / "tests").glob("test_*.py"))
@@ -75,8 +95,8 @@ class ImportBoundariesTest(unittest.TestCase):
 
         self.assertEqual(violations, [])
 
-    def test_contracts_do_not_import_project_modules(self) -> None:
-        contracts_dir = SRC / "ai_workroot" / "contracts"
+    def test_shared_contracts_do_not_import_project_modules(self) -> None:
+        contracts_dir = SRC / "ai_workroot" / "shared" / "contracts"
         forbidden_prefix = "ai_workroot."
 
         for path in contracts_dir.rglob("*.py"):
@@ -94,33 +114,67 @@ class ImportBoundariesTest(unittest.TestCase):
                         f"{path.relative_to(ROOT)} imports from {node.module}",
                     )
 
-    def test_core_does_not_import_infrastructure_layers(self) -> None:
-        core_dir = SRC / "ai_workroot" / "core"
+    def test_src_does_not_import_legacy_architecture_namespaces(self) -> None:
         forbidden = (
-            "ai_workroot.storage",
-            "ai_workroot.indexing",
             "ai_workroot.agent",
-            "ai_workroot.cli",
+            "ai_workroot.contracts",
+            "ai_workroot.core",
+            "ai_workroot.indexing",
+            "ai_workroot.resources",
+            "ai_workroot.runtime",
+            "ai_workroot.storage",
         )
+        violations: list[str] = []
 
-        for path in core_dir.rglob("*.py"):
+        for path in (SRC / "ai_workroot").rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
-                        self.assertFalse(
-                            alias.name.startswith(forbidden),
-                            f"{path.relative_to(ROOT)} imports {alias.name}",
-                        )
+                        if _module_matches_any(alias.name, forbidden):
+                            violations.append(f"{path.relative_to(ROOT)} imports {alias.name}")
                 elif isinstance(node, ast.ImportFrom) and node.module:
-                    self.assertFalse(
-                        node.module.startswith(forbidden),
-                        f"{path.relative_to(ROOT)} imports from {node.module}",
-                    )
+                    if _module_matches_any(node.module, forbidden):
+                        violations.append(f"{path.relative_to(ROOT)} imports from {node.module}")
+
+        self.assertEqual(violations, [])
+
+    def test_package_dependency_graph_is_acyclic_and_declared(self) -> None:
+        allowed_edges = {
+            "agent_entry": set(),
+            "assets": {"state"},
+            "cli": {"commands"},
+            "commands": {"agent_entry", "context", "diagnostics", "state"},
+            "context": {"relationships", "retrieval", "state"},
+            "diagnostics": {"agent_entry", "state"},
+            "relationships": {"shared", "state"},
+            "release": set(),
+            "retrieval": {"release", "state"},
+            "shared": set(),
+            "state": set(),
+            "templates": set(),
+            "work": {"state"},
+        }
+        edges = _package_dependency_edges()
+        unexpected = sorted(
+            f"{source} -> {target}"
+            for source, targets in edges.items()
+            for target in targets
+            if target not in allowed_edges[source]
+        )
+
+        self.assertEqual(unexpected, [])
+        self.assertEqual(_package_dependency_cycles(edges), [])
 
     def test_cli_does_not_import_storage_or_indexing_directly(self) -> None:
         cli_dir = SRC / "ai_workroot" / "cli"
-        forbidden = ("ai_workroot.storage", "ai_workroot.indexing")
+        forbidden = (
+            "ai_workroot.storage",
+            "ai_workroot.indexing",
+            "ai_workroot.state",
+            "ai_workroot.retrieval",
+            "ai_workroot.runtime",
+        )
 
         for path in cli_dir.rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -175,7 +229,7 @@ class ImportBoundariesTest(unittest.TestCase):
         self.assertEqual(violations, [])
 
     def test_environment_config_uses_simple_canonical_time_field_names(self) -> None:
-        environment_path = SRC / "ai_workroot" / "runtime" / "environment.py"
+        environment_path = SRC / "ai_workroot" / "state" / "environment.py"
         tree = ast.parse(environment_path.read_text(encoding="utf-8"), filename=str(environment_path))
         forbidden = {
             "createdAtUtc",
@@ -293,9 +347,8 @@ class ImportBoundariesTest(unittest.TestCase):
 
         self.assertEqual(violations, [])
 
-    def test_runtime_state_does_not_contain_old_compatibility_layout(self) -> None:
-        state_path = SRC / "ai_workroot" / "runtime" / "state.py"
-        text = state_path.read_text(encoding="utf-8")
+    def test_state_package_does_not_contain_old_compatibility_layout(self) -> None:
+        texts = "\n".join(path.read_text(encoding="utf-8") for path in (SRC / "ai_workroot" / "state").rglob("*.py"))
         forbidden = (
             "contextGuide",
             "knowledge/facts",
@@ -305,7 +358,7 @@ class ImportBoundariesTest(unittest.TestCase):
             "user/profile.md",
             "initialize_workroot_state_unlocked",
         )
-        violations = [term for term in forbidden if term in text]
+        violations = [term for term in forbidden if term in texts]
 
         self.assertEqual(violations, [])
 
@@ -338,6 +391,68 @@ def _is_subprocess_run(node: ast.AST) -> bool:
 
 def _call_contains_scripts_path(node: ast.Call) -> bool:
     return any("scripts/" in value or "scripts\\" in value for value in _string_constants(node))
+
+
+def _module_matches_any(module: str, roots: tuple[str, ...]) -> bool:
+    return any(module == root or module.startswith(root + ".") for root in roots)
+
+
+def _package_dependency_edges() -> dict[str, set[str]]:
+    package_root = SRC / "ai_workroot"
+    packages = {
+        path.name
+        for path in package_root.iterdir()
+        if path.is_dir() and (path / "__init__.py").is_file() and path.name != "__pycache__"
+    }
+    edges: dict[str, set[str]] = {package: set() for package in packages}
+    for path in package_root.rglob("*.py"):
+        relative = path.relative_to(package_root)
+        if len(relative.parts) < 2:
+            continue
+        source_package = relative.parts[0]
+        if source_package not in packages:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for module in _imported_project_modules(tree):
+            parts = module.split(".")
+            if len(parts) < 2 or parts[0] != "ai_workroot":
+                continue
+            target_package = parts[1]
+            if target_package in packages and target_package != source_package:
+                edges[source_package].add(target_package)
+    return edges
+
+
+def _imported_project_modules(tree: ast.AST) -> Iterable[str]:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("ai_workroot."):
+                    yield alias.name
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            if node.module.startswith("ai_workroot."):
+                yield node.module
+
+
+def _package_dependency_cycles(edges: dict[str, set[str]]) -> list[str]:
+    cycles: list[list[str]] = []
+
+    def visit(start: str, node: str, path: list[str]) -> None:
+        for target in edges[node]:
+            if target == start:
+                cycles.append([*path, target])
+            elif target not in path:
+                visit(start, target, [*path, target])
+
+    for package in sorted(edges):
+        visit(package, package, [package])
+
+    unique: dict[str, list[str]] = {}
+    for cycle in cycles:
+        body = cycle[:-1]
+        key = min(" -> ".join([*body[index:], *body[:index]]) for index in range(len(body)))
+        unique.setdefault(key, cycle)
+    return sorted(" -> ".join(cycle) for cycle in unique.values())
 
 
 def _string_constants(node: ast.AST) -> Iterable[str]:

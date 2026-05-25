@@ -48,11 +48,11 @@ AI Workroot needs repeatable end-to-end validation that exercises Clean Workroot
 ## Dependencies
 
 - `src/ai_workroot/cli/main.py`
-- `src/ai_workroot/runtime/context.py`
-- `src/ai_workroot/runtime/init.py`
-- `src/ai_workroot/runtime/release.py`
-- `src/ai_workroot/runtime/relationships.py`
-- `src/ai_workroot/indexing/providers/`
+- `src/ai_workroot/context/builder.py`
+- `src/ai_workroot/commands/init_workroot.py`
+- `src/ai_workroot/release/operations.py`
+- `src/ai_workroot/relationships/operations.py`
+- `src/ai_workroot/retrieval/providers/`
 
 ## Requirements
 

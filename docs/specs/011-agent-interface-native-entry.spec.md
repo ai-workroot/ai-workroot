@@ -18,7 +18,7 @@ Templates must be committed:
 ```text
 templates/native-agent-entry/AGENTS.md.template
 templates/native-agent-entry/CLAUDE.md.template
-src/ai_workroot/resources/templates/native-agent-entry/...
+src/ai_workroot/templates/native_agent_entry/...
 ```
 
 Generated root files must not be committed:

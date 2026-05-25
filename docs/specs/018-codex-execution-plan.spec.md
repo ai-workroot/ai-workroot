@@ -36,14 +36,14 @@ Codex must follow this order.
 - Add module placeholders with minimal importable code.
 - Add `python -m ai_workroot --help` path.
 
-### Phase 3 — Contracts
+### Phase 3 - Shared Contracts
 
-- Add `contracts/` protocols/DTOs.
-- Ensure contracts do not import core.
+- Add `shared/contracts/` protocols/DTOs.
+- Ensure shared contracts do not import capability modules.
 
-### Phase 4 — Core models
+### Phase 4 - Capability Models
 
-- Add core files.
+- Add capability-owned model files.
 - Implement minimal rich models and policies.
 - Do not over-split files.
 
@@ -78,7 +78,7 @@ Codex must follow this order.
 
 - Rename business docs/code to relationships.
 - Add/modify schema for relationship nodes/edges/evidence.
-- Maintain compatibility if required.
+- Do not restore runnable compatibility paths.
 
 ### Phase 10 — Context Control
 

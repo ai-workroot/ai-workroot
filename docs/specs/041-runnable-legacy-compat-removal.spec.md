@@ -10,7 +10,7 @@ P0
 
 ## Background
 
-AI Workroot 0.9.530 moved the active architecture to Clean Workroot, but the repository still includes a runnable legacy Public Seed compatibility layer. The active CLI still accepts a hidden `workroot legacy ...` command, package modules under `src/ai_workroot` still implement legacy runtime behavior, and scripts/tests/docs still treat compatibility as available.
+AI Workroot 0.9.530 moved the active architecture to Clean Workroot. Before this removal work, the repository still included a runnable legacy Public Seed compatibility layer: the active CLI accepted a hidden `workroot legacy ...` command, package modules under `src/ai_workroot` implemented legacy behavior, and scripts/tests/docs treated compatibility as available.
 
 This Spec removes runnable legacy compatibility while preserving historical Public Seed code as non-runnable archive material for review.
 
@@ -176,17 +176,17 @@ scripts/legacy/public_seed/*.py
 
 Clean Workroot runtime behavior continues through:
 
-- `ai_workroot.runtime.init`
-- `ai_workroot.runtime.registry`
-- `ai_workroot.runtime.context`
-- `ai_workroot.runtime.doctor`
-- `ai_workroot.runtime.bootstrap`
-- `ai_workroot.runtime.work`
-- `ai_workroot.runtime.assets`
-- `ai_workroot.runtime.release`
-- `ai_workroot.runtime.relationships`
-- `ai_workroot.storage.sqlite`
-- `ai_workroot.indexing.providers.*`
+- `ai_workroot.commands.init_workroot`
+- `ai_workroot.state.registry`
+- `ai_workroot.context.builder`
+- `ai_workroot.diagnostics.doctor`
+- `ai_workroot.commands.bootstrap_dev`
+- `ai_workroot.work.operations`
+- `ai_workroot.assets.operations`
+- `ai_workroot.release.operations`
+- `ai_workroot.relationships.operations`
+- `ai_workroot.state.sqlite`
+- `ai_workroot.retrieval.providers.*`
 
 No runtime fallback to legacy code is allowed.
 

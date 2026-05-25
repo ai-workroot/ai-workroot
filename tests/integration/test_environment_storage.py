@@ -5,9 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.runtime.environment import initialize_environment, register_workroot
-from ai_workroot.storage.jsonl_registry import read_jsonl
-from ai_workroot.storage.sqlite import initialize_workroot_sqlite
+from ai_workroot.state.environment import initialize_environment, register_workroot
+from ai_workroot.state.jsonl import read_jsonl
+from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 
 def _legacy_snake_time_key(prefix: str) -> str:

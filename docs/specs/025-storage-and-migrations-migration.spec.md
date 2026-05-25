@@ -10,11 +10,11 @@ P0
 
 ## Background
 
-Storage behavior is split between package storage modules and older script helpers. Clean Workroot needs package-owned SQLite schema, migration execution, registry locking, and managed-state layout verification.
+Storage behavior is owned by package state modules. Clean Workroot needs package-owned SQLite schema, migration execution, registry locking, and managed-state layout verification.
 
 ## Goals
 
-- Make package storage modules authoritative.
+- Make package state modules authoritative.
 - Add explicit migration runner and migration records.
 - Preserve per-Workroot DB scoping and document it.
 - Keep registry writes concurrency safe.
@@ -52,7 +52,7 @@ Storage behavior is split between package storage modules and older script helpe
 
 ### Functional Requirements
 
-FR-001: `storage/sqlite.py` must initialize all active Clean Workroot tables.
+FR-001: `state/sqlite.py` must initialize all active Clean Workroot tables.
 
 FR-002: A package migration runner must apply ordered migrations idempotently.
 
@@ -104,11 +104,11 @@ Logical relationships use IDs and indexes. Foreign key enforcement is not requir
 ### File Layout
 
 ```text
-src/ai_workroot/storage/sqlite.py
-src/ai_workroot/storage/migrations.py
-src/ai_workroot/storage/repositories.py
-src/ai_workroot/storage/jsonl_registry.py
-src/ai_workroot/storage/locks.py
+src/ai_workroot/state/sqlite.py
+src/ai_workroot/state/migrations.py
+src/ai_workroot/state/sqlite.py
+src/ai_workroot/state/jsonl.py
+src/ai_workroot/state/locks.py
 tests/fixtures/sqlite/
 ```
 
@@ -180,7 +180,7 @@ Doctor reports schema version, missing tables, migration failures, and backup pa
 
 T1: Add package migration runner
 - Change: Implement ordered migration execution.
-- Files likely affected: `src/ai_workroot/storage/migrations.py`, `src/ai_workroot/storage/sqlite.py`.
+- Files likely affected: `src/ai_workroot/state/migrations.py`, `src/ai_workroot/state/sqlite.py`.
 - Verification: migration unit tests.
 
 T2: Add old DB fixtures
@@ -190,7 +190,7 @@ T2: Add old DB fixtures
 
 T3: Consolidate registry locking
 - Change: Ensure init/bootstrap-dev write paths use package storage lock.
-- Files likely affected: `src/ai_workroot/runtime/environment.py`, `src/ai_workroot/runtime/bootstrap.py`, `src/ai_workroot/storage/locks.py`.
+- Files likely affected: `src/ai_workroot/state/environment.py`, `src/ai_workroot/commands/bootstrap_dev.py`, `src/ai_workroot/state/locks.py`.
 - Verification: concurrency regression tests.
 
 T4: Retire script storage authority

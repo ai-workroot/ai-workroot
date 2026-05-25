@@ -45,28 +45,36 @@ DDD was used only to understand the domain. The final implementation does not us
 9. System Health
 10. Extensions
 
-These concepts are implemented through a lightweight module structure:
+These concepts are implemented through a command-first, capability-owned module structure:
 
 ```text
-core/
-contracts/
-runtime/
-storage/
-indexing/
-agent/
 cli/
+commands/
+state/
+work/
+assets/
+relationships/
+retrieval/
+context/
+release/
+agent_entry/
+diagnostics/
+shared/
+templates/
 ```
 
 ## Engineering principles
 
-- Keep `core` cohesive and small.
-- Keep `contracts` independent.
-- Keep `runtime` as orchestration, not a business-logic dumping ground.
-- Keep `storage`, `indexing`, and `agent` as implementation/adaptation modules.
-- Keep `cli` command-based and thin.
+- Docs are domain-language-first.
+- Code is command-first, capability-owned, and shared-minimal.
+- Keep `cli` as a thin terminal adapter.
+- Put application entrypoints in `commands`.
+- Let each capability own its local models, operations, and helpers.
+- Keep `shared` small and stable.
 - Preserve old capabilities through explicit mapping.
 - Do not create one class/file/table for every domain term.
 - Do not use technical names for core domain concepts.
+- Do not restore old layer-first source packages.
 
 ## 0.9.530 release goal
 

@@ -138,7 +138,7 @@ AC-005: Given ignored local `AGENTS.md`, `CLAUDE.md`, or `.idea/`, when validati
 
 ### Integration Tests
 
-- Package storage/runtime/context flows.
+- Package state/context flows.
 - Historical archive boundary checks.
 
 ### Manual Verification

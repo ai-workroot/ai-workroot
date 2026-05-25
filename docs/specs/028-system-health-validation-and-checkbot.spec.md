@@ -92,8 +92,8 @@ evidence
 ### File Layout
 
 ```text
-src/ai_workroot/runtime/doctor.py
-src/ai_workroot/core/health.py
+src/ai_workroot/diagnostics/doctor.py
+src/ai_workroot/diagnostics/model.py
 scripts/dev/validate-release.sh
 docs/dev/0.9.530/checkbot.md
 tests/smoke/
@@ -164,7 +164,7 @@ Checkbot prints each command before execution and captures exit status. Doctor o
 
 T1: Expand release doctor
 - Change: Add checks for tracked root files, import boundaries, dependency red lines, and validation surface.
-- Files likely affected: `src/ai_workroot/runtime/doctor.py`.
+- Files likely affected: `src/ai_workroot/diagnostics/doctor.py`.
 - Verification: doctor unit/integration tests.
 
 T2: Harden checkbot wrapper
