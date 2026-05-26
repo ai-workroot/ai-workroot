@@ -1176,7 +1176,7 @@ git commit -m "feat: add agent protocol cli adapter"
 **Files:**
 - Modify: `tests/unit/test_import_boundaries.py`
 
-- [ ] **Step 1: Add import boundary assertions**
+- [x] **Step 1: Add import boundary assertions**
 
 Add tests:
 
@@ -1188,7 +1188,7 @@ protocol/* must not import ai_workroot.cli
 commands/agent_exchange.py must not import sqlite3
 ```
 
-- [ ] **Step 2: Run boundary tests**
+- [x] **Step 2: Run boundary tests**
 
 Run:
 
@@ -1198,7 +1198,7 @@ PYTHONPATH=src python3 -m unittest tests.unit.test_import_boundaries -v
 
 Expected: PASS.
 
-- [ ] **Step 3: Run focused P0 test suite**
+- [x] **Step 3: Run focused P0 test suite**
 
 Run:
 
@@ -1219,7 +1219,7 @@ PYTHONPATH=src python3 -m unittest \
 
 Expected: PASS.
 
-- [ ] **Step 4: Run package quality gate**
+- [x] **Step 4: Run package quality gate**
 
 Run:
 
@@ -1231,7 +1231,7 @@ PYTHONPATH=src python3 -m ai_workroot doctor --cwd .
 
 Expected: tests pass, version is `AI Workroot 0.9.531`, doctor remains PASS or reports only pre-existing non-P0 issues.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/unit/test_import_boundaries.py
@@ -1240,13 +1240,13 @@ git commit -m "test: enforce protocol import boundaries"
 
 ## Self-Review Checklist
 
-- [ ] P0 does not implement per-turn persistence.
-- [ ] `sync` creates no Task, TaskRun, Inbox, Handoff, or Asset semantic facts.
-- [ ] Task creation happens through `commit(event=intent)`.
-- [ ] SQLite remains under `cache/workroot.sqlite`.
-- [ ] Runtime views remain under `runtime/`.
-- [ ] Commit idempotency is batch-scoped through `protocol_commit_batches`.
-- [ ] Same key and same request hash returns prior response.
-- [ ] Same key and different request hash returns `idempotency_key_conflict`.
-- [ ] CLI is adapter-only.
-- [ ] Domain packages do not import `protocol`.
+- [x] P0 does not implement per-turn persistence.
+- [x] `sync` creates no Task, TaskRun, Inbox, Handoff, or Asset semantic facts.
+- [x] Task creation happens through `commit(event=intent)`.
+- [x] SQLite remains under `cache/workroot.sqlite`.
+- [x] Runtime views remain under `runtime/`.
+- [x] Commit idempotency is batch-scoped through `protocol_commit_batches`.
+- [x] Same key and same request hash returns prior response.
+- [x] Same key and different request hash returns `idempotency_key_conflict`.
+- [x] CLI is adapter-only.
+- [x] Domain packages do not import `protocol`.

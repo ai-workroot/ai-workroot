@@ -8,14 +8,18 @@ import json
 from pathlib import Path
 import uuid
 
-from ai_workroot.commands.agent_exchange import run_commit_request, run_exchange_request, run_sync_request
+from ai_workroot.commands.agent_exchange import (
+    SYNC_REASON_CHOICES,
+    run_commit_request,
+    run_exchange_request,
+    run_sync_request,
+)
 from ai_workroot.commands.bootstrap_dev import bootstrap_dev
 from ai_workroot.commands.build_context import build_context
 from ai_workroot.commands.init_workroot import initialize_workroot
 from ai_workroot.commands.list_workroots import list_workroots
 from ai_workroot.commands.run_doctor import run_doctor, run_release_doctor
 from ai_workroot.commands.show_status import find_workroot_by_cwd
-from ai_workroot.protocol.model import SYNC_REASONS
 
 
 PRIMARY_COMMANDS = ("init", "list", "status", "context", "doctor", "bootstrap-dev", "agent")
@@ -97,7 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
             sync_parser.add_argument("--agent", default="codex")
             sync_parser.add_argument("--cwd", default=".")
             sync_parser.add_argument("--workroot-id")
-            sync_parser.add_argument("--reason", choices=sorted(SYNC_REASONS), default="before_work")
+            sync_parser.add_argument("--reason", choices=SYNC_REASON_CHOICES, default="before_work")
             sync_parser.add_argument("--query", default="")
             sync_parser.add_argument("--known-state", default="{}")
 

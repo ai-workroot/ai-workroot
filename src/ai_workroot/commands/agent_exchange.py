@@ -8,7 +8,10 @@ from typing import Any, Optional
 
 from ai_workroot.protocol import controller
 from ai_workroot.protocol.directives import directive
-from ai_workroot.protocol.model import PROTOCOL_VERSION
+from ai_workroot.protocol.model import PROTOCOL_VERSION, SYNC_REASONS
+
+
+SYNC_REASON_CHOICES = sorted(SYNC_REASONS)
 
 
 def run_exchange_request(request_path: Path) -> dict[str, Any]:

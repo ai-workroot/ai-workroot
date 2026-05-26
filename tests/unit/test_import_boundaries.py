@@ -20,6 +20,7 @@ class ImportBoundariesTest(unittest.TestCase):
             "context",
             "diagnostics",
             "handoff",
+            "protocol",
             "relationships",
             "release",
             "retrieval",
@@ -145,10 +146,11 @@ class ImportBoundariesTest(unittest.TestCase):
             "agent_entry": set(),
             "assets": {"state"},
             "cli": {"commands"},
-            "commands": {"agent_entry", "context", "diagnostics", "state"},
+            "commands": {"agent_entry", "context", "diagnostics", "protocol", "state"},
             "context": {"relationships", "release", "retrieval", "state"},
             "diagnostics": {"agent_entry", "state"},
             "handoff": {"state"},
+            "protocol": {"context", "state"},
             "relationships": {"state"},
             "release": set(),
             "retrieval": {"state"},
@@ -167,6 +169,42 @@ class ImportBoundariesTest(unittest.TestCase):
 
         self.assertEqual(unexpected, [])
         self.assertEqual(_package_dependency_cycles(edges), [])
+
+    def test_domain_packages_do_not_import_protocol(self) -> None:
+        forbidden = ("ai_workroot.protocol",)
+        violations: list[str] = []
+        for package in ("work", "assets", "handoff"):
+            for path in (SRC / "ai_workroot" / package).rglob("*.py"):
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+                for module in _imported_project_modules(tree):
+                    if _module_matches_any(module, forbidden):
+                        violations.append(f"{path.relative_to(ROOT)} imports {module}")
+
+        self.assertEqual(violations, [])
+
+    def test_protocol_package_does_not_import_cli(self) -> None:
+        violations: list[str] = []
+        for path in (SRC / "ai_workroot" / "protocol").rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for module in _imported_project_modules(tree):
+                if _module_matches_any(module, ("ai_workroot.cli",)):
+                    violations.append(f"{path.relative_to(ROOT)} imports {module}")
+
+        self.assertEqual(violations, [])
+
+    def test_agent_exchange_command_does_not_import_sqlite(self) -> None:
+        path = SRC / "ai_workroot" / "commands" / "agent_exchange.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        violations: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "sqlite3":
+                        violations.append(f"{path.relative_to(ROOT)} imports sqlite3")
+            elif isinstance(node, ast.ImportFrom) and node.module == "sqlite3":
+                violations.append(f"{path.relative_to(ROOT)} imports from sqlite3")
+
+        self.assertEqual(violations, [])
 
     def test_shared_model_bucket_does_not_exist(self) -> None:
         self.assertFalse((SRC / "ai_workroot" / "shared" / "model.py").exists())
