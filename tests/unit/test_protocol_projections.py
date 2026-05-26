@@ -67,7 +67,9 @@ class ProtocolProjectionTest(unittest.TestCase):
         self.assertIn("progress", response["contract"]["allowed_events"])
 
     def test_commit_progress_updates_run_and_returns_next_lease(self) -> None:
-        intent_response = commit(self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload()))
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
         task_id = intent_response["lease"]["task_id"]
         run_id = intent_response["lease"]["run_id"]
 
@@ -86,7 +88,9 @@ class ProtocolProjectionTest(unittest.TestCase):
         self.assertEqual(response["lease"]["task_id"], task_id)
 
     def test_commit_handoff_returns_safe_to_stop(self) -> None:
-        intent_response = commit(self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload()))
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
         task_id = intent_response["lease"]["task_id"]
         run_id = intent_response["lease"]["run_id"]
 
@@ -117,7 +121,9 @@ class ProtocolProjectionTest(unittest.TestCase):
         self.assertEqual(row, ("current", "P0 implementation is in progress.", "Continue with CLI adapter."))
 
     def test_state_transition_updates_task_status(self) -> None:
-        intent_response = commit(self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload()))
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
         task_id = intent_response["lease"]["task_id"]
 
         response = commit(

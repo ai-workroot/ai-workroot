@@ -20,7 +20,9 @@ class ProtocolSchemaTest(unittest.TestCase):
         conn = self.open_db()
         tables = {
             row[0]
-            for row in conn.execute("SELECT name FROM sqlite_master WHERE type IN ('table', 'virtual table')").fetchall()
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type IN ('table', 'virtual table')"
+            ).fetchall()
         }
 
         self.assertIn("protocol_commit_batches", tables)

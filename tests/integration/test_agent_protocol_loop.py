@@ -117,7 +117,12 @@ class AgentProtocolLoopTest(unittest.TestCase):
         self.assertEqual(next_sync["directive"]["type"], "continue_task")
         self.assertIn("Continuity loader is the next missing piece.", next_sync["context"]["brief"])
         self.assertIn(
-            {"type": "handoff", "id": "handoff-evt-handoff-loop", "role": "next_step", "summary": "Wire sync to load the latest continuity package."},
+            {
+                "type": "handoff",
+                "id": "handoff-evt-handoff-loop",
+                "role": "next_step",
+                "summary": "Wire sync to load the latest continuity package.",
+            },
             next_sync["context"]["refs"],
         )
 

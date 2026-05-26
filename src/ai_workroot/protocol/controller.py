@@ -75,7 +75,7 @@ def sync(request_data: dict[str, Any]) -> dict[str, Any]:
             task_id=task_id,
             run_id=str(run_id) if run_id else None,
             allowed_events=list(directive_payload["expected_events"]),
-                required_before_stop=list(directive_payload["required_before_stop"]),
+            required_before_stop=list(directive_payload["required_before_stop"]),
         )
 
     return _sync_response(workroot, directive_payload, lease, context=context)
@@ -164,7 +164,9 @@ def commit(request_data: dict[str, Any]) -> dict[str, Any]:
             )
             next_directive = directive(
                 projection_result.directive_type if projection_result else "continue_task",
-                goal=projection_result.directive_goal if projection_result else "Continue the current Workroot exchange.",
+                goal=projection_result.directive_goal
+                if projection_result
+                else "Continue the current Workroot exchange.",
                 next_action=(
                     projection_result.directive_next_action
                     if projection_result
@@ -238,9 +240,7 @@ def _locate_workroot_by_lease(lease_id: str) -> tuple[dict[str, str], Path] | No
     return None
 
 
-def _load_existing_batch(
-    conn: sqlite3.Connection, workroot_id: str, idempotency_key: str
-) -> dict[str, str] | None:
+def _load_existing_batch(conn: sqlite3.Connection, workroot_id: str, idempotency_key: str) -> dict[str, str] | None:
     row = conn.execute(
         """
         SELECT request_hash, response_json, status

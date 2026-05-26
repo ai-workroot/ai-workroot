@@ -36,7 +36,9 @@ def load_state_versions(conn: sqlite3.Connection, workroot_id: str, scopes: list
     return versions
 
 
-def bump_state_version(conn: sqlite3.Connection, workroot_id: str, scope: str, updated_at: Optional[str] = None) -> None:
+def bump_state_version(
+    conn: sqlite3.Connection, workroot_id: str, scope: str, updated_at: Optional[str] = None
+) -> None:
     current = load_state_versions(conn, workroot_id, [scope])[scope]
     conn.execute(
         """
