@@ -5,12 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-TASK_STATUSES = {"active", "paused", "blocked", "closed", "released"}
+TASK_STATUSES = {"active", "paused", "blocked", "closed", "archived", "released"}
 TASK_TRANSITIONS = {
-    "active": {"paused", "blocked", "closed", "released"},
-    "paused": {"active", "closed", "released"},
+    "active": {"paused", "blocked", "closed", "archived", "released"},
+    "paused": {"active", "closed", "archived", "released"},
     "blocked": {"active", "paused", "closed", "released"},
-    "closed": {"released"},
+    "closed": {"archived", "released"},
+    "archived": {"released"},
     "released": set(),
 }
 

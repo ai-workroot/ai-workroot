@@ -95,6 +95,56 @@ class RuntimeWorkTest(unittest.TestCase):
         self.assertEqual(row[:4], ("Implement TaskItem schema", "done", 10, "TaskItem schema is active."))
         self.assertIsNotNone(row[4])
 
+    def test_task_item_terminal_status_cannot_reopen(self) -> None:
+        conn = self.open_db()
+        create_task(conn, workroot_id="wr_demo", task_id="task-runtime", title="Runtime parity")
+        create_task_item(
+            conn,
+            workroot_id="wr_demo",
+            task_id="task-runtime",
+            item_id="item-1",
+            title="Implement TaskItem schema",
+            status="done",
+        )
+
+        with self.assertRaises(ValueError):
+            update_task_item(
+                conn,
+                workroot_id="wr_demo",
+                task_id="task-runtime",
+                item_id="item-1",
+                status="doing",
+            )
+
+        row = conn.execute("SELECT status FROM task_items WHERE item_id = 'item-1'").fetchone()
+        self.assertEqual(row, ("done",))
+
+    def test_task_item_done_update_preserves_completed_at(self) -> None:
+        conn = self.open_db()
+        create_task(conn, workroot_id="wr_demo", task_id="task-runtime", title="Runtime parity")
+        create_task_item(
+            conn,
+            workroot_id="wr_demo",
+            task_id="task-runtime",
+            item_id="item-1",
+            title="Implement TaskItem schema",
+            status="done",
+        )
+        conn.execute("UPDATE task_items SET completed_at = '2026-01-01T00:00:00Z' WHERE item_id = 'item-1'")
+        conn.commit()
+
+        update_task_item(
+            conn,
+            workroot_id="wr_demo",
+            task_id="task-runtime",
+            item_id="item-1",
+            status="done",
+            result_summary="Preserved completion instant.",
+        )
+
+        row = conn.execute("SELECT result_summary, completed_at FROM task_items WHERE item_id = 'item-1'").fetchone()
+        self.assertEqual(row, ("Preserved completion instant.", "2026-01-01T00:00:00Z"))
+
     def test_record_run_action_checkpoint_and_invalidation(self) -> None:
         conn = self.open_db()
         create_task(conn, workroot_id="wr_demo", task_id="task-runtime", title="Runtime parity")

@@ -13,6 +13,13 @@ from ai_workroot.protocol.lease import bump_state_version, now_utc
 
 TASK_LEASE_EVENTS = ["progress", "handoff", "state"]
 TASK_ITEM_STATUSES = {"todo", "doing", "done", "blocked", "canceled"}
+TASK_ITEM_TRANSITIONS = {
+    "todo": {"doing", "done", "blocked", "canceled"},
+    "doing": {"todo", "done", "blocked", "canceled"},
+    "blocked": {"doing", "done", "canceled"},
+    "done": set(),
+    "canceled": set(),
+}
 
 TASK_TRANSITIONS = {
     "active": {"paused", "blocked", "closed", "archived", "released"},
@@ -643,6 +650,7 @@ def _project_task_items(
         if row is None:
             raise ProtocolError("projection_failed", f"task item not found: {item_id}")
         status = _task_item_status(item.get("status"), default=str(row[1]))
+        _require_task_item_transition(str(row[1]), status)
         completed_at = now if status == "done" and row[5] is None else row[5]
         conn.execute(
             """
@@ -686,6 +694,17 @@ def _task_item_status(value: Any, *, default: str) -> str:
     if status not in TASK_ITEM_STATUSES:
         raise ProtocolError("projection_failed", f"invalid task item status: {status}")
     return status
+
+
+def _require_task_item_transition(from_status: str, to_status: str) -> None:
+    if from_status == to_status:
+        return
+    if to_status not in TASK_ITEM_TRANSITIONS.get(from_status, set()):
+        raise ProtocolError(
+            "invalid_state_transition",
+            f"cannot transition task item from {from_status} to {to_status}",
+            {"current_status": from_status, "requested_status": to_status},
+        )
 
 
 def _has_task_metadata_transition(payload: dict[str, Any]) -> bool:

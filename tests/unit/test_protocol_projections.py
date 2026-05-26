@@ -209,6 +209,48 @@ class ProtocolProjectionTest(unittest.TestCase):
             response["effects"],
         )
 
+    def test_commit_progress_rejects_terminal_task_item_reopen(self) -> None:
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
+        task_id = intent_response["lease"]["task_id"]
+        run_id = intent_response["lease"]["run_id"]
+        created = commit(
+            self.commit_request(
+                intent_response["lease"]["lease_id"],
+                "progress",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "summary": "Completed item.",
+                    "items_created": [
+                        {"item_id": "item-schema", "title": "Implement task item schema", "status": "done"}
+                    ],
+                },
+                event_id="evt-progress-create-done-item",
+            )
+        )
+
+        response = commit(
+            self.commit_request(
+                created["lease"]["lease_id"],
+                "progress",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "summary": "Attempted to reopen terminal item.",
+                    "items_updated": [{"item_id": "item-schema", "status": "doing"}],
+                },
+                event_id="evt-progress-reopen-done-item",
+            )
+        )
+
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["error"]["code"], "invalid_state_transition")
+        with sqlite3.connect(self.sqlite_path) as conn:
+            row = conn.execute("SELECT status FROM task_items WHERE item_id = 'item-schema'").fetchone()
+        self.assertEqual(row, ("done",))
+
     def test_commit_handoff_returns_safe_to_stop(self) -> None:
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())

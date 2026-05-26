@@ -236,7 +236,7 @@ def update_task_item(
     _ensure_task_exists(conn, workroot_id, task_id)
     row = conn.execute(
         """
-        SELECT title, status, item_order, run_id, result_summary
+        SELECT title, status, item_order, run_id, result_summary, completed_at
         FROM task_items
         WHERE workroot_id = ? AND task_id = ? AND item_id = ?
         """,
@@ -248,10 +248,21 @@ def update_task_item(
     next_title = title if title is not None else str(row[0])
     next_status = status if status is not None else str(row[1])
     _validate_task_item_status(next_status)
+    current_item = TaskItem(
+        item_id=item_id,
+        task_id=task_id,
+        title=str(row[0]),
+        status=str(row[1]),
+        item_order=int(row[2]),
+        run_id=str(row[3] or ""),
+        result_summary=str(row[4] or ""),
+    )
+    if not current_item.can_transition_to(next_status):
+        raise ValueError(f"cannot transition task item from {current_item.status!r} to {next_status!r}")
     next_order = item_order if item_order is not None else int(row[2])
     next_result = result_summary if result_summary is not None else str(row[4] or "")
     now = _now_utc()
-    completed_at = now if next_status == "done" else None
+    completed_at = now if next_status == "done" and row[5] is None else row[5]
     conn.execute(
         """
         UPDATE task_items
