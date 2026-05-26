@@ -24,7 +24,7 @@ AI Workroot defines:
 - Clean Workroot directory rules.
 - WorkrootEnvironment under `AI_WORKROOT_HOME`.
 - Workroot Management registry and directory bindings.
-- Work, Asset, Release Control, Relationship Network, Retrieval & Index Control, Context Control, Agent Interface, System Health, and Extensions concepts.
+- Work, Asset, Release Control, Relationship Network, Retrieval & Index Control, Context Control, Handoff, Agent Interface, System Health, and Extensions concepts.
 - Native Agent Entry behavior for Codex and Claude-compatible local agents.
 - Local-first retrieval, SQLite schema, migrations, doctor checks, and release validation.
 
@@ -89,6 +89,7 @@ src/ai_workroot/
   retrieval/
   context/
   release/
+  handoff/
   agent_entry/
   diagnostics/
   shared/
@@ -105,7 +106,8 @@ Responsibilities:
 - `relationships`: canonical Relationship Network truth and operations.
 - `retrieval`: indexing, FTS, candidate pools, recall hints, global indexes, and retrieval providers.
 - `context`: context package building, selection, rendering, tracing, and diagnostic logging.
-- `release`: Release Control models and operations.
+- `release`: Release Control models, operations, target resolution, and release filtering.
+- `handoff`: derived transfer packages for the next agent, tool, session, human, or future self.
 - `agent_entry`: Native Agent Entry templates and managed block handling.
 - `diagnostics`: doctor, release surface validation, health models, and reports.
 - `shared`: small cross-capability primitives and standard-library-only contracts.
@@ -186,7 +188,13 @@ Owns `WorkrootEnvironment`, config, registry, directory bindings, aliases, Workr
 
 ### Work
 
-Owns factual process records: Task, AgentRun, WorkAction, WorkCheckpoint, RetrievalCard, InvalidationRecord, Handoff, WorkEvent, and OperationTransaction.
+Owns factual process records: Task, AgentRun, WorkAction, WorkCheckpoint, RetrievalCard, InvalidationRecord, WorkEvent, and OperationTransaction.
+
+### Handoff
+
+Owns derived transfer packages used to pass current Workroot state to another agent, tool, session, human, or future self.
+
+A handoff may reference work facts, context packages, assets, relationships, and release filters, but it must not become the owner of durable work truth.
 
 ### Asset
 

@@ -5,10 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import ai_workroot.assets.operations as asset_operations
 from ai_workroot.assets.operations import (
     create_internal_asset,
     mark_asset_missing,
-    publish_asset,
     publish_asset_to_surface,
     query_assets,
     record_asset_publication,
@@ -122,29 +122,8 @@ class RuntimeAssetsTest(unittest.TestCase):
             ).fetchone()
             self.assertEqual(invalidation, ("asset-publications", "asset-publication-changed:asset-result"))
 
-    def test_publish_asset_compatibility_wrapper_records_metadata_only(self) -> None:
-        conn = self.open_db()
-        create_internal_asset(
-            conn,
-            workroot_id="wr_demo",
-            asset_id="asset-result",
-            asset_type="result",
-            title="Review result",
-        )
-
-        publication = publish_asset(
-            conn,
-            workroot_id="wr_demo",
-            asset_id="asset-result",
-            surface_id="surface-docs",
-            surface_path="docs",
-            surface_type="docs",
-            target_path="review-result.md",
-            published_by="test",
-            allowed_asset_types=("result", "decision"),
-        )
-
-        self.assertEqual(publication.publication_status, "metadata-only")
+    def test_asset_operations_do_not_expose_publish_asset_compatibility_wrapper(self) -> None:
+        self.assertFalse(hasattr(asset_operations, "publish_asset"))
 
     def test_publish_asset_to_surface_writes_explicit_file(self) -> None:
         conn = self.open_db()

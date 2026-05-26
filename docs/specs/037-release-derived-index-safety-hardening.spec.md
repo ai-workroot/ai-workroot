@@ -57,7 +57,7 @@ This Spec closes the P0 safety gap without redesigning Release Control or changi
 - `032-part2-capability-parity-small-specs.spec.md`
 - `src/ai_workroot/context/builder.py`
 - `src/ai_workroot/release/operations.py`
-- `src/ai_workroot/retrieval/providers/release_provider.py`
+- `src/ai_workroot/release/filter.py`
 - `src/ai_workroot/state/sqlite.py`
 
 ## Requirements
@@ -140,7 +140,7 @@ Likely changed files:
 src/ai_workroot/context/builder.py
 src/ai_workroot/release/operations.py
 src/ai_workroot/retrieval/providers/context_recall_hint_provider.py
-src/ai_workroot/retrieval/providers/release_provider.py
+src/ai_workroot/release/filter.py
 src/ai_workroot/state/sqlite.py
 src/ai_workroot/diagnostics/doctor.py
 tests/negative/test_release_protection_context.py, tests/negative/test_release_protection_targets.py, tests/negative/test_release_protection_relationships.py

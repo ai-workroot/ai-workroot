@@ -3,16 +3,16 @@
 ContextRecallHint is the active package name for the Context Card recall
 anchor. It stores recall metadata only; source content remains in the target
 Asset, Task, WorkAction, Handoff, or other canonical object.
+
+Release governance is intentionally not implemented here. Context Control must
+coordinate Release Control before writing recall hints into ordinary context.
 """
 
 from __future__ import annotations
 
 import sqlite3
 
-from ai_workroot.release.model import ReleaseTargetRef
 from ai_workroot.retrieval.model import ContextRecallHint
-from ai_workroot.retrieval.providers.candidate_provider import upsert_context_candidate
-from ai_workroot.retrieval.providers.release_provider import evaluate_release_targets
 
 
 def upsert_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecallHint) -> None:
@@ -106,54 +106,6 @@ def query_context_recall_hints(
         params,
     ).fetchall()
     return [_hint_from_row(row) for row in rows]
-
-
-def materialize_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecallHint) -> str:
-    candidate_id = f"hint:{hint.hint_id}"
-    evaluation = evaluate_release_targets(
-        conn,
-        hint.workroot_id,
-        (ReleaseTargetRef(target_type=hint.target_type, target_id=hint.target_id, workroot_id=hint.workroot_id),),
-    )
-    title = hint.title
-    summary = hint.summary
-    if evaluation.strictly_protected:
-        placeholder = "[redacted]" if evaluation.level == "redacted" else "[deleted]"
-        title = placeholder
-        summary = placeholder
-    upsert_context_candidate(
-        conn,
-        {
-            "candidate_id": candidate_id,
-            "workroot_id": hint.workroot_id,
-            "source_type": "context_recall_hint",
-            "source_id": hint.hint_id,
-            "title": title,
-            "summary": summary,
-            "domains": hint.scope_id,
-            "importance": hint.priority or "normal",
-            "confidence": 0.9,
-            "status": "active",
-            "context_policy": hint.recall_rule or "task-related",
-            "safety_policy": "",
-            "token_estimate": 0,
-            "updatedAt": hint.updated_at,
-        },
-    )
-    return candidate_id
-
-
-def materialize_context_recall_hints(
-    conn: sqlite3.Connection,
-    workroot_id: str,
-    *,
-    query: str = "",
-    limit: int = 50,
-) -> list[str]:
-    hints = query_context_recall_hints(conn, workroot_id, query=query, limit=limit)
-    if query.strip() and not hints:
-        hints = query_context_recall_hints(conn, workroot_id, query="", limit=min(limit, 10))
-    return [materialize_context_recall_hint(conn, hint) for hint in hints]
 
 
 def _hint_fts_ids(conn: sqlite3.Connection, query: str) -> set[str]:

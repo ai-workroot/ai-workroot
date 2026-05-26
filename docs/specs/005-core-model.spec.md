@@ -10,11 +10,11 @@ Define capability model files and lightweight implementation style.
 ## Capability files
 
 ```text
-shared/model.py
 state/model.py
 work/model.py
 assets/model.py
 release/model.py
+handoff/model.py
 relationships/model.py
 retrieval/model.py
 context/model.py
@@ -27,17 +27,13 @@ Do not create one file per entity unless a file grows too large.
 
 ## Common concepts
 
-`common.py` should define small shared concepts only:
+Capability-local model files should define small concepts close to their owner:
 
-- typed IDs or ID helpers
-- `ActorRef`
-- `SourceRef`
-- `EvidenceRef`
-- `PolicyRef`
-- `DomainEvent`
-- time helpers/value objects where needed
+- relationship evidence refs belong in Relationship Network;
+- time helpers/value objects belong with the capability that first needs them;
+- external driver contracts belong in `shared/contracts/` only when they are standard-library-only and cross-capability.
 
-It must not become a garbage bin.
+`shared/` must not become a garbage bin or a new `core/`.
 
 ## Rich model rules
 

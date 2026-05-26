@@ -7,12 +7,12 @@ from pathlib import Path
 
 from ai_workroot.work.operations import (
     create_checkpoint,
-    create_handoff,
     create_task,
     record_agent_run,
     record_invalidation,
     record_work_action,
 )
+import ai_workroot.work.operations as work_operations
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 
@@ -55,7 +55,10 @@ class RuntimeWorkTest(unittest.TestCase):
         ).fetchone()
         self.assertEqual(invalidation, ("tasks", "task-changed:task-architecture"))
 
-    def test_record_run_action_checkpoint_handoff_and_invalidation(self) -> None:
+    def test_work_operations_do_not_own_handoff_authoring(self) -> None:
+        self.assertFalse(hasattr(work_operations, "create_handoff"))
+
+    def test_record_run_action_checkpoint_and_invalidation(self) -> None:
         conn = self.open_db()
         create_task(conn, workroot_id="wr_demo", task_id="task-runtime", title="Runtime parity")
 
@@ -82,7 +85,6 @@ class RuntimeWorkTest(unittest.TestCase):
             task_id="task-runtime",
             current_status="ContextRecallHint schema active.",
         )
-        handoff = create_handoff(conn, workroot_id="wr_demo", handoff_id="handoff-1", title="Continue runtime parity")
         invalidation = record_invalidation(
             conn,
             workroot_id="wr_demo",
@@ -94,7 +96,6 @@ class RuntimeWorkTest(unittest.TestCase):
         self.assertEqual(run.validity, "valid")
         self.assertEqual(action.risk_level, "normal")
         self.assertEqual(checkpoint.current_status, "ContextRecallHint schema active.")
-        self.assertEqual(handoff["title"], "Continue runtime parity")
         self.assertEqual(invalidation.reason, "ContextRecallHint active path now exists.")
         self.assertEqual(
             conn.execute("SELECT status, validity FROM agent_runs WHERE run_id = 'run-1'").fetchone(),
@@ -107,10 +108,6 @@ class RuntimeWorkTest(unittest.TestCase):
         self.assertEqual(
             conn.execute("SELECT current_status FROM work_checkpoints WHERE checkpoint_id = 'checkpoint-1'").fetchone(),
             ("ContextRecallHint schema active.",),
-        )
-        self.assertEqual(
-            conn.execute("SELECT title FROM handoffs WHERE handoff_id = 'handoff-1'").fetchone(),
-            ("Continue runtime parity",),
         )
         self.assertEqual(
             conn.execute("SELECT reason FROM invalidation_records WHERE invalidation_id = 'invalidation-1'").fetchone(),
@@ -129,7 +126,6 @@ class RuntimeWorkTest(unittest.TestCase):
         self.assertIn(("agent-runs", "agent-run-changed:run-1"), invalidations)
         self.assertIn(("work-actions", "work-action-changed:action-1"), invalidations)
         self.assertIn(("work-checkpoints", "checkpoint-changed:checkpoint-1"), invalidations)
-        self.assertIn(("handoffs", "handoff-changed:handoff-1"), invalidations)
 
     def test_work_runtime_rejects_missing_task_for_task_scoped_records(self) -> None:
         conn = self.open_db()

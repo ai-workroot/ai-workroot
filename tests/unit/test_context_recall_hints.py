@@ -5,11 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.retrieval.providers.candidate_provider import query_context_candidates
 from ai_workroot.retrieval.providers.context_recall_hint_provider import (
     ContextRecallHint,
-    materialize_context_recall_hint,
-    materialize_context_recall_hints,
     query_context_recall_hints,
     upsert_context_recall_hint,
 )
@@ -133,89 +130,6 @@ class ContextRecallHintsTest(unittest.TestCase):
         row = conn.execute("SELECT hint_id FROM context_recall_hints WHERE hint_id = 'hint-row-factory'").fetchone()
 
         self.assertEqual(row, ("hint-row-factory",))
-
-    def test_materialize_context_recall_hint_creates_context_candidate_read_model(self) -> None:
-        conn = self.open_db()
-        hint = ContextRecallHint(
-            hint_id="hint-release-target",
-            workroot_id="wr_demo",
-            target_type="work_action",
-            target_id="action-1",
-            title="Release target mapping",
-            summary="Recall this action when release control target mapping is reviewed.",
-            priority="critical",
-            recall_rule="task-related",
-            updated_at="2026-05-21T00:00:00Z",
-        )
-        upsert_context_recall_hint(conn, hint)
-
-        candidate_id = materialize_context_recall_hint(conn, hint)
-        candidates = query_context_candidates(conn, "wr_demo", query="release mapping")
-
-        self.assertEqual(candidate_id, "hint:hint-release-target")
-        self.assertEqual(candidates[0].candidate_id, "hint:hint-release-target")
-        self.assertEqual(candidates[0].source_type, "context_recall_hint")
-        self.assertEqual(candidates[0].source_id, "hint-release-target")
-        self.assertEqual(candidates[0].importance, "critical")
-        self.assertIn("candidate-fts-match", candidates[0].reasons)
-
-    def test_materialize_context_recall_hints_falls_back_to_priority_hints_for_weak_query(self) -> None:
-        conn = self.open_db()
-        upsert_context_recall_hint(
-            conn,
-            ContextRecallHint(
-                hint_id="hint-next-step",
-                workroot_id="wr_demo",
-                target_type="task",
-                target_id="task-next",
-                title="Current next step",
-                summary="Continue the highest priority active work when the user asks what to do next.",
-                priority="critical",
-                recall_rule="always",
-            ),
-        )
-
-        materialized = materialize_context_recall_hints(conn, "wr_demo", query="what should I do next")
-        candidates = query_context_candidates(conn, "wr_demo", query="")
-
-        self.assertEqual(materialized, ["hint:hint-next-step"])
-        self.assertEqual(candidates[0].title, "Current next step")
-
-    def test_materialize_context_recall_hint_redacts_strict_release_target(self) -> None:
-        conn = self.open_db()
-        hint = ContextRecallHint(
-            hint_id="hint-redacted",
-            workroot_id="wr_demo",
-            target_type="asset",
-            target_id="asset-redacted",
-            title="Sensitive hint title",
-            summary="SECRETHINTMATERIALIZATION must not be copied.",
-            priority="critical",
-            recall_rule="always",
-        )
-        upsert_context_recall_hint(conn, hint)
-        conn.execute(
-            """
-            INSERT INTO release_records (release_id, workroot_id, target_type, target_id, release_level, recall_rule)
-            VALUES ('rel-redacted-hint', 'wr_demo', 'asset', 'asset-redacted', 'redacted', 'ordinary-context-excluded')
-            """
-        )
-        conn.commit()
-
-        materialize_context_recall_hint(conn, hint)
-        row = conn.execute(
-            """
-            SELECT title, summary
-            FROM context_candidates
-            WHERE candidate_id = 'hint:hint-redacted'
-            """
-        ).fetchone()
-        fts_rows = conn.execute(
-            "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH 'SECRETHINTMATERIALIZATION'"
-        ).fetchall()
-
-        self.assertEqual(row, ("[redacted]", "[redacted]"))
-        self.assertEqual(fts_rows, [])
 
 
 if __name__ == "__main__":

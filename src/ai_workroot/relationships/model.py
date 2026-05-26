@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ai_workroot.shared.model import SourceRef
-
 
 RELATIONSHIP_TYPES = {
     "uses",
@@ -23,6 +21,12 @@ RELATIONSHIP_TYPES = {
     "decomposes_to",
     "covered_by_release",
 }
+
+
+@dataclass(frozen=True)
+class SourceRef:
+    source_type: str
+    source_id: str
 
 
 @dataclass(frozen=True)
@@ -57,6 +61,7 @@ class RelationshipSignal:
     relationship_type: str
     confidence: float
     reason: str = "relationship-edge"
+    matched_source_refs: tuple[SourceRef, ...] = ()
 
 
 @dataclass

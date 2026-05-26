@@ -10,6 +10,7 @@ from ai_workroot.relationships.operations import (
     create_relationship_edge,
     create_relationship_node,
     query_relationships,
+    relationship_signals_for_source_refs,
 )
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
@@ -98,6 +99,33 @@ class RuntimeRelationshipsTest(unittest.TestCase):
         self.assertEqual(node.target_type, "asset")
         self.assertEqual(node.target_id, "asset-1")
         self.assertEqual(row, ("asset", "Asset node", "asset", "asset-1"))
+
+    def test_relationship_signals_for_source_refs_resolves_canonical_target_nodes(self) -> None:
+        conn = self.open_db()
+        create_relationship_node(conn, node_id="node-task", workroot_id="wr_demo", node_type="task", title="Task")
+        create_relationship_node(
+            conn,
+            node_id="node-asset-clean",
+            workroot_id="wr_demo",
+            node_type="asset",
+            title="Clean asset",
+            target_type="asset",
+            target_id="asset-clean",
+        )
+        create_relationship_edge(
+            conn,
+            edge_id="edge-canonical",
+            workroot_id="wr_demo",
+            from_node_id="node-task",
+            to_node_id="node-asset-clean",
+            relationship_type="supports",
+            confidence=0.8,
+            created_by="test",
+        )
+
+        relationships = relationship_signals_for_source_refs(conn, "wr_demo", {("asset", "asset-clean")})
+
+        self.assertEqual([item.edge_id for item in relationships], ["edge-canonical"])
 
     def test_create_node_rejects_partial_canonical_target(self) -> None:
         conn = self.open_db()

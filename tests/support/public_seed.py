@@ -6,6 +6,19 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PUBLIC_SEED = ROOT / "docs/history/public-seed"
+LOCAL_ARTIFACT_IGNORE_PATTERNS = (
+    ".git",
+    ".idea",
+    ".ai-workroot-local",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "*.pyc",
+    "*.egg-info",
+    ".DS_Store",
+    "__MACOSX",
+)
 
 
 def install_public_seed_fixture(workroot: Path, *, include_agent_entries: bool = True) -> None:
@@ -27,6 +40,6 @@ def copy_repo_with_public_seed(target: Path, *, include_agent_entries: bool = Tr
     shutil.copytree(
         ROOT,
         target,
-        ignore=shutil.ignore_patterns(".git", ".idea", ".ai-workroot-local", "__pycache__", "*.pyc", ".pytest_cache"),
+        ignore=shutil.ignore_patterns(*LOCAL_ARTIFACT_IGNORE_PATTERNS),
     )
     install_public_seed_fixture(target, include_agent_entries=include_agent_entries)

@@ -50,17 +50,44 @@ class WorkrootBootstrapDevTest(unittest.TestCase):
 
     def test_repo_fixture_copy_excludes_ignored_local_runtime_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            local = ROOT / ".ai-workroot-local"
-            marker = local / "test-fixture-marker.tmp"
-            local.mkdir(exist_ok=True)
-            marker.write_text("local runtime metadata must not enter fixture copies\n", encoding="utf-8")
+            created_files: list[Path] = []
+            created_dirs: list[Path] = []
+
+            def create_local_artifact(path: Path, content: str = "local\n") -> None:
+                if path.exists():
+                    return
+                if not path.parent.exists():
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    created_dirs.append(path.parent)
+                path.write_text(content, encoding="utf-8")
+                created_files.append(path)
+
+            create_local_artifact(ROOT / ".ai-workroot-local/test-fixture-marker.tmp")
+            create_local_artifact(ROOT / ".venv/bin/python")
+            create_local_artifact(ROOT / ".ruff_cache/cache")
+            create_local_artifact(ROOT / "src/ai_workroot/__pycache__/x.pyc")
+            create_local_artifact(ROOT / "src/ai_workroot.egg-info/PKG-INFO")
+            create_local_artifact(ROOT / ".DS_Store")
+            create_local_artifact(ROOT / "__MACOSX/file")
             try:
                 repo = Path(tmp) / "repo"
                 self.copy_repo(repo)
 
                 self.assertFalse((repo / ".ai-workroot-local").exists())
+                self.assertFalse((repo / ".venv").exists())
+                self.assertFalse((repo / ".ruff_cache").exists())
+                self.assertFalse((repo / "src/ai_workroot/__pycache__").exists())
+                self.assertFalse((repo / "src/ai_workroot.egg-info").exists())
+                self.assertFalse((repo / ".DS_Store").exists())
+                self.assertFalse((repo / "__MACOSX").exists())
             finally:
-                marker.unlink(missing_ok=True)
+                for path in reversed(created_files):
+                    path.unlink(missing_ok=True)
+                for path in reversed(created_dirs):
+                    try:
+                        path.rmdir()
+                    except OSError:
+                        pass
 
     def test_bootstrap_dev_initializes_context_and_doctor_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

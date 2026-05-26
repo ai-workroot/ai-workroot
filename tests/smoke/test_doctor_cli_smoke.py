@@ -82,6 +82,17 @@ class DoctorCliSmokeTest(unittest.TestCase):
                 ).fetchone()
             self.assertIsNone(table)
 
+    def test_release_doctor_respects_cwd_argument(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "empty-review-root"
+            target.mkdir()
+
+            doctor = run_workroot_cli({}, "doctor", "--release", "--cwd", str(target))
+
+            self.assertNotEqual(doctor.returncode, 0)
+            self.assertIn("commands package: src/ai_workroot/commands", doctor.stdout)
+            self.assertNotIn("AI Workroot release doctor: PASS", doctor.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

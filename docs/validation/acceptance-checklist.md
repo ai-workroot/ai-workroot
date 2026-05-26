@@ -19,6 +19,7 @@
 - [ ] `src/ai_workroot/context` exists.
 - [ ] `src/ai_workroot/retrieval` exists.
 - [ ] `src/ai_workroot/release` exists.
+- [ ] `src/ai_workroot/handoff` exists.
 - [ ] `src/ai_workroot/relationships` exists.
 - [ ] `src/ai_workroot/agent_entry` exists.
 - [ ] `src/ai_workroot/shared` exists.

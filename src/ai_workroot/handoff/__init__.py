@@ -1,0 +1,1 @@
+"""Derived handoff package capability."""

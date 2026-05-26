@@ -6,7 +6,7 @@
 cli -> commands
 
 commands -> state
-commands -> work/assets/relationships/retrieval/context/release/agent_entry/diagnostics
+commands -> work/assets/relationships/retrieval/context/release/handoff/agent_entry/diagnostics
 commands -> shared
 
 capability modules -> shared
@@ -51,6 +51,7 @@ relationships/
 retrieval/
 context/
 release/
+handoff/
 agent_entry/
 diagnostics/
 ```
@@ -61,7 +62,8 @@ Rules:
 2. Retrieval consumes relationship signals but does not own relationship truth.
 3. Context consumes retrieval output but does not own durable work facts.
 4. Release filters and sanitizes protected content but does not own retrieval indexes.
-5. Agent Entry generates entry files but is not an agent runtime.
+5. Handoff owns derived transfer packages, not durable Work truth.
+6. Agent Entry generates entry files but is not an agent runtime.
 
 ## Shared
 

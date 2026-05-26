@@ -156,6 +156,65 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
             self.assertEqual(selection, ("hint:hint-context-card", "selected"))
             self.assertEqual(use_count, 1)
 
+    def test_context_relationship_signals_resolve_canonical_target_nodes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-canonical-asset",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-clean",
+                        "title": "Canonical asset context",
+                        "summary": "This candidate should collect relationship signals through target refs.",
+                        "importance": "critical",
+                        "context_policy": "always",
+                    },
+                )
+                create_relationship_node(
+                    conn,
+                    node_id="node-task",
+                    workroot_id=workroot_id,
+                    node_type="task",
+                    title="Related task",
+                )
+                create_relationship_node(
+                    conn,
+                    node_id="node-asset-clean",
+                    workroot_id=workroot_id,
+                    node_type="asset",
+                    title="Clean asset node",
+                    target_type="asset",
+                    target_id="asset-clean",
+                )
+                create_relationship_edge(
+                    conn,
+                    edge_id="edge-canonical-asset",
+                    workroot_id=workroot_id,
+                    from_node_id="node-task",
+                    to_node_id="node-asset-clean",
+                    relationship_type="supports",
+                    created_by="test",
+                    confidence=0.9,
+                )
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="canonical", debug=True),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("Canonical asset context", package)
+            self.assertIn("relationship-edge", package)
+            self.assertIn("Relationship Signals", package)
+            self.assertIn("edge-canonical-asset", package)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -42,7 +42,6 @@ Entities and concepts:
 - WorkCheckpoint
 - RetrievalCard
 - InvalidationRecord
-- Handoff
 - WorkEvent
 - OperationTransaction
 - WorkflowRecipe
@@ -53,7 +52,23 @@ Boundaries:
 - Task can be decomposed through Relationship Network edges.
 - Task/Action/Run are factual process records. They are not mutated into tombstone states.
 
-## 3. Asset
+## 3. Handoff
+
+Owns derived transfer packages.
+
+Entities and concepts:
+
+- HandoffPackage
+- HandoffTarget
+- HandoffBody
+
+Boundaries:
+
+- May reference Work facts, context packages, assets, relationships, and release filters.
+- Does not own durable Work truth.
+- Does not own final Context Package selection.
+
+## 4. Asset
 
 Owns user value objects.
 
@@ -77,7 +92,7 @@ Boundaries:
 - Published Asset is user-visible file output.
 - Internal Asset may stay in managed state.
 
-## 4. Release Control
+## 5. Release Control
 
 Owns recall/release overlays over recallable Workroot objects.
 
@@ -97,10 +112,11 @@ Boundaries:
 
 - Tombstone is a first-class entity. Do not call it TombstoneMarker.
 - Release Control overlays targets. It does not mutate target identity/status.
+- Release Control owns target resolution and release filtering for recallable outputs.
 - Tombstone/quiet/archive are modeled, visible, traceable, but not strongly excluded by default in 0.9.530.
 - Redaction/deletion/safety-sensitive content must be protected immediately.
 
-## 5. Relationship Network
+## 6. Relationship Network
 
 Owns canonical relationships among Workroot objects.
 
@@ -119,7 +135,7 @@ Boundaries:
 - RelationshipEdge is canonical relationship truth.
 - Traversal projection is an index/read model.
 
-## 6. Retrieval & Index Control
+## 7. Retrieval & Index Control
 
 Owns domain indexes, retrieval requests, provider orchestration, and management query indexes.
 
@@ -150,8 +166,9 @@ Boundaries:
 - Not merely RAG.
 - Serves Context Control and local maintenance/query features.
 - Providers are connected through contracts and adapters.
+- Does not own release filtering or release target resolution.
 
-## 7. Context Control
+## 8. Context Control
 
 Owns final context selection, budget, package, and trace.
 
@@ -173,9 +190,9 @@ Boundaries:
 - Does not publish Assets.
 - Does not own indexes.
 - Does not own relationships.
-- Consumes Work, Asset, Release Control, Relationship Network, and Retrieval & Index Control.
+- Consumes Work, Asset, Release Control, Relationship Network, Retrieval & Index Control, and Handoff.
 
-## 8. Agent Interface
+## 9. Agent Interface
 
 Owns agent startup and protocol-facing behavior.
 
@@ -197,7 +214,7 @@ Boundaries:
 - Root `AGENTS.md` / `CLAUDE.md` are generated locally and ignored.
 - Agent-ready Workroot requires authorized Native Agent Entry.
 
-## 9. System Health
+## 10. System Health
 
 Owns diagnosis, maintenance, migration, and release validation.
 
@@ -219,7 +236,7 @@ Boundaries:
 - Maintenance requires explicit action.
 - Migration records schema/data upgrades.
 
-## 10. Extensions
+## 11. Extensions
 
 Owns future capability and extension boundaries.
 

@@ -152,7 +152,7 @@ Likely changed files:
 src/ai_workroot/diagnostics/release_validation.py
 src/ai_workroot/release/operations.py
 src/ai_workroot/state/sqlite.py
-src/ai_workroot/retrieval/providers/release_provider.py
+src/ai_workroot/release/filter.py
 src/ai_workroot/retrieval/providers/relationship_provider.py
 src/ai_workroot/relationships/operations.py
 src/ai_workroot/relationships/model.py
@@ -362,7 +362,7 @@ T3: E2E harness safety semantics
 
 T4: Relationship canonical target mapping
 - Change: Add optional relationship node canonical target fields and resolver support.
-- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/relationships/operations.py`, `src/ai_workroot/retrieval/providers/relationship_provider.py`, `src/ai_workroot/retrieval/providers/release_provider.py`.
+- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/relationships/operations.py`, `src/ai_workroot/retrieval/providers/relationship_provider.py`, `src/ai_workroot/release/filter.py`.
 - Verification: relationship runtime and release resolver tests.
 
 T5: Docs and small quality closure

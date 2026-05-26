@@ -19,6 +19,7 @@ class ImportBoundariesTest(unittest.TestCase):
             "commands",
             "context",
             "diagnostics",
+            "handoff",
             "relationships",
             "release",
             "retrieval",
@@ -145,11 +146,12 @@ class ImportBoundariesTest(unittest.TestCase):
             "assets": {"state"},
             "cli": {"commands"},
             "commands": {"agent_entry", "context", "diagnostics", "state"},
-            "context": {"relationships", "retrieval", "state"},
+            "context": {"relationships", "release", "retrieval", "state"},
             "diagnostics": {"agent_entry", "state"},
-            "relationships": {"shared", "state"},
+            "handoff": {"state"},
+            "relationships": {"state"},
             "release": set(),
-            "retrieval": {"release", "state"},
+            "retrieval": {"state"},
             "shared": set(),
             "state": set(),
             "templates": set(),
@@ -165,6 +167,81 @@ class ImportBoundariesTest(unittest.TestCase):
 
         self.assertEqual(unexpected, [])
         self.assertEqual(_package_dependency_cycles(edges), [])
+
+    def test_shared_model_bucket_does_not_exist(self) -> None:
+        self.assertFalse((SRC / "ai_workroot" / "shared" / "model.py").exists())
+
+    def test_retrieval_does_not_own_release_filtering(self) -> None:
+        retrieval_dir = SRC / "ai_workroot" / "retrieval"
+        self.assertFalse((retrieval_dir / "providers" / "release_provider.py").exists())
+        forbidden_symbols = (
+            "ReleaseFilterReport",
+            "FtsReleaseFilterReport",
+            "RelationshipReleaseFilterReport",
+            "CandidateReleaseTargetResolver",
+            "load_release_filter_report",
+            "filter_fts_matches_for_release",
+            "filter_relationship_signals_for_release",
+        )
+        violations: list[str] = []
+
+        for path in retrieval_dir.rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            for symbol in forbidden_symbols:
+                if symbol in text:
+                    violations.append(f"{path.relative_to(ROOT)} defines or references {symbol}")
+            tree = ast.parse(text, filename=str(path))
+            for module in _imported_project_modules(tree):
+                if _module_matches_any(module, ("ai_workroot.release",)):
+                    violations.append(f"{path.relative_to(ROOT)} imports {module}")
+
+        self.assertEqual(violations, [])
+
+    def test_retrieval_does_not_expose_unfiltered_context_recall_hint_materializers(self) -> None:
+        from ai_workroot.retrieval.providers import context_recall_hint_provider
+
+        self.assertFalse(hasattr(context_recall_hint_provider, "materialize_context_recall_hint"))
+        self.assertFalse(hasattr(context_recall_hint_provider, "materialize_context_recall_hints"))
+
+    def test_context_builder_uses_explicit_assembly_pipeline(self) -> None:
+        builder_path = SRC / "ai_workroot" / "context" / "builder.py"
+        tree = ast.parse(builder_path.read_text(encoding="utf-8"), filename=str(builder_path))
+        class_names = {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
+        expected_stage_models = {
+            "ContextRuntime",
+            "LoadedContext",
+            "RetrievedContext",
+            "GovernedContext",
+            "SelectedContext",
+            "RenderedContext",
+        }
+        function_by_name = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
+        expected_stage_functions = [
+            "_resolve_context_runtime",
+            "_load_context_state",
+            "_prepare_recall_hints",
+            "_retrieve_context",
+            "_govern_context",
+            "_select_context",
+            "_apply_fallback_selection",
+            "_render_context",
+            "_apply_context_budget",
+            "_record_context_result",
+        ]
+
+        self.assertTrue(expected_stage_models.issubset(class_names))
+        self.assertTrue(set(expected_stage_functions).issubset(function_by_name))
+
+        build_context_package = function_by_name["build_context_package"]
+        call_lines = {
+            node.func.id: node.lineno
+            for node in ast.walk(build_context_package)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        ordered_lines = [call_lines[name] for name in expected_stage_functions]
+
+        self.assertEqual(ordered_lines, sorted(ordered_lines))
+        self.assertLessEqual(build_context_package.end_lineno - build_context_package.lineno + 1, 90)
 
     def test_cli_does_not_import_storage_or_indexing_directly(self) -> None:
         cli_dir = SRC / "ai_workroot" / "cli"

@@ -92,7 +92,7 @@ FR-007: Tombstone ContextRecallHint targets must remain annotated, not hard-excl
 
 FR-008: Debug traces must record ContextRecallHint source evidence, scoring, selection, and release-filter outcomes.
 
-FR-009: Active Work runtime functions must create and query tasks, agent runs, work actions, checkpoints, handoffs, and invalidations through package-owned code.
+FR-009: Active Work runtime functions must create and query tasks, agent runs, work actions, checkpoints, and invalidations through package-owned code. Handoff package functions must create and query derived transfer packages through `handoff/`.
 
 FR-010: Active Asset runtime functions must create and query internal/result/decision/knowledge assets without writing user directory files by default.
 
@@ -205,7 +205,7 @@ Changed active package files:
 ```text
 src/ai_workroot/state/sqlite.py
 src/ai_workroot/context/builder.py
-src/ai_workroot/retrieval/providers/release_provider.py
+src/ai_workroot/release/filter.py
 src/ai_workroot/retrieval/providers/relationship_provider.py
 ```
 
@@ -359,7 +359,7 @@ T3: ContextRecallHint materialization in Context Control
 
 T4: Release-aware ContextRecallHint resolution
 - Change: Resolve hint candidates to hint and canonical targets; apply protective release state.
-- Files likely affected: `src/ai_workroot/retrieval/providers/release_provider.py`, `tests/unit/test_release_target_resolver.py`, split Context Control integration tests under `tests/integration/`.
+- Files likely affected: `src/ai_workroot/release/filter.py`, `tests/unit/test_release_target_resolver.py`, split Context Control integration tests under `tests/integration/`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.unit.test_release_target_resolver tests.integration.test_context_retrieval_selection tests.integration.test_context_budget_trace tests.integration.test_context_release_filtering -v`.
 
 T5: Context trace parity for hint-derived candidates

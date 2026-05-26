@@ -4,7 +4,7 @@
 
 **Goal:** Remove remaining package-level cycles and enforce one-way, orthogonal capability dependencies.
 
-**Architecture:** Release Control owns release evaluation. Relationship Network owns relationship writes and traversal signals. Retrieval consumes release policy for read-side filtering and does not own relationship canonical writes.
+**Architecture:** Release Control owns release evaluation and filtering. Relationship Network owns relationship writes and traversal signals. Context Control composes retrieval output with release filters; Retrieval does not own release policy or relationship canonical writes.
 
 **Tech Stack:** Python 3.9 standard library, `unittest`, AST import scanning.
 
@@ -18,19 +18,19 @@
 - Modify: `tests/unit/test_import_boundaries.py`
 
 - [x] Add a package graph test that scans `src/ai_workroot/**/*.py`, builds package edges, asserts no cycles, and asserts all package edges are in the allowed dependency map.
-- [x] Run `PYTHONPATH=src python3 -m unittest tests.unit.test_import_boundaries` and verify it fails on the current `retrieval -> release -> retrieval` cycle and the `relationships -> retrieval` edge.
+- [x] Run `PYTHONPATH=src python3 -m unittest tests.unit.test_import_boundaries` and verify it fails on the current release ownership cycle and the `relationships -> retrieval` edge.
 
 ### Task 2: Release Evaluation Ownership
 
 **Files:**
 - Create: `src/ai_workroot/release/evaluation.py`
 - Modify: `src/ai_workroot/release/operations.py`
-- Modify: `src/ai_workroot/retrieval/providers/release_provider.py`
+- Modify: `src/ai_workroot/release/filter.py`
 - Modify: `tests/unit/test_release_target_resolver.py`
 
 - [x] Move `ReleaseEvaluation`, release target evaluation, release level normalization, release level ranking, and release target existence checks into `release/evaluation.py`.
-- [x] Update `release/operations.py` to use `release.evaluation`, not `retrieval.providers.release_provider`.
-- [x] Update `retrieval/providers/release_provider.py` to import `evaluate_release_targets` from `release.evaluation`.
+- [x] Update `release/operations.py` to use `release.evaluation`, not retrieval-owned release filtering.
+- [x] Move retrieval release filtering into `release/filter.py` so Retrieval no longer imports Release Control.
 - [x] Update tests to import `evaluate_release_targets` from `ai_workroot.release.evaluation`.
 - [x] Run `PYTHONPATH=src python3 -m unittest tests.unit.test_release_target_resolver tests.unit.test_import_boundaries`.
 

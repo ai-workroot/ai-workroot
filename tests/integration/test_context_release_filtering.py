@@ -107,6 +107,23 @@ class ContextReleaseFilteringTest(unittest.TestCase):
             )
 
             self.assertNotIn("Redacted target hint", package)
+            with sqlite3.connect(db_path) as conn:
+                candidate = conn.execute(
+                    """
+                    SELECT title, summary
+                    FROM context_candidates
+                    WHERE candidate_id = 'hint:hint-redacted-target'
+                    """
+                ).fetchone()
+                leaked_fts_rows = conn.execute(
+                    """
+                    SELECT candidate_id
+                    FROM context_candidates_fts
+                    WHERE context_candidates_fts MATCH 'blocked'
+                    """
+                ).fetchall()
+            self.assertEqual(candidate, ("[redacted]", "[redacted]"))
+            self.assertEqual(leaked_fts_rows, [])
             self.assertIn("releaseFilters: dropped=hint:hint-redacted-target:redacted", package)
 
     def test_tombstone_context_recall_hint_target_is_annotated_not_hard_excluded(self) -> None:

@@ -32,7 +32,7 @@ Public Seed is retired as an active architecture. It may appear only in history 
 
 ## Strategic domain model
 
-DDD was used only to understand the domain. The final implementation does not use a heavyweight DDD directory layout. The ten core concepts are:
+DDD was used only to understand the domain. The final implementation does not use a heavyweight DDD directory layout. The eleven core concepts are:
 
 1. Workroot Management
 2. Work
@@ -41,9 +41,10 @@ DDD was used only to understand the domain. The final implementation does not us
 5. Relationship Network
 6. Retrieval & Index Control
 7. Context Control
-8. Agent Interface
-9. System Health
-10. Extensions
+8. Handoff
+9. Agent Interface
+10. System Health
+11. Extensions
 
 These concepts are implemented through a command-first, capability-owned module structure:
 
@@ -57,6 +58,7 @@ relationships/
 retrieval/
 context/
 release/
+handoff/
 agent_entry/
 diagnostics/
 shared/
@@ -84,5 +86,5 @@ templates/
 - Establish Clean Workroot as default.
 - Establish bootstrap-dev dogfood flow.
 - Introduce the lightweight engineering structure.
-- Preserve old Work, Asset, Index, Release, Tombstone, Relationship, Context, Agent, and Extension capabilities.
+- Preserve old Work, Asset, Index, Release, Tombstone, Relationship, Context, Handoff, Agent, and Extension capabilities.
 - Rewrite docs/specs/roadmap/release validation around the new model.
