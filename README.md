@@ -50,6 +50,7 @@ In practical terms, AI Workroot gives agents a shared, user-owned foundation for
 - Relationship Network
 - Retrieval & Index Control
 - Context Control
+- Handoff
 - Agent Interface
 - System Health
 
@@ -91,7 +92,7 @@ The best relationship is complementary:
 
 AI Workroot is designed for individuals first.
 
-Its current shape is a private, user-owned foundation for one person's long-term work with AI: Work records, Assets, Release Control, Relationship Network, Retrieval & Index Control, Context Control, Agent Interface, and System Health.
+Its current shape is a private, user-owned foundation for one person's long-term work with AI: Work records, Assets, Release Control, Relationship Network, Retrieval & Index Control, Context Control, Handoff, Agent Interface, and System Health.
 
 The heart of this project is one person with many unfinished things, many tools, changing contexts, and a real need to continue.
 
@@ -152,6 +153,7 @@ src/ai_workroot/
   retrieval/
   context/
   release/
+  handoff/
   agent_entry/
   diagnostics/
   shared/

@@ -144,29 +144,6 @@ def create_checkpoint(
     return WorkCheckpoint(checkpoint_id=checkpoint_id, task_id=task_id, current_status=current_status)
 
 
-def create_handoff(conn: sqlite3.Connection, *, workroot_id: str, handoff_id: str, title: str) -> dict[str, str]:
-    conn.execute(
-        """
-        INSERT INTO handoffs (handoff_id, workroot_id, title)
-        VALUES (?, ?, ?)
-        ON CONFLICT(handoff_id) DO UPDATE SET
-          workroot_id=excluded.workroot_id,
-          title=excluded.title
-        """,
-        (handoff_id, workroot_id, title),
-    )
-    record_index_invalidation(
-        conn,
-        workroot_id=workroot_id,
-        index_id="handoffs",
-        subject_type="handoff",
-        subject_id=handoff_id,
-        reason=f"handoff-changed:{handoff_id}",
-    )
-    conn.commit()
-    return {"handoff_id": handoff_id, "workroot_id": workroot_id, "title": title}
-
-
 def record_invalidation(
     conn: sqlite3.Connection,
     *,

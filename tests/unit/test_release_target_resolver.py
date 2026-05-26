@@ -8,7 +8,7 @@ from ai_workroot.release.evaluation import evaluate_release_targets
 from ai_workroot.relationships.model import RelationshipSignal
 from ai_workroot.relationships.operations import create_relationship_edge, create_relationship_node
 from ai_workroot.retrieval.providers.candidate_provider import CandidateMatch, upsert_context_candidate
-from ai_workroot.retrieval.providers.release_provider import CandidateReleaseTargetResolver
+from ai_workroot.release.filter import CandidateReleaseTargetResolver
 from ai_workroot.retrieval.providers.sqlite_fts import index_file_chunk, search_fts
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 

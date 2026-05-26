@@ -30,7 +30,7 @@ Earlier 0.9.530 work used temporary compatibility owners for mature Public Seed 
 
 ### Included
 
-- Task, AgentRun, WorkAction, WorkCheckpoint, RetrievalCard, InvalidationRecord, Handoff, OperationTransaction.
+- Task, AgentRun, WorkAction, WorkCheckpoint, RetrievalCard, InvalidationRecord, OperationTransaction, and HandoffPackage through the separate `handoff/` capability.
 - Asset creation and publication metadata.
 - Session summarize and continue/handoff behavior.
 - Batch transaction rollback.
@@ -57,7 +57,7 @@ FR-001: Package runtime must create and update Task records.
 
 FR-002: Package runtime must create AgentRun and WorkAction records associated with tasks.
 
-FR-003: Package runtime must record WorkCheckpoint and Handoff records.
+FR-003: Package runtime must record WorkCheckpoint records through `work/` and HandoffPackage records through `handoff/`.
 
 FR-004: Package runtime must map legacy artifacts, decisions, knowledge, and results into Asset records with `asset_type`.
 
@@ -90,8 +90,8 @@ WorkAction
 WorkCheckpoint
 RetrievalCard
 InvalidationRecord
-Handoff
 OperationTransaction
+HandoffPackage
 Asset
 AssetPublication
 AssetSurface
@@ -103,6 +103,7 @@ Legacy `mind`, `knowledge`, `decision`, and `artifact` rows map to `Asset.asset_
 
 ```text
 src/ai_workroot/work/operations.py
+src/ai_workroot/handoff/operations.py
 src/ai_workroot/assets/operations.py
 src/ai_workroot/release/operations.py
 src/ai_workroot/state/sqlite.py

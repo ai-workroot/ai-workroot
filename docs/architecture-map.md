@@ -45,6 +45,7 @@ flowchart TB
   Commands --> Retrieval[Retrieval]
   Commands --> Context[Context]
   Commands --> Release[Release]
+  Commands --> Handoff[Handoff]
   Commands --> AgentEntry[Agent Entry]
   Commands --> Diagnostics[Diagnostics]
   State --> Shared[Shared<br/>small primitives and contracts]
@@ -54,7 +55,7 @@ flowchart TB
   Templates[Templates] --> AgentEntry
 ```
 
-The historical Agent Operation Layer is preserved as compatibility capability. Clean Workroot maps it into CLI, Commands, Work, Context Control, and Agent Interface capabilities instead of requiring active Public Seed root files.
+The historical Agent Operation Layer is preserved through explicit capability mapping. Clean Workroot maps it into CLI, Commands, Work, Context Control, Handoff, and Agent Interface capabilities instead of requiring active Public Seed root files.
 
 ## Domain Concepts
 
@@ -70,10 +71,13 @@ flowchart LR
   RC --> CC[Context Control]
   RIC --> CC
   RN --> CC
-  CC --> AI[Agent Interface]
+  CC --> Handoff[Handoff<br/>derived transfer packages]
+  Handoff --> AI[Agent Interface]
   WM --> Health[System Health]
   Extensions[Extensions] --> RIC
 ```
+
+Domain arrows describe product flow and references between capabilities, not source import dependencies.
 
 ## Managed State Layout
 
@@ -91,6 +95,7 @@ flowchart TB
   One --> Relationships[relationships]
   One --> Indexes[indexes]
   One --> Context[context]
+  One --> Handoff[handoff]
   One --> Diagnostics[diagnostics]
   One --> Cache[cache]
 ```

@@ -145,7 +145,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "doctor":
-        result = run_release_doctor(Path.cwd()) if args.release else run_doctor(cwd=Path(args.cwd))
+        result = run_release_doctor(Path(args.cwd)) if args.release else run_doctor(cwd=Path(args.cwd))
         if args.release:
             print(result.render_text().replace("AI Workroot doctor:", "AI Workroot release doctor:"), end="")
         else:

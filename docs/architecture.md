@@ -41,6 +41,7 @@ src/ai_workroot/
   retrieval/
   context/
   release/
+  handoff/
   agent_entry/
   diagnostics/
   shared/
@@ -52,8 +53,8 @@ DDD is used only for strategic modeling. Implementation is command-first and cap
 - `cli`: thin terminal adapter.
 - `commands`: application command entrypoints.
 - `state`: managed state, registry, SQLite, JSONL, locking, and migrations.
-- `work`, `assets`, `relationships`, `retrieval`, `context`, `release`, `agent_entry`, and `diagnostics`: capability-owned models and operations.
-- `shared`: small cross-capability primitives and standard-library-only contracts.
+- `work`, `assets`, `relationships`, `retrieval`, `context`, `release`, `handoff`, `agent_entry`, and `diagnostics`: capability-owned models and operations.
+- `shared`: reserved extensions and standard-library-only contracts.
 - `templates`: packaged templates.
 
 Old layer-first packages are not part of the active source tree.
@@ -69,9 +70,10 @@ The active domain language is:
 5. Relationship Network
 6. Retrieval & Index Control
 7. Context Control
-8. Agent Interface
-9. System Health
-10. Extensions
+8. Handoff
+9. Agent Interface
+10. System Health
+11. Extensions
 
 Do not use Public Seed, Mind, Memory, Graph, Context Gate, TombstoneMarker, or ReleaseMarker as active top-level domain names. Public Seed may appear in history; graph may appear only as technical implementation wording.
 
@@ -86,8 +88,13 @@ Work keeps factual process continuity:
 - WorkCheckpoint
 - Retrieval Card
 - InvalidationRecord
-- Handoff
 - OperationTransaction
+
+## Handoff Model
+
+Handoff owns derived transfer packages for the next agent, tool, session, human, or future self.
+
+Handoff may reference Work facts, context packages, assets, relationships, and release filters, but it does not own durable Work truth.
 
 Legacy seed commands are not active compatibility tooling. Clean Workroot users should use the primary commands: `init`, `list`, `status`, `context`, `doctor`, and `bootstrap-dev`.
 

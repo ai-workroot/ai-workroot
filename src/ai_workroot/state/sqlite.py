@@ -241,7 +241,9 @@ CREATE TABLE IF NOT EXISTS invalidation_records (
 CREATE TABLE IF NOT EXISTS handoffs (
   handoff_id TEXT PRIMARY KEY,
   workroot_id TEXT NOT NULL,
-  title TEXT
+  title TEXT,
+  target TEXT,
+  body TEXT
 );
 
 CREATE TABLE IF NOT EXISTS time_events (
@@ -459,6 +461,9 @@ VALUES ('006-time-events', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 
 INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
 VALUES ('007-relationship-node-canonical-targets', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
+
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('008-handoff-package-fields', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 """
 
 
@@ -469,6 +474,7 @@ def initialize_workroot_sqlite(path: Path) -> None:
         connection.executescript(_schema_without_release_indexes())
         _ensure_indexed_file_source_columns(connection)
         _ensure_active_work_runtime_columns(connection)
+        _ensure_handoff_package_columns(connection)
         _ensure_active_asset_runtime_columns(connection)
         _ensure_relationship_node_target_columns(connection)
         _ensure_context_candidate_time_columns(connection)
@@ -514,6 +520,13 @@ def _ensure_active_work_runtime_columns(connection: sqlite3.Connection) -> None:
         for name, column_type in expected.items():
             if name not in columns:
                 connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
+
+
+def _ensure_handoff_package_columns(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(handoffs)").fetchall()}
+    for name in ("target", "body"):
+        if name not in columns:
+            connection.execute(f"ALTER TABLE handoffs ADD COLUMN {name} TEXT")
 
 
 def _ensure_active_asset_runtime_columns(connection: sqlite3.Connection) -> None:

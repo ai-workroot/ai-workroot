@@ -92,9 +92,11 @@ def run_release_doctor(root: Path | str = ".") -> DoctorResult:
     findings = [
         _check_path(repo, "src/ai_workroot/commands", "commands package"),
         _check_path(repo, "src/ai_workroot/state", "state package"),
-        _check_path(repo, "src/ai_workroot/context/builder.py", "Context Control"),
+        _check_path(repo, "src/ai_workroot/context/builder.py", "Context Control entrypoint"),
+        _check_path(repo, "src/ai_workroot/handoff", "Handoff package"),
         _check_path(repo, "src/ai_workroot/retrieval/providers", "retrieval providers"),
         _check_path(repo, "src/ai_workroot/release/operations.py", "Release Control"),
+        _check_path(repo, "src/ai_workroot/release/filter.py", "Release Control filtering"),
         _check_path(repo, "src/ai_workroot/agent_entry/native.py", "Agent Entry"),
         _check_path(
             repo,

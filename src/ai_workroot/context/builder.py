@@ -11,17 +11,26 @@ import time
 from pathlib import Path
 import uuid
 
-from ai_workroot.relationships.model import RelationshipSignal
-from ai_workroot.relationships.operations import relationship_signals_for_sources
-from ai_workroot.retrieval.providers.candidate_provider import CandidateMatch, query_context_candidates
-from ai_workroot.retrieval.providers.context_recall_hint_provider import materialize_context_recall_hints
-from ai_workroot.retrieval.providers.release_provider import (
+from ai_workroot.release.evaluation import evaluate_release_targets
+from ai_workroot.release.filter import (
     FtsReleaseFilterReport,
     RelationshipReleaseFilterReport,
     ReleaseFilterReport,
     filter_fts_matches_for_release,
     filter_relationship_signals_for_release,
     load_release_filter_report,
+)
+from ai_workroot.release.model import ReleaseTargetRef
+from ai_workroot.relationships.model import RelationshipSignal
+from ai_workroot.relationships.operations import relationship_signals_for_source_refs
+from ai_workroot.retrieval.model import ContextRecallHint
+from ai_workroot.retrieval.providers.candidate_provider import (
+    CandidateMatch,
+    query_context_candidates,
+    upsert_context_candidate,
+)
+from ai_workroot.retrieval.providers.context_recall_hint_provider import (
+    query_context_recall_hints,
 )
 from ai_workroot.retrieval.providers.sqlite_fts import FtsMatch, search_fts
 from ai_workroot.state.environment import (
@@ -97,206 +106,354 @@ class ModePlan:
         }
 
 
+@dataclass(frozen=True)
+class ContextRuntime:
+    record: dict[str, str]
+    request: ContextRequest
+    db_path: Path
+    context_config: ContextControlConfig
+    mode_plan: ModePlan
+    started: float
+
+
+@dataclass(frozen=True)
+class LoadedContext:
+    continuity: ContinuityContext
+
+
+@dataclass(frozen=True)
+class RetrievedContext:
+    candidates: list[CandidateMatch]
+    fts_matches: list[FtsMatch]
+    fts_error: str | None
+
+
+@dataclass(frozen=True)
+class GovernedContext:
+    candidates: list[CandidateMatch]
+    fts_matches: list[FtsMatch]
+    fts_error: str | None
+    release_report: ReleaseFilterReport
+    fts_release_report: FtsReleaseFilterReport
+
+
+@dataclass(frozen=True)
+class SelectedContext:
+    candidates: list[CandidateMatch]
+    relationship_signals: list[RelationshipSignal]
+    relationship_release_report: RelationshipReleaseFilterReport
+    fallback_user_asset_candidates: dict[str, object]
+
+
+@dataclass(frozen=True)
+class RenderedContext:
+    text: str
+    trim_steps: list[str]
+
+
 def build_context_package(
     request: ContextRequest,
     *,
     ai_workroot_home: Path | str | None = None,
 ) -> str:
+    runtime = _resolve_context_runtime(request, ai_workroot_home)
+    loaded = LoadedContext(continuity=ContinuityContext())
+    retrieved = RetrievedContext(candidates=[], fts_matches=[], fts_error=None)
+    governed = GovernedContext(
+        candidates=[],
+        fts_matches=[],
+        fts_error=None,
+        release_report=ReleaseFilterReport(frozenset(), frozenset(), ()),
+        fts_release_report=FtsReleaseFilterReport((), (), ()),
+    )
+    selected = SelectedContext(
+        candidates=[],
+        relationship_signals=[],
+        relationship_release_report=RelationshipReleaseFilterReport((), (), ()),
+        fallback_user_asset_candidates={"attempted": False, "reason": "not_needed"},
+    )
+
+    if runtime.db_path.is_file():
+        with sqlite3.connect(runtime.db_path) as conn:
+            loaded = _load_context_state(conn, runtime)
+            _prepare_recall_hints(conn, runtime)
+            retrieved = _retrieve_context(conn, runtime)
+            governed = _govern_context(conn, runtime, retrieved)
+            selected = _select_context(conn, runtime, governed)
+
+    selected = _apply_fallback_selection(runtime, governed, selected)
+    rendered = _render_context(runtime, loaded, governed, selected)
+    final = _apply_context_budget(runtime, loaded, governed, selected, rendered)
+    _record_context_result(runtime, loaded, governed, selected, final)
+    return final.text
+
+
+# Context assembly pipeline.
+def _resolve_context_runtime(request: ContextRequest, ai_workroot_home: Path | str | None) -> ContextRuntime:
     started = time.perf_counter()
     record = find_workroot_by_cwd(request.cwd, ai_workroot_home=ai_workroot_home)
     context_config = load_context_control_config(Path(record["stateDirectory"]).parents[1])
     request = _resolve_context_request_budget(request, context_config)
-    db_path = Path(record["stateDirectory"]) / "cache/workroot.sqlite"
-    selected: list[CandidateMatch] = []
-    fts_matches: list[FtsMatch] = []
-    relationship_signals: list[RelationshipSignal] = []
-    release_report = ReleaseFilterReport(frozenset(), frozenset(), ())
-    fts_release_report = FtsReleaseFilterReport((), (), ())
-    relationship_release_report = RelationshipReleaseFilterReport((), (), ())
-    fallback_user_asset_candidates = {"attempted": False, "reason": "not_needed"}
-    continuity = ContinuityContext()
-    mode_plan = _resolve_mode_plan(request.mode)
-    fts_error: str | None = None
+    return ContextRuntime(
+        record=record,
+        request=request,
+        db_path=Path(record["stateDirectory"]) / "cache/workroot.sqlite",
+        context_config=context_config,
+        mode_plan=_resolve_mode_plan(request.mode),
+        started=started,
+    )
 
-    if db_path.is_file():
-        with sqlite3.connect(db_path) as conn:
-            continuity = _load_continuity_context(conn, record["workrootId"])
-            materialize_context_recall_hints(
-                conn,
-                record["workrootId"],
-                query=request.query,
-                limit=mode_plan.hint_limit,
-            )
-            candidates = query_context_candidates(
-                conn,
-                record["workrootId"],
-                query=request.query,
-                limit=max(mode_plan.candidate_limit * 3, mode_plan.hint_limit),
-            )
-            release_report = load_release_filter_report(conn, record["workrootId"], candidates)
-            candidates = _apply_release_filters(candidates, release_report)
-            fts_matches, fts_error = search_fts(conn, record["workrootId"], request.query, limit=mode_plan.fts_limit)
-            fts_release_report = filter_fts_matches_for_release(conn, record["workrootId"], fts_matches)
-            fts_matches = list(fts_release_report.matches)
-            selected = _select_candidates(candidates, fts_matches, limit=mode_plan.candidate_limit)
-            source_ids = {candidate.source_id for candidate in selected}
-            relationship_signals = relationship_signals_for_sources(
-                conn,
-                record["workrootId"],
-                source_ids,
-                limit=mode_plan.relationship_limit,
-            )
-            relationship_release_report = filter_relationship_signals_for_release(
-                conn, record["workrootId"], relationship_signals
-            )
-            relationship_signals = list(relationship_release_report.signals)
-            selected = _boost_relationship_candidates(selected, relationship_signals)
 
-    if not selected:
-        if _protected_drop_occurred(release_report, fts_release_report, relationship_release_report):
-            fallback_user_asset_candidates = {
+def _load_context_state(conn: sqlite3.Connection, runtime: ContextRuntime) -> LoadedContext:
+    return LoadedContext(continuity=_load_continuity_context(conn, runtime.record["workrootId"]))
+
+
+def _prepare_recall_hints(conn: sqlite3.Connection, runtime: ContextRuntime) -> None:
+    _materialize_context_recall_hints_for_release(
+        conn,
+        runtime.record["workrootId"],
+        query=runtime.request.query,
+        limit=runtime.mode_plan.hint_limit,
+    )
+
+
+def _retrieve_context(conn: sqlite3.Connection, runtime: ContextRuntime) -> RetrievedContext:
+    candidates = query_context_candidates(
+        conn,
+        runtime.record["workrootId"],
+        query=runtime.request.query,
+        limit=max(runtime.mode_plan.candidate_limit * 3, runtime.mode_plan.hint_limit),
+    )
+    fts_matches, fts_error = search_fts(
+        conn,
+        runtime.record["workrootId"],
+        runtime.request.query,
+        limit=runtime.mode_plan.fts_limit,
+    )
+    return RetrievedContext(candidates=candidates, fts_matches=fts_matches, fts_error=fts_error)
+
+
+def _govern_context(
+    conn: sqlite3.Connection,
+    runtime: ContextRuntime,
+    retrieved: RetrievedContext,
+) -> GovernedContext:
+    release_report = load_release_filter_report(conn, runtime.record["workrootId"], retrieved.candidates)
+    candidates = _apply_release_filters(retrieved.candidates, release_report)
+    fts_release_report = filter_fts_matches_for_release(conn, runtime.record["workrootId"], retrieved.fts_matches)
+    return GovernedContext(
+        candidates=candidates,
+        fts_matches=list(fts_release_report.matches),
+        fts_error=retrieved.fts_error,
+        release_report=release_report,
+        fts_release_report=fts_release_report,
+    )
+
+
+def _select_context(
+    conn: sqlite3.Connection,
+    runtime: ContextRuntime,
+    governed: GovernedContext,
+) -> SelectedContext:
+    candidates = _select_candidates(governed.candidates, governed.fts_matches, limit=runtime.mode_plan.candidate_limit)
+    source_refs = {
+        (candidate.source_type, candidate.source_id)
+        for candidate in candidates
+        if candidate.source_type and candidate.source_id
+    }
+    relationship_signals = relationship_signals_for_source_refs(
+        conn,
+        runtime.record["workrootId"],
+        source_refs,
+        limit=runtime.mode_plan.relationship_limit,
+    )
+    relationship_release_report = filter_relationship_signals_for_release(
+        conn,
+        runtime.record["workrootId"],
+        relationship_signals,
+    )
+    relationship_signals = list(relationship_release_report.signals)
+    candidates = _boost_relationship_candidates(candidates, relationship_signals)
+    return SelectedContext(
+        candidates=candidates,
+        relationship_signals=relationship_signals,
+        relationship_release_report=relationship_release_report,
+        fallback_user_asset_candidates={"attempted": False, "reason": "not_needed"},
+    )
+
+
+def _apply_fallback_selection(
+    runtime: ContextRuntime,
+    governed: GovernedContext,
+    selected: SelectedContext,
+) -> SelectedContext:
+    if selected.candidates:
+        return selected
+    if _protected_drop_occurred(
+        governed.release_report,
+        governed.fts_release_report,
+        selected.relationship_release_report,
+    ):
+        return SelectedContext(
+            candidates=[],
+            relationship_signals=selected.relationship_signals,
+            relationship_release_report=selected.relationship_release_report,
+            fallback_user_asset_candidates={
                 "attempted": False,
                 "reason": "disabled_due_to_release_protected_drop",
-            }
-        else:
-            fallback_user_asset_candidates = {"attempted": True, "reason": "no_selected_candidates"}
-            selected = _fallback_user_asset_candidates(Path(record["userDirectory"]))
+            },
+        )
+    return SelectedContext(
+        candidates=_fallback_user_asset_candidates(Path(runtime.record["userDirectory"])),
+        relationship_signals=selected.relationship_signals,
+        relationship_release_report=selected.relationship_release_report,
+        fallback_user_asset_candidates={"attempted": True, "reason": "no_selected_candidates"},
+    )
 
-    rendered = _render_package(
-        record=record,
-        request=request,
-        selected=selected,
-        fts_matches=fts_matches,
-        relationship_signals=relationship_signals,
-        release_report=release_report,
-        fts_release_report=fts_release_report,
-        relationship_release_report=relationship_release_report,
-        fallback_user_asset_candidates=fallback_user_asset_candidates,
-        continuity=continuity,
-        mode_plan=mode_plan,
-        fts_error=fts_error,
-        started=started,
+
+def _render_context(
+    runtime: ContextRuntime,
+    loaded: LoadedContext,
+    governed: GovernedContext,
+    selected: SelectedContext,
+) -> RenderedContext:
+    return RenderedContext(
+        text=_render_context_text(runtime, loaded, governed, selected, trim_steps=[]),
         trim_steps=[],
     )
-    rendered, trim_steps = _enforce_hard_token_limit(rendered, request.hard_token_limit)
-    if trim_steps:
-        if request.debug:
-            rendered = _render_compact_debug_package(
-                record=record,
-                request=request,
-                selected=selected,
-                release_report=release_report,
-                fts_release_report=fts_release_report,
-                relationship_release_report=relationship_release_report,
-                fallback_user_asset_candidates=fallback_user_asset_candidates,
-                continuity=continuity,
-                mode_plan=mode_plan,
-                fts_error=fts_error,
-                started=started,
-                trim_steps=trim_steps,
+
+
+def _apply_context_budget(
+    runtime: ContextRuntime,
+    loaded: LoadedContext,
+    governed: GovernedContext,
+    selected: SelectedContext,
+    rendered: RenderedContext,
+) -> RenderedContext:
+    text, trim_steps = _enforce_hard_token_limit(rendered.text, runtime.request.hard_token_limit)
+    if not trim_steps:
+        return RenderedContext(text=text, trim_steps=[])
+
+    if runtime.request.debug:
+        text = _render_compact_debug_context_text(runtime, loaded, governed, selected, trim_steps=trim_steps)
+        text, fallback_steps = _enforce_hard_token_limit(text, runtime.request.hard_token_limit)
+        if fallback_steps and "final-fallback" not in trim_steps:
+            trim_steps.extend(fallback_steps)
+        if fallback_steps and "## Debug Trace" not in text:
+            text = _minimal_debug_package(
+                record=runtime.record, request=runtime.request, started=runtime.started, trim_steps=trim_steps
             )
-            rendered, fallback_steps = _enforce_hard_token_limit(rendered, request.hard_token_limit)
-            if fallback_steps and "final-fallback" not in trim_steps:
-                trim_steps.extend(fallback_steps)
-            if fallback_steps and "## Debug Trace" not in rendered:
-                rendered = _minimal_debug_package(
-                    record=record, request=request, started=started, trim_steps=trim_steps
-                )
-            rendered = _append_trim_marker(rendered, trim_steps)
-            rendered, _ = _enforce_hard_token_limit(rendered, request.hard_token_limit)
-            rendered = _refresh_rendered_token_usage(rendered, request.hard_token_limit)
-            if "## Debug Trace" not in rendered:
-                rendered = _minimal_debug_package(
-                    record=record, request=request, started=started, trim_steps=trim_steps
-                )
-                rendered, _ = _enforce_hard_token_limit(rendered, request.hard_token_limit)
-                rendered = _refresh_rendered_token_usage(rendered, request.hard_token_limit)
-            if db_path.is_file():
-                with sqlite3.connect(db_path) as conn:
-                    _persist_context_runtime_state(
-                        conn,
-                        workroot_id=record["workrootId"],
-                        request=request,
-                        rendered=rendered,
-                        selected=selected,
-                        release_report=release_report,
-                        fts_release_report=fts_release_report,
-                        relationship_release_report=relationship_release_report,
-                        fallback_user_asset_candidates=fallback_user_asset_candidates,
-                        continuity=continuity,
-                        mode_plan=mode_plan,
-                        trim_steps=trim_steps,
-                    )
-            _write_context_diagnostic_log(
-                record=record,
-                request=request,
-                rendered=rendered,
-                selected=selected,
-                release_report=release_report,
-                fts_release_report=fts_release_report,
-                relationship_release_report=relationship_release_report,
-                fallback_user_asset_candidates=fallback_user_asset_candidates,
-                mode_plan=mode_plan,
-                trim_steps=trim_steps,
-                logging_config=context_config.diagnostic_logging,
+        text = _append_trim_marker(text, trim_steps)
+        text, _ = _enforce_hard_token_limit(text, runtime.request.hard_token_limit)
+        text = _refresh_rendered_token_usage(text, runtime.request.hard_token_limit)
+        if "## Debug Trace" not in text:
+            text = _minimal_debug_package(
+                record=runtime.record, request=runtime.request, started=runtime.started, trim_steps=trim_steps
             )
-            return rendered
-        rendered = _render_package(
-            record=record,
-            request=request,
-            selected=selected,
-            fts_matches=fts_matches,
-            relationship_signals=relationship_signals,
-            release_report=release_report,
-            fts_release_report=fts_release_report,
-            relationship_release_report=relationship_release_report,
-            fallback_user_asset_candidates=fallback_user_asset_candidates,
-            continuity=continuity,
-            mode_plan=mode_plan,
-            fts_error=fts_error,
-            started=started,
-            trim_steps=trim_steps,
-        )
-        if trim_steps:
-            rendered = _append_trim_marker(rendered, trim_steps)
-        rendered, fallback_steps = _enforce_hard_token_limit(rendered, request.hard_token_limit)
-        if fallback_steps:
-            trim_steps.extend(step for step in fallback_steps if step not in trim_steps)
-            rendered = _append_trim_marker(rendered, trim_steps)
-            rendered, _ = _enforce_hard_token_limit(rendered, request.hard_token_limit)
-            rendered = _refresh_rendered_token_usage(rendered, request.hard_token_limit)
-    if db_path.is_file():
-        with sqlite3.connect(db_path) as conn:
+            text, _ = _enforce_hard_token_limit(text, runtime.request.hard_token_limit)
+            text = _refresh_rendered_token_usage(text, runtime.request.hard_token_limit)
+        return RenderedContext(text=text, trim_steps=trim_steps)
+
+    text = _render_context_text(runtime, loaded, governed, selected, trim_steps=trim_steps)
+    text = _append_trim_marker(text, trim_steps)
+    text, fallback_steps = _enforce_hard_token_limit(text, runtime.request.hard_token_limit)
+    if fallback_steps:
+        trim_steps.extend(step for step in fallback_steps if step not in trim_steps)
+        text = _append_trim_marker(text, trim_steps)
+        text, _ = _enforce_hard_token_limit(text, runtime.request.hard_token_limit)
+        text = _refresh_rendered_token_usage(text, runtime.request.hard_token_limit)
+    return RenderedContext(text=text, trim_steps=trim_steps)
+
+
+def _record_context_result(
+    runtime: ContextRuntime,
+    loaded: LoadedContext,
+    governed: GovernedContext,
+    selected: SelectedContext,
+    rendered: RenderedContext,
+) -> None:
+    if runtime.db_path.is_file():
+        with sqlite3.connect(runtime.db_path) as conn:
             _persist_context_runtime_state(
                 conn,
-                workroot_id=record["workrootId"],
-                request=request,
-                rendered=rendered,
-                selected=selected,
-                release_report=release_report,
-                fts_release_report=fts_release_report,
-                relationship_release_report=relationship_release_report,
-                fallback_user_asset_candidates=fallback_user_asset_candidates,
-                continuity=continuity,
-                mode_plan=mode_plan,
-                trim_steps=trim_steps,
+                workroot_id=runtime.record["workrootId"],
+                request=runtime.request,
+                rendered=rendered.text,
+                selected=selected.candidates,
+                release_report=governed.release_report,
+                fts_release_report=governed.fts_release_report,
+                relationship_release_report=selected.relationship_release_report,
+                fallback_user_asset_candidates=selected.fallback_user_asset_candidates,
+                continuity=loaded.continuity,
+                mode_plan=runtime.mode_plan,
+                trim_steps=rendered.trim_steps,
             )
     _write_context_diagnostic_log(
-        record=record,
-        request=request,
-        rendered=rendered,
-        selected=selected,
-        release_report=release_report,
-        fts_release_report=fts_release_report,
-        relationship_release_report=relationship_release_report,
-        fallback_user_asset_candidates=fallback_user_asset_candidates,
-        mode_plan=mode_plan,
-        trim_steps=trim_steps,
-        logging_config=context_config.diagnostic_logging,
+        record=runtime.record,
+        request=runtime.request,
+        rendered=rendered.text,
+        selected=selected.candidates,
+        release_report=governed.release_report,
+        fts_release_report=governed.fts_release_report,
+        relationship_release_report=selected.relationship_release_report,
+        fallback_user_asset_candidates=selected.fallback_user_asset_candidates,
+        mode_plan=runtime.mode_plan,
+        trim_steps=rendered.trim_steps,
+        logging_config=runtime.context_config.diagnostic_logging,
     )
-    return rendered
 
 
+def _render_context_text(
+    runtime: ContextRuntime,
+    loaded: LoadedContext,
+    governed: GovernedContext,
+    selected: SelectedContext,
+    *,
+    trim_steps: list[str],
+) -> str:
+    return _render_package(
+        record=runtime.record,
+        request=runtime.request,
+        selected=selected.candidates,
+        fts_matches=governed.fts_matches,
+        relationship_signals=selected.relationship_signals,
+        release_report=governed.release_report,
+        fts_release_report=governed.fts_release_report,
+        relationship_release_report=selected.relationship_release_report,
+        fallback_user_asset_candidates=selected.fallback_user_asset_candidates,
+        continuity=loaded.continuity,
+        mode_plan=runtime.mode_plan,
+        fts_error=governed.fts_error,
+        started=runtime.started,
+        trim_steps=trim_steps,
+    )
+
+
+def _render_compact_debug_context_text(
+    runtime: ContextRuntime,
+    loaded: LoadedContext,
+    governed: GovernedContext,
+    selected: SelectedContext,
+    *,
+    trim_steps: list[str],
+) -> str:
+    return _render_compact_debug_package(
+        record=runtime.record,
+        request=runtime.request,
+        selected=selected.candidates,
+        release_report=governed.release_report,
+        fts_release_report=governed.fts_release_report,
+        relationship_release_report=selected.relationship_release_report,
+        fallback_user_asset_candidates=selected.fallback_user_asset_candidates,
+        continuity=loaded.continuity,
+        mode_plan=runtime.mode_plan,
+        fts_error=governed.fts_error,
+        started=runtime.started,
+        trim_steps=trim_steps,
+    )
+
+
+# Request and budget resolution.
 def _resolve_context_request_budget(request: ContextRequest, config: ContextControlConfig) -> ContextRequest:
     target_tokens = request.target_tokens if request.target_tokens is not None else config.default_target_tokens
     hard_token_limit = (
@@ -368,6 +525,66 @@ def _resolve_mode_plan(mode: str) -> ModePlan:
     )
 
 
+# Release-aware recall hint materialization. Retrieval owns the hint/candidate
+# read models; Context Control coordinates Release Control before writing
+# derived context candidates.
+def _materialize_context_recall_hints_for_release(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    *,
+    query: str = "",
+    limit: int = 50,
+) -> list[str]:
+    hints = query_context_recall_hints(conn, workroot_id, query=query, limit=limit)
+    if query.strip() and not hints:
+        hints = query_context_recall_hints(conn, workroot_id, query="", limit=min(limit, 10))
+    return [_materialize_context_recall_hint_for_release(conn, hint) for hint in hints]
+
+
+def _materialize_context_recall_hint_for_release(conn: sqlite3.Connection, hint: ContextRecallHint) -> str:
+    candidate_id = f"hint:{hint.hint_id}"
+    title, summary = _release_safe_hint_text(conn, hint)
+    upsert_context_candidate(
+        conn,
+        {
+            "candidate_id": candidate_id,
+            "workroot_id": hint.workroot_id,
+            "source_type": "context_recall_hint",
+            "source_id": hint.hint_id,
+            "title": title,
+            "summary": summary,
+            "domains": hint.scope_id,
+            "importance": hint.priority or "normal",
+            "confidence": 0.9,
+            "status": "active",
+            "context_policy": hint.recall_rule or "task-related",
+            "safety_policy": "",
+            "token_estimate": 0,
+            "updatedAt": hint.updated_at,
+        },
+    )
+    return candidate_id
+
+
+def _release_safe_hint_text(conn: sqlite3.Connection, hint: ContextRecallHint) -> tuple[str, str]:
+    evaluation = evaluate_release_targets(
+        conn,
+        hint.workroot_id,
+        (
+            ReleaseTargetRef(
+                target_type=hint.target_type,
+                target_id=hint.target_id,
+                workroot_id=hint.workroot_id,
+            ),
+        ),
+    )
+    if not evaluation.strictly_protected:
+        return hint.title, hint.summary
+    placeholder = "[redacted]" if evaluation.level == "redacted" else "[deleted]"
+    return placeholder, placeholder
+
+
+# Candidate selection.
 def _select_candidates(
     candidates: list[CandidateMatch],
     fts_matches: list[FtsMatch],
@@ -441,9 +658,17 @@ def _boost_relationship_candidates(
     related_sources = {
         node_id for signal in relationship_signals for node_id in (signal.from_node_id, signal.to_node_id)
     }
+    related_source_refs = {
+        (source_ref.source_type, source_ref.source_id)
+        for signal in relationship_signals
+        for source_ref in signal.matched_source_refs
+    }
     boosted: list[CandidateMatch] = []
     for candidate in candidates:
-        if candidate.source_id in related_sources:
+        if (
+            candidate.source_id in related_sources
+            or (candidate.source_type, candidate.source_id) in related_source_refs
+        ):
             boosted.append(
                 CandidateMatch(
                     candidate_id=candidate.candidate_id,
@@ -557,6 +782,7 @@ def _fetch_one_safely(
         return None
 
 
+# Rendering.
 def _render_package(
     *,
     record: dict[str, str],
@@ -807,6 +1033,7 @@ def _finalize_rendered_token_usage(rendered: str) -> str:
     return rendered.replace(TOKEN_USAGE_PLACEHOLDER, str(max(token_usage, estimate_tokens(finalized))))
 
 
+# Hard-token-limit enforcement.
 def _enforce_hard_token_limit(rendered: str, hard_token_limit: int) -> tuple[str, list[str]]:
     if estimate_tokens(rendered) <= hard_token_limit:
         return rendered, []
@@ -906,6 +1133,7 @@ def _package_body_for_tokens(
     return "\n".join(parts)
 
 
+# Persistence.
 def _persist_context_runtime_state(
     conn: sqlite3.Connection,
     *,
@@ -990,6 +1218,7 @@ def _persist_context_runtime_state(
     conn.commit()
 
 
+# Diagnostic logging.
 def _write_context_diagnostic_log(
     *,
     record: dict[str, str],

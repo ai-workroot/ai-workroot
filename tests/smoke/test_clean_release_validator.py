@@ -26,6 +26,8 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("AI Workroot release doctor: PASS", result.stdout)
         self.assertIn("import boundaries", result.stdout)
+        self.assertIn("Handoff package", result.stdout)
+        self.assertIn("Release Control filtering", result.stdout)
         self.assertIn("Native Agent Entry templates", result.stdout)
         self.assertIn("Release Control context protection", result.stdout)
         self.assertIn("Release Control target protection", result.stdout)
@@ -67,6 +69,7 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             repo.mkdir()
             for rel in (
                 "src/ai_workroot/commands",
+                "src/ai_workroot/handoff",
                 "src/ai_workroot/state",
                 "src/ai_workroot/retrieval/providers",
                 "src/ai_workroot/templates/native_agent_entry",
@@ -76,6 +79,7 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
                 (repo / rel).mkdir(parents=True, exist_ok=True)
             for rel in (
                 "src/ai_workroot/context/builder.py",
+                "src/ai_workroot/release/filter.py",
                 "src/ai_workroot/release/operations.py",
                 "src/ai_workroot/agent_entry/native.py",
                 "tests/negative/test_release_protection_context.py",
@@ -108,6 +112,7 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             repo.mkdir()
             for rel in (
                 "src/ai_workroot/commands",
+                "src/ai_workroot/handoff",
                 "src/ai_workroot/state",
                 "src/ai_workroot/retrieval/providers",
                 "src/ai_workroot/templates/native_agent_entry",
@@ -117,6 +122,7 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
                 (repo / rel).mkdir(parents=True, exist_ok=True)
             for rel in (
                 "src/ai_workroot/context/builder.py",
+                "src/ai_workroot/release/filter.py",
                 "src/ai_workroot/release/operations.py",
                 "src/ai_workroot/agent_entry/native.py",
                 "tests/negative/test_release_protection_context.py",

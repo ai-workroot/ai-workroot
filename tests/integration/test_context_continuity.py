@@ -8,7 +8,8 @@ from pathlib import Path
 
 from ai_workroot.context.builder import ContextRequest, build_context_package
 from ai_workroot.commands.init_workroot import initialize_workroot
-from ai_workroot.work.operations import create_checkpoint, create_handoff, create_task
+from ai_workroot.handoff.operations import create_handoff
+from ai_workroot.work.operations import create_checkpoint, create_task
 
 
 class ContextContinuityTest(unittest.TestCase):

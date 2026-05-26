@@ -19,6 +19,7 @@ src/ai_workroot/
   retrieval/
   context/
   release/
+  handoff/
   agent_entry/
   diagnostics/
   shared/
@@ -105,8 +106,17 @@ Owns:
 - WorkAction.
 - WorkCheckpoint.
 - InvalidationRecord.
-- Handoff records as durable work facts.
 - TimeEvent runtime operations.
+
+### `handoff/`
+
+Derived transfer packages for the next agent, tool, session, human, or future self.
+
+Rules:
+
+- May reference Work facts, context packages, assets, relationships, and release filters.
+- Must not become the owner of durable work truth.
+- Must not expose compatibility wrappers through `work/`.
 
 ### `assets/`
 
@@ -120,9 +130,9 @@ Retrieval may consume relationship signals, but relationship truth is owned here
 
 ### `retrieval/`
 
-Indexing, FTS, candidate providers, recall hints, release-aware retrieval filters, and global index read models.
+Indexing, FTS, candidate providers, recall hints, and global index read models.
 
-Retrieval finds candidates. It does not decide final context package structure and does not own relationship truth.
+Retrieval finds candidates. It does not decide final context package structure, release filtering, or relationship truth.
 
 ### `context/`
 
@@ -134,7 +144,7 @@ Context consumes retrieval output and release filters. It does not own durable w
 
 Release Control models and authoring operations.
 
-Owns release, quiet/archive semantics where present, tombstone, redaction, deletion overlays, and strict release-derived index sanitization.
+Owns release, quiet/archive semantics where present, tombstone, redaction, deletion overlays, release target resolution, release filtering, and strict release-derived index sanitization.
 
 ### `agent_entry/`
 
@@ -153,14 +163,13 @@ Small shared primitives and standard-library-only contracts.
 Allowed:
 
 ```text
-shared/model.py
 shared/extensions.py
 shared/contracts/
 ```
 
 Rules:
 
-- Shared code must be stable and cross-capability.
+- Shared code must be stable, minimal, and cross-capability.
 - Do not move capability-specific policy, models, or operations here.
 - `shared/contracts/` must not import project modules.
 
@@ -182,6 +191,7 @@ commands
   -> retrieval
   -> context
   -> release
+  -> handoff
   -> agent_entry
   -> diagnostics
   -> shared
@@ -207,6 +217,7 @@ state -> commands or cli
 retrieval owns canonical relationship truth
 context owns durable work facts
 release owns retrieval indexes
+retrieval owns release filters
 agent_entry owns durable Workroot truth
 ```
 

@@ -118,33 +118,6 @@ def record_asset_publication(
     return publication
 
 
-def publish_asset(
-    conn: sqlite3.Connection,
-    *,
-    workroot_id: str,
-    asset_id: str,
-    surface_id: str,
-    surface_path: str,
-    surface_type: str,
-    target_path: str,
-    published_by: str,
-    allowed_asset_types: tuple[str, ...],
-    git_policy: str = "tracked",
-) -> AssetPublication:
-    return record_asset_publication(
-        conn,
-        workroot_id=workroot_id,
-        asset_id=asset_id,
-        surface_id=surface_id,
-        surface_path=surface_path,
-        surface_type=surface_type,
-        target_path=target_path,
-        published_by=published_by,
-        allowed_asset_types=allowed_asset_types,
-        git_policy=git_policy,
-    )
-
-
 def publish_asset_to_surface(
     conn: sqlite3.Connection,
     *,

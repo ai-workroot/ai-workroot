@@ -107,7 +107,7 @@ indexed_chunks(file_id, chunk_id, source_type, source_id)
 ```text
 src/ai_workroot/release/model.py
 src/ai_workroot/relationships/model.py
-src/ai_workroot/retrieval/providers/release_provider.py
+src/ai_workroot/release/filter.py
 src/ai_workroot/retrieval/providers/relationship_provider.py
 src/ai_workroot/context/builder.py
 ```
@@ -175,7 +175,7 @@ Debug trace must show release target refs, strongest release level, safety polic
 
 T1: Harden resolver coverage
 - Change: Ensure all required source types resolve through `CandidateReleaseTargetResolver`.
-- Files likely affected: `src/ai_workroot/retrieval/providers/release_provider.py`.
+- Files likely affected: `src/ai_workroot/release/filter.py`.
 - Verification: resolver unit tests.
 
 T2: Enforce safety defaults

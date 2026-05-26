@@ -19,13 +19,13 @@ Status values:
 | `process_level=L0/L1/L2` | `work/model.py` | TaskProcessLevel | preserve | L0/L1/L2 semantics documented and tested. |
 | task kind values | `work/model.py` | TaskKind | preserve | TaskKind behavior documented and tested. |
 | decomposition heuristics | `work/model.py` | TaskDecompositionPolicy | preserve | Large work can request decomposition without exposing DDD internals. |
-| owner/scope hints | `work/model.py` + `shared/model.py` | OwnerScope / Visibility | preserve | Personal-first behavior remains explicit. |
+| owner/scope hints | capability-local models | OwnerScope / Visibility | preserve | Personal-first behavior remains explicit. |
 | quick/session/daily tasks | `work/model.py` | TaskKind=session | preserve | Session task does not automatically publish assets. |
 | long-running/project task | `work/model.py` | TaskKind=project | preserve | TaskDecompositionPolicy exists. |
 | `run_registry.csv` | `work/model.py` | AgentRun | preserve | AgentRun can be recorded and related to Task. |
 | `action_registry.csv` | `work/model.py` | WorkAction | preserve | Actions keep type/risk/evidence fields. |
 | action type values | `work/model.py` | ActionType | preserve | Action type validation exists. |
-| risk labels | `shared/model.py` + `work/model.py` | RiskLevel | preserve | Risk metadata remains available for diagnostics. |
+| risk labels | `work/model.py` or owning capability model | RiskLevel | preserve | Risk metadata remains available for diagnostics. |
 | `checkpoint_registry.csv` | `work/model.py` | WorkCheckpoint | preserve | Checkpoints can be recorded and recalled. |
 | `retrieval_card_registry.csv` | `retrieval/providers/` + `retrieval/model.py` | Context Card / ContextRecallHint | rename | ContextRecallHint is the canonical recall anchor. |
 | `invalidation_registry.csv` | `work/model.py` / `assets/model.py` | InvalidationRecord | preserve | Invalidation affects relationships/assets/context policy. |

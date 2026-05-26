@@ -184,7 +184,7 @@ Doctor:
 
 ### Compatibility
 
-- Existing `publish_asset()` may remain as compatibility wrapper but must be documented or aliased to metadata-only behavior.
+- No `publish_asset()` compatibility wrapper remains. Use `record_asset_publication()` for metadata-only publication records and `publish_asset_to_surface()` for explicit file-writing publication.
 - Legacy scripts remain callable.
 
 ## Acceptance Criteria

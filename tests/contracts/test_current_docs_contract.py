@@ -91,12 +91,29 @@ class CurrentDocsContractTest(unittest.TestCase):
             "Relationship Network",
             "Retrieval & Index Control",
             "Context Control",
+            "Handoff",
             "Agent Interface",
             "System Health",
         ):
             self.assertIn(phrase, formal_section)
         for retired in ("task state", "memory", "Mind", "Context Guide", "Context Gate"):
             self.assertNotIn(retired, formal_section)
+
+    def test_active_architecture_docs_include_handoff_capability(self) -> None:
+        docs = {
+            "README.md": (ROOT / "README.md").read_text(encoding="utf-8"),
+            "docs/architecture/000-overview.md": (ROOT / "docs/architecture/000-overview.md").read_text(
+                encoding="utf-8"
+            ),
+            "docs/architecture-map.md": (ROOT / "docs/architecture-map.md").read_text(encoding="utf-8"),
+        }
+
+        self.assertIn("handoff/", docs["README.md"])
+        self.assertIn("Handoff", docs["README.md"])
+        self.assertIn("handoff/", docs["docs/architecture/000-overview.md"])
+        self.assertIn("8. Handoff", docs["docs/architecture/000-overview.md"])
+        self.assertIn("Handoff", docs["docs/architecture-map.md"])
+        self.assertIn("derived transfer", docs["docs/architecture-map.md"])
 
     def test_active_public_docs_do_not_use_public_seed_paths_as_current_workflow(self) -> None:
         docs = (

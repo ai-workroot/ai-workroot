@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import sqlite3
 
-from ai_workroot.relationships.model import RelationshipEdge, RelationshipEvidence, RelationshipNode, RelationshipSignal
-from ai_workroot.shared.model import SourceRef
+from ai_workroot.relationships.model import (
+    RelationshipEdge,
+    RelationshipEvidence,
+    RelationshipNode,
+    RelationshipSignal,
+    SourceRef,
+)
 from ai_workroot.state.sqlite import record_index_invalidation
 
 
@@ -166,10 +171,72 @@ def relationship_signals_for_sources(
     *,
     limit: int = 10,
 ) -> list[RelationshipSignal]:
-    if not source_ids:
+    return _relationship_signals_for_node_ids(conn, workroot_id, source_ids, limit=limit)
+
+
+def relationship_signals_for_source_refs(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    source_refs: set[tuple[str, str]],
+    *,
+    limit: int = 10,
+) -> list[RelationshipSignal]:
+    normalized_refs = {
+        SourceRef(source_type=str(source_type), source_id=str(source_id))
+        for source_type, source_id in source_refs
+        if source_type and source_id
+    }
+    if not normalized_refs:
         return []
-    placeholders = ",".join("?" for _ in source_ids)
-    params = [workroot_id, *sorted(source_ids), *sorted(source_ids), limit]
+
+    node_ids = {source_ref.source_id for source_ref in normalized_refs}
+    refs_by_node_id: dict[str, set[SourceRef]] = {}
+    for source_ref in normalized_refs:
+        refs_by_node_id.setdefault(source_ref.source_id, set()).add(source_ref)
+    target_clause = " OR ".join("(target_type = ? AND target_id = ?)" for _ in normalized_refs)
+    target_params: list[str] = [workroot_id]
+    for source_ref in sorted(normalized_refs, key=lambda ref: (ref.source_type, ref.source_id)):
+        target_params.extend([source_ref.source_type, source_ref.source_id])
+    rows = conn.execute(
+        f"""
+        SELECT node_id, target_type, target_id
+        FROM relationship_nodes
+        WHERE workroot_id = ?
+          AND ({target_clause})
+        """,
+        target_params,
+    ).fetchall()
+    ref_by_target = {(source_ref.source_type, source_ref.source_id): source_ref for source_ref in normalized_refs}
+    for row in rows:
+        node_id = str(row[0])
+        source_ref = ref_by_target.get((str(row[1] or ""), str(row[2] or "")))
+        if source_ref is None:
+            continue
+        node_ids.add(node_id)
+        refs_by_node_id.setdefault(node_id, set()).add(source_ref)
+
+    return _relationship_signals_for_node_ids(
+        conn,
+        workroot_id,
+        node_ids,
+        limit=limit,
+        refs_by_node_id=refs_by_node_id,
+    )
+
+
+def _relationship_signals_for_node_ids(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    node_ids: set[str],
+    *,
+    limit: int = 10,
+    refs_by_node_id: dict[str, set[SourceRef]] | None = None,
+) -> list[RelationshipSignal]:
+    if not node_ids:
+        return []
+    sorted_node_ids = sorted(node_ids)
+    placeholders = ",".join("?" for _ in sorted_node_ids)
+    params = [workroot_id, *sorted_node_ids, *sorted_node_ids, limit]
     rows = conn.execute(
         f"""
         SELECT edge_id, from_node_id, to_node_id, relationship_type, confidence
@@ -189,9 +256,25 @@ def relationship_signals_for_sources(
             to_node_id=str(row[2]),
             relationship_type=str(row[3]),
             confidence=float(row[4] or 0.0),
+            matched_source_refs=_matched_source_refs(
+                refs_by_node_id,
+                (str(row[1]), str(row[2])),
+            ),
         )
         for row in rows
     ]
+
+
+def _matched_source_refs(
+    refs_by_node_id: dict[str, set[SourceRef]] | None,
+    node_ids: tuple[str, str],
+) -> tuple[SourceRef, ...]:
+    if refs_by_node_id is None:
+        return ()
+    refs: set[SourceRef] = set()
+    for node_id in node_ids:
+        refs.update(refs_by_node_id.get(node_id, set()))
+    return tuple(sorted(refs, key=lambda ref: (ref.source_type, ref.source_id)))
 
 
 def _ensure_node_exists(conn: sqlite3.Connection, workroot_id: str, node_id: str) -> None:

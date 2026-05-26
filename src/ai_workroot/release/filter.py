@@ -1,4 +1,4 @@
-"""Release Control lookup, target resolution, and recall protection."""
+"""Release Control target resolution and recall filtering."""
 
 from __future__ import annotations
 
