@@ -5,13 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import sqlite3
-from typing import Any
+from typing import Any, Optional
 import uuid
 
 from ai_workroot.protocol.directives import directive
+from ai_workroot.protocol.errors import ProtocolError
 from ai_workroot.protocol.events import canonical_json, request_hash
 from ai_workroot.protocol.lease import create_lease, load_lease, now_utc, validate_lease
 from ai_workroot.protocol.model import CommitRequest, SyncRequest
+from ai_workroot.protocol.projections import ProjectionResult, apply_projection
 from ai_workroot.state.layout import workroot_sqlite_path
 from ai_workroot.state.registry import find_workroot_by_cwd, list_workroots
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
@@ -117,6 +119,8 @@ def commit(request_data: dict[str, Any]) -> dict[str, Any]:
                 ),
             )
             event_results = []
+            all_effects = []
+            projection_result: Optional[ProjectionResult] = None
             for event in request.events:
                 _append_protocol_event(
                     conn,
@@ -128,28 +132,53 @@ def commit(request_data: dict[str, Any]) -> dict[str, Any]:
                     event=event,
                     received_at=received_at,
                 )
-                event_results.append({"event_id": event["event_id"], "status": "applied", "effects": []})
+                projection_result = apply_projection(
+                    conn,
+                    workroot_id=workroot["workrootId"],
+                    lease=lease,
+                    event=event,
+                )
+                _append_event_effects(conn, event_id=event["event_id"], effects=projection_result.effects)
+                all_effects.extend(projection_result.effects)
+                event_results.append(
+                    {"event_id": event["event_id"], "status": "applied", "effects": projection_result.effects}
+                )
+            next_scope = projection_result.lease_scope if projection_result else str(lease.get("scope") or "workroot")
+            next_task_id = projection_result.task_id if projection_result else lease.get("task_id")
+            next_run_id = projection_result.run_id if projection_result else lease.get("run_id")
+            next_allowed_events = (
+                projection_result.allowed_events if projection_result else list(lease.get("allowed_events") or [])
+            )
+            next_required_before_stop = (
+                projection_result.required_before_stop
+                if projection_result
+                else list(lease.get("required_before_stop") or [])
+            )
             next_directive = directive(
-                "continue_task",
-                goal="Continue the current Workroot exchange.",
-                next_action="Commit progress or handoff when a checkpoint is reached.",
-                expected_events=list(lease.get("allowed_events") or []),
-                required_before_stop=list(lease.get("required_before_stop") or []),
+                projection_result.directive_type if projection_result else "continue_task",
+                goal=projection_result.directive_goal if projection_result else "Continue the current Workroot exchange.",
+                next_action=(
+                    projection_result.directive_next_action
+                    if projection_result
+                    else "Commit progress or handoff when a checkpoint is reached."
+                ),
+                expected_events=list(next_allowed_events),
+                required_before_stop=list(next_required_before_stop),
             )
             next_lease = create_lease(
                 conn,
                 workroot_id=workroot["workrootId"],
-                scope=str(lease.get("scope") or "workroot"),
-                task_id=lease.get("task_id"),
-                run_id=lease.get("run_id"),
-                allowed_events=list(lease.get("allowed_events") or []),
-                required_before_stop=list(lease.get("required_before_stop") or []),
+                scope=str(next_scope),
+                task_id=str(next_task_id) if next_task_id else None,
+                run_id=str(next_run_id) if next_run_id else None,
+                allowed_events=list(next_allowed_events),
+                required_before_stop=list(next_required_before_stop),
             )
             response = {
                 "ok": True,
                 "accepted": True,
                 "event_results": event_results,
-                "effects": [],
+                "effects": all_effects,
                 "state_vector": next_lease["observed_versions"],
                 "directive": next_directive,
                 "lease": next_lease,
@@ -169,6 +198,9 @@ def commit(request_data: dict[str, Any]) -> dict[str, Any]:
                 """,
                 (json.dumps(response, ensure_ascii=False, sort_keys=True), "completed", now_utc(), batch_id),
             )
+        except ProtocolError as exc:
+            conn.rollback()
+            return _error_response(exc.code, details=exc.details)
         except Exception:
             conn.rollback()
             raise
@@ -254,10 +286,36 @@ def _append_protocol_event(
     )
 
 
-def _error_response(code: str) -> dict[str, Any]:
+def _append_event_effects(
+    conn: sqlite3.Connection,
+    *,
+    event_id: str,
+    effects: list[dict[str, str]],
+) -> None:
+    created_at = now_utc()
+    for index, effect in enumerate(effects, start=1):
+        conn.execute(
+            """
+            INSERT INTO protocol_event_effects (
+              effect_id, event_id, effect_type, target_type, target_id, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                f"effect-{event_id}-{index}",
+                event_id,
+                effect["type"],
+                effect["target_type"],
+                effect["target_id"],
+                created_at,
+            ),
+        )
+
+
+def _error_response(code: str, *, details: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     return {
         "ok": False,
-        "error": {"code": code, "message": code, "details": {}},
+        "error": {"code": code, "message": code, "details": details or {}},
         "directive": directive("resync_required", next_action="Call sync and retry if still relevant."),
         "warnings": [],
     }
