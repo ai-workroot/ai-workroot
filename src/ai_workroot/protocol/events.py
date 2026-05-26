@@ -12,7 +12,7 @@ from ai_workroot.protocol.errors import ProtocolError
 EVENT_KINDS = {"intent", "progress", "decision", "correction", "asset", "guidance", "handoff", "state"}
 
 
-def canonical_json(data: dict[str, Any]) -> str:
+def canonical_json(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
