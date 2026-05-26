@@ -21,7 +21,14 @@ REQUIRED_TABLES = (
     "redactions",
     "deletion_records",
     "release_propagation_events",
+    "protocol_commit_batches",
+    "protocol_events",
+    "protocol_event_effects",
+    "exchange_leases",
+    "state_versions",
     "tasks",
+    "task_runs",
+    "task_summaries",
     "agent_runs",
     "work_actions",
     "work_checkpoints",
@@ -177,7 +184,49 @@ CREATE TABLE IF NOT EXISTS tasks (
   title TEXT,
   status TEXT,
   task_kind TEXT,
-  process_level TEXT
+  process_level TEXT,
+  role TEXT NOT NULL DEFAULT 'normal',
+  parent_task_id TEXT,
+  root_task_id TEXT,
+  retention_policy TEXT NOT NULL DEFAULT 'until_closed',
+  visibility TEXT NOT NULL DEFAULT 'normal',
+  summary_id TEXT,
+  rollup_summary_id TEXT,
+  created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z',
+  updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z',
+  closed_at TEXT,
+  archived_at TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS task_runs (
+  run_id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL,
+  workroot_id TEXT NOT NULL,
+  agent_name TEXT NOT NULL,
+  agent_instance_id TEXT,
+  status TEXT NOT NULL,
+  goal TEXT,
+  input_summary TEXT,
+  output_summary TEXT,
+  detail_body_ref TEXT,
+  source_lease_id TEXT,
+  started_at TEXT NOT NULL,
+  ended_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS task_summaries (
+  summary_id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL,
+  workroot_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  summary_text TEXT NOT NULL,
+  open_questions_json TEXT NOT NULL DEFAULT '[]',
+  next_actions_json TEXT NOT NULL DEFAULT '[]',
+  source_refs_json TEXT NOT NULL DEFAULT '[]',
+  generated_by TEXT NOT NULL,
+  generated_at TEXT NOT NULL,
+  superseded_by TEXT
 );
 
 CREATE TABLE IF NOT EXISTS agent_runs (
@@ -243,7 +292,88 @@ CREATE TABLE IF NOT EXISTS handoffs (
   workroot_id TEXT NOT NULL,
   title TEXT,
   target TEXT,
-  body TEXT
+  body TEXT,
+  task_id TEXT,
+  run_id TEXT,
+  status TEXT,
+  current_state TEXT,
+  next_action TEXT,
+  open_items_json TEXT NOT NULL DEFAULT '[]',
+  open_questions_json TEXT NOT NULL DEFAULT '[]',
+  important_refs_json TEXT NOT NULL DEFAULT '[]',
+  source_refs_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT,
+  superseded_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS protocol_commit_batches (
+  batch_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  request_id TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  request_hash TEXT NOT NULL,
+  response_json TEXT,
+  status TEXT NOT NULL,
+  received_at TEXT NOT NULL,
+  completed_at TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_protocol_commit_batches_idempotency
+  ON protocol_commit_batches(workroot_id, idempotency_key);
+
+CREATE TABLE IF NOT EXISTS protocol_events (
+  event_id TEXT PRIMARY KEY,
+  batch_id TEXT NOT NULL,
+  workroot_id TEXT NOT NULL,
+  request_id TEXT NOT NULL,
+  lease_id TEXT,
+  idempotency_key TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  schema_version TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  evidence_json TEXT NOT NULL DEFAULT '[]',
+  confirmation_json TEXT NOT NULL DEFAULT '{}',
+  source_json TEXT NOT NULL DEFAULT '{}',
+  occurred_at TEXT NOT NULL,
+  received_at TEXT NOT NULL,
+  status TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_protocol_events_workroot_event
+  ON protocol_events(workroot_id, event_id);
+
+CREATE INDEX IF NOT EXISTS idx_protocol_events_kind_time
+  ON protocol_events(workroot_id, kind, received_at);
+
+CREATE TABLE IF NOT EXISTS protocol_event_effects (
+  effect_id TEXT PRIMARY KEY,
+  event_id TEXT NOT NULL,
+  effect_type TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS exchange_leases (
+  lease_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  task_id TEXT,
+  run_id TEXT,
+  observed_versions_json TEXT NOT NULL,
+  allowed_events_json TEXT NOT NULL,
+  required_before_stop_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL,
+  issued_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS state_versions (
+  workroot_id TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (workroot_id, scope)
 );
 
 CREATE TABLE IF NOT EXISTS time_events (
@@ -475,6 +605,7 @@ def initialize_workroot_sqlite(path: Path) -> None:
         _ensure_indexed_file_source_columns(connection)
         _ensure_active_work_runtime_columns(connection)
         _ensure_handoff_package_columns(connection)
+        _ensure_protocol_runtime_columns(connection)
         _ensure_active_asset_runtime_columns(connection)
         _ensure_relationship_node_target_columns(connection)
         _ensure_context_candidate_time_columns(connection)
@@ -527,6 +658,47 @@ def _ensure_handoff_package_columns(connection: sqlite3.Connection) -> None:
     for name in ("target", "body"):
         if name not in columns:
             connection.execute(f"ALTER TABLE handoffs ADD COLUMN {name} TEXT")
+
+
+def _add_column_if_missing(connection: sqlite3.Connection, table: str, name: str, definition: str) -> None:
+    columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+    if name not in columns:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+
+def _ensure_protocol_runtime_columns(connection: sqlite3.Connection) -> None:
+    task_columns = {
+        "role": "TEXT NOT NULL DEFAULT 'normal'",
+        "parent_task_id": "TEXT",
+        "root_task_id": "TEXT",
+        "retention_policy": "TEXT NOT NULL DEFAULT 'until_closed'",
+        "visibility": "TEXT NOT NULL DEFAULT 'normal'",
+        "summary_id": "TEXT",
+        "rollup_summary_id": "TEXT",
+        "created_at": "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z'",
+        "updated_at": "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z'",
+        "closed_at": "TEXT",
+        "archived_at": "TEXT",
+        "metadata_json": "TEXT NOT NULL DEFAULT '{}'",
+    }
+    for name, definition in task_columns.items():
+        _add_column_if_missing(connection, "tasks", name, definition)
+
+    handoff_columns = {
+        "task_id": "TEXT",
+        "run_id": "TEXT",
+        "status": "TEXT",
+        "current_state": "TEXT",
+        "next_action": "TEXT",
+        "open_items_json": "TEXT NOT NULL DEFAULT '[]'",
+        "open_questions_json": "TEXT NOT NULL DEFAULT '[]'",
+        "important_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+        "source_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+        "created_at": "TEXT",
+        "superseded_by": "TEXT",
+    }
+    for name, definition in handoff_columns.items():
+        _add_column_if_missing(connection, "handoffs", name, definition)
 
 
 def _ensure_active_asset_runtime_columns(connection: sqlite3.Connection) -> None:
