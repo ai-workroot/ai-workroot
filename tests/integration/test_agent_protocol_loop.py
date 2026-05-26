@@ -159,6 +159,102 @@ class AgentProtocolLoopTest(unittest.TestCase):
             next_sync["context"]["refs"],
         )
 
+    def test_temporary_task_can_resume_and_promote_to_normal_work(self) -> None:
+        first_sync = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-temporary",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "before_work",
+                "query": "Explore a temporary topic.",
+            }
+        )
+        intent = commit(
+            self.commit_request(
+                first_sync["lease"]["lease_id"],
+                "intent",
+                "evt-intent-temporary-loop",
+                {
+                    "intent_text": "Explore a temporary topic",
+                    "classification": {"persistence": "temporary", "confidence": 0.8, "reason": "integration"},
+                    "task_hint": {"title": "Temporary topic", "task_id": None, "parent_task_id": None},
+                },
+            )
+        )
+        self.assertTrue(intent["ok"])
+        task_id = intent["lease"]["task_id"]
+        run_id = intent["lease"]["run_id"]
+
+        progress = commit(
+            self.commit_request(
+                intent["lease"]["lease_id"],
+                "progress",
+                "evt-progress-temporary-loop",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "summary": "Temporary topic has enough structure to continue.",
+                    "items_created": [
+                        {"item_id": "item-temporary-open", "title": "Decide whether to promote", "status": "todo"}
+                    ],
+                },
+            )
+        )
+        self.assertTrue(progress["ok"])
+        handoff = commit(
+            self.commit_request(
+                progress["lease"]["lease_id"],
+                "handoff",
+                "evt-handoff-temporary-loop",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "current_state": "Temporary topic captured.",
+                    "next_action": "Promote if user confirms this is real work.",
+                    "open_items": [],
+                    "open_questions": [],
+                    "important_refs": [],
+                    "source_refs": [],
+                },
+            )
+        )
+        self.assertTrue(handoff["ok"])
+
+        next_sync = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-temporary-continue",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "continue",
+                "known_state": {"task_id": task_id, "run_id": run_id},
+            }
+        )
+        self.assertIn(
+            {"type": "task_item", "id": "item-temporary-open", "role": "open", "summary": "Decide whether to promote"},
+            next_sync["context"]["refs"],
+        )
+
+        promoted = commit(
+            self.commit_request(
+                next_sync["lease"]["lease_id"],
+                "state",
+                "evt-state-promote-temporary-loop",
+                {
+                    "target_type": "task",
+                    "target_id": task_id,
+                    "to_role": "normal",
+                    "to_process_level": "L1",
+                    "to_visibility": "normal",
+                    "to_retention_policy": "until_closed",
+                    "reason": "User confirmed continuation.",
+                },
+            )
+        )
+        self.assertTrue(promoted["ok"])
+        self.assertIn({"type": "task_promoted", "target_type": "task", "target_id": task_id}, promoted["effects"])
+
     def commit_request(
         self,
         lease_id: str,

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -46,6 +48,19 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         self.assertIn("exchange", result.stdout)
         self.assertIn("sync", result.stdout)
         self.assertIn("commit", result.stdout)
+
+    def test_agent_commit_protocol_error_is_json_response(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            request_path = Path(tmp) / "bad-commit.json"
+            request_path.write_text(json.dumps({"request_id": "req-bad"}), encoding="utf-8")
+
+            result = run_package_cli("agent", "commit", "--request", str(request_path))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        response = json.loads(result.stdout)
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["error"]["code"], "missing_protocol_version")
+        self.assertEqual(response["directive"]["type"], "resync_required")
 
     def test_package_cli_version_reports_protocol_release(self) -> None:
         result = run_package_cli("--version")
