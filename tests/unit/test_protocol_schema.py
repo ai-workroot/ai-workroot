@@ -32,6 +32,7 @@ class ProtocolSchemaTest(unittest.TestCase):
         self.assertIn("state_versions", tables)
         self.assertIn("task_runs", tables)
         self.assertIn("task_summaries", tables)
+        self.assertIn("task_items", tables)
 
     def test_state_versions_are_workroot_scoped(self) -> None:
         conn = self.open_db()
@@ -90,6 +91,29 @@ class ProtocolSchemaTest(unittest.TestCase):
         self.assertIn("task_id", handoff_columns)
         self.assertIn("current_state", handoff_columns)
         self.assertIn("source_refs_json", handoff_columns)
+
+    def test_task_items_schema_supports_process_control(self) -> None:
+        conn = self.open_db()
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(task_items)").fetchall()}
+
+        self.assertTrue(
+            {
+                "item_id",
+                "workroot_id",
+                "task_id",
+                "run_id",
+                "title",
+                "status",
+                "item_order",
+                "detail",
+                "result_summary",
+                "source_event_id",
+                "created_at",
+                "updated_at",
+                "completed_at",
+                "metadata_json",
+            }.issubset(columns)
+        )
 
 
 if __name__ == "__main__":

@@ -14,6 +14,15 @@ TASK_TRANSITIONS = {
     "released": set(),
 }
 
+TASK_ITEM_STATUSES = {"todo", "doing", "done", "blocked", "canceled"}
+TASK_ITEM_TRANSITIONS = {
+    "todo": {"doing", "done", "blocked", "canceled"},
+    "doing": {"todo", "done", "blocked", "canceled"},
+    "blocked": {"doing", "done", "canceled"},
+    "done": set(),
+    "canceled": set(),
+}
+
 
 @dataclass
 class Task:
@@ -58,6 +67,24 @@ class WorkCheckpoint:
     checkpoint_id: str
     task_id: str
     current_status: str
+
+
+@dataclass(frozen=True)
+class TaskItem:
+    item_id: str
+    task_id: str
+    title: str
+    status: str = "todo"
+    item_order: int = 0
+    run_id: str = ""
+    result_summary: str = ""
+
+    def can_transition_to(self, status: str) -> bool:
+        if status not in TASK_ITEM_STATUSES:
+            return False
+        if status == self.status:
+            return True
+        return status in TASK_ITEM_TRANSITIONS.get(self.status, set())
 
 
 @dataclass(frozen=True)

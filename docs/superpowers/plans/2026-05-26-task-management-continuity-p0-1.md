@@ -63,12 +63,12 @@
 - Modify: `tests/unit/test_protocol_schema.py`
 - Modify: `tests/unit/test_work_operations.py`
 
-- [ ] Write failing schema test for `task_items`.
-- [ ] Write failing work operation test for creating/updating a TaskItem.
-- [ ] Add `task_items` table with status, ordering, summaries, and timestamps.
-- [ ] Add `TaskItem` dataclass and status transition helper.
-- [ ] Add `create_task_item()` and `update_task_item()` for work runtime callers.
-- [ ] Run focused tests and commit.
+- [x] Write failing schema test for `task_items`.
+- [x] Write failing work operation test for creating/updating a TaskItem.
+- [x] Add `task_items` table with status, ordering, summaries, and timestamps.
+- [x] Add `TaskItem` dataclass and status transition helper.
+- [x] Add `create_task_item()` and `update_task_item()` for work runtime callers.
+- [x] Run focused tests and commit.
 
 ### Task 3: TaskItems Protocol Projection
 

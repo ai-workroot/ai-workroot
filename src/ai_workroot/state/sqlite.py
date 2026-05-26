@@ -29,6 +29,7 @@ REQUIRED_TABLES = (
     "tasks",
     "task_runs",
     "task_summaries",
+    "task_items",
     "agent_runs",
     "work_actions",
     "work_checkpoints",
@@ -228,6 +229,26 @@ CREATE TABLE IF NOT EXISTS task_summaries (
   generated_at TEXT NOT NULL,
   superseded_by TEXT
 );
+
+CREATE TABLE IF NOT EXISTS task_items (
+  item_id TEXT PRIMARY KEY,
+  workroot_id TEXT NOT NULL,
+  task_id TEXT NOT NULL,
+  run_id TEXT,
+  title TEXT NOT NULL,
+  status TEXT NOT NULL,
+  item_order INTEGER NOT NULL DEFAULT 0,
+  detail TEXT,
+  result_summary TEXT,
+  source_event_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  completed_at TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_items_task_status
+  ON task_items(workroot_id, task_id, status, item_order);
 
 CREATE TABLE IF NOT EXISTS agent_runs (
   run_id TEXT PRIMARY KEY,
