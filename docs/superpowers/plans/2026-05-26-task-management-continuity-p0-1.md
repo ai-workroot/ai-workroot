@@ -106,10 +106,10 @@
 **Files:**
 - Modify: `docs/superpowers/specs/2026-05-26-task-management-continuity-p0-1-design.md`
 
-- [ ] Confirm deferred backlog is recorded in the design spec.
-- [ ] Run focused task-management tests.
-- [ ] Run unit, integration, smoke, release validator, and temporary Workroot doctor.
-- [ ] Commit final formatting/doc updates if any.
+- [x] Confirm deferred backlog is recorded in the design spec.
+- [x] Run focused task-management tests.
+- [x] Run unit, integration, smoke, release validator, and temporary Workroot doctor.
+- [x] Commit final formatting/doc updates if any.
 
 ## Verification Commands
 
