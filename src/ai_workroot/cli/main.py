@@ -6,16 +6,19 @@ import argparse
 from collections.abc import Sequence
 import json
 from pathlib import Path
+import uuid
 
+from ai_workroot.commands.agent_exchange import run_commit_request, run_exchange_request, run_sync_request
 from ai_workroot.commands.bootstrap_dev import bootstrap_dev
 from ai_workroot.commands.build_context import build_context
 from ai_workroot.commands.init_workroot import initialize_workroot
 from ai_workroot.commands.list_workroots import list_workroots
 from ai_workroot.commands.run_doctor import run_doctor, run_release_doctor
 from ai_workroot.commands.show_status import find_workroot_by_cwd
+from ai_workroot.protocol.model import SYNC_REASONS
 
 
-PRIMARY_COMMANDS = ("init", "list", "status", "context", "doctor", "bootstrap-dev")
+PRIMARY_COMMANDS = ("init", "list", "status", "context", "doctor", "bootstrap-dev", "agent")
 COMMAND_HELP = {
     "init": "Register a Clean Workroot directory.",
     "list": "List registered Workroots.",
@@ -23,6 +26,7 @@ COMMAND_HELP = {
     "context": "Render an agent context package.",
     "doctor": "Run read-only system health checks.",
     "bootstrap-dev": "Bootstrap this source repo for dogfood development.",
+    "agent": "Exchange Workroot Agent Protocol messages.",
 }
 
 
@@ -83,6 +87,22 @@ def build_parser() -> argparse.ArgumentParser:
                 "--dry-run", action="store_true", help="Validate bootstrap-dev inputs without writes."
             )
             command_parser.add_argument("--cwd", default=".", help="Repository directory to bootstrap.")
+        if command == "agent":
+            agent_subparsers = command_parser.add_subparsers(dest="agent_command", metavar="agent-command")
+            exchange_parser = agent_subparsers.add_parser("exchange", help="Run a sync or commit envelope.")
+            exchange_parser.add_argument("--request", required=True, help="Path to an exchange envelope JSON file.")
+
+            sync_parser = agent_subparsers.add_parser("sync", help="Create a protocol sync request.")
+            sync_parser.add_argument("--request-id")
+            sync_parser.add_argument("--agent", default="codex")
+            sync_parser.add_argument("--cwd", default=".")
+            sync_parser.add_argument("--workroot-id")
+            sync_parser.add_argument("--reason", choices=sorted(SYNC_REASONS), default="before_work")
+            sync_parser.add_argument("--query", default="")
+            sync_parser.add_argument("--known-state", default="{}")
+
+            commit_parser = agent_subparsers.add_parser("commit", help="Commit a protocol event batch.")
+            commit_parser.add_argument("--request", required=True, help="Path to a commit request JSON file.")
     return parser
 
 
@@ -160,8 +180,40 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(result.message())
         return 0
 
+    if args.command == "agent":
+        if not args.agent_command:
+            parser.error("agent requires a subcommand")
+        try:
+            if args.agent_command == "exchange":
+                response = run_exchange_request(Path(args.request))
+            elif args.agent_command == "sync":
+                response = run_sync_request(
+                    request_id=args.request_id or f"req-{uuid.uuid4().hex}",
+                    agent_name=args.agent,
+                    cwd=Path(args.cwd),
+                    workroot_id=args.workroot_id,
+                    query=args.query,
+                    reason=args.reason,
+                    known_state=_json_object_arg(args.known_state, "--known-state"),
+                )
+            elif args.agent_command == "commit":
+                response = run_commit_request(Path(args.request))
+            else:
+                parser.error(f"`agent {args.agent_command}` is not implemented")
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.exit(1, f"{exc}\n")
+        print(json.dumps(response, ensure_ascii=False, sort_keys=True))
+        return 0
+
     if args.command:
         parser.error(f"`{args.command}` is not implemented in the new package yet")
 
     parser.print_help()
     return 0
+
+
+def _json_object_arg(raw: str, label: str) -> dict[str, object]:
+    value = json.loads(raw)
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    return value

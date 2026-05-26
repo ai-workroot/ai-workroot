@@ -1095,11 +1095,11 @@ git commit -m "feat: add protocol continuity loop"
 - Create: `tests/unit/test_agent_exchange_command.py`
 - Modify: `tests/smoke/test_cli_discovery.py`
 
-- [ ] **Step 1: Write command tests**
+- [x] **Step 1: Write command tests**
 
 Create tests that patch `protocol.controller.sync` and `protocol.controller.commit` and assert `commands.agent_exchange` delegates.
 
-- [ ] **Step 2: Run command tests to verify failure**
+- [x] **Step 2: Run command tests to verify failure**
 
 Run:
 
@@ -1109,7 +1109,7 @@ PYTHONPATH=src python3 -m unittest tests.unit.test_agent_exchange_command -v
 
 Expected: FAIL because command adapter is missing.
 
-- [ ] **Step 3: Implement command adapter**
+- [x] **Step 3: Implement command adapter**
 
 Create `src/ai_workroot/commands/agent_exchange.py`:
 
@@ -1139,7 +1139,7 @@ def run_exchange_request(request_path: Path) -> dict[str, object]:
     }
 ```
 
-- [ ] **Step 4: Add CLI subcommands**
+- [x] **Step 4: Add CLI subcommands**
 
 Modify `src/ai_workroot/cli/main.py`:
 
@@ -1153,7 +1153,7 @@ Subcommands:
 
 Keep CLI as adapter-only.
 
-- [ ] **Step 5: Verify command and discovery tests**
+- [x] **Step 5: Verify command and discovery tests**
 
 Run:
 
@@ -1164,7 +1164,7 @@ PYTHONPATH=src python3 -m ai_workroot --help
 
 Expected: PASS and help includes `agent`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/ai_workroot/commands/agent_exchange.py src/ai_workroot/cli/main.py tests/unit/test_agent_exchange_command.py tests/smoke/test_cli_discovery.py

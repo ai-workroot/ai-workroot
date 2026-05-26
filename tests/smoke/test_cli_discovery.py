@@ -26,7 +26,7 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         result = run_package_cli("--help")
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        for command in ("init", "list", "status", "context", "doctor", "bootstrap-dev"):
+        for command in ("init", "list", "status", "context", "doctor", "bootstrap-dev", "agent"):
             self.assertIn(command, result.stdout)
         self.assertNotIn("legacy", result.stdout)
         self.assertNotIn("public-seed", result.stdout.lower())
@@ -38,6 +38,14 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid choice", result.stderr)
         self.assertIn("legacy", result.stderr)
+
+    def test_package_cli_exposes_agent_protocol_namespace(self) -> None:
+        result = run_package_cli("agent", "--help")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("exchange", result.stdout)
+        self.assertIn("sync", result.stdout)
+        self.assertIn("commit", result.stdout)
 
     def test_package_cli_version_reports_protocol_release(self) -> None:
         result = run_package_cli("--version")
