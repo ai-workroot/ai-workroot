@@ -984,7 +984,7 @@ git commit -m "feat: add protocol p0 projections"
 - Modify: `src/ai_workroot/protocol/controller.py`
 - Create: `tests/integration/test_agent_protocol_loop.py`
 
-- [ ] **Step 1: Write integration loop test**
+- [x] **Step 1: Write integration loop test**
 
 Create `tests/integration/test_agent_protocol_loop.py` with one end-to-end loop:
 
@@ -996,7 +996,7 @@ commit handoff stores current handoff
 new sync continue includes latest handoff
 ```
 
-- [ ] **Step 2: Run integration test to verify failure**
+- [x] **Step 2: Run integration test to verify failure**
 
 Run:
 
@@ -1006,7 +1006,7 @@ PYTHONPATH=src python3 -m unittest tests.integration.test_agent_protocol_loop -v
 
 Expected: FAIL until context continuity is wired.
 
-- [ ] **Step 3: Implement continuity loader**
+- [x] **Step 3: Implement continuity loader**
 
 Create `src/ai_workroot/context/continuity.py`:
 
@@ -1062,7 +1062,7 @@ def load_continuity_package(conn: sqlite3.Connection, *, workroot_id: str, task_
     return ContinuityPackage(brief=brief, refs=refs, warnings=[])
 ```
 
-- [ ] **Step 4: Use continuity loader from sync**
+- [x] **Step 4: Use continuity loader from sync**
 
 In `controller.sync`, replace minimal context for existing task with:
 
@@ -1070,7 +1070,7 @@ In `controller.sync`, replace minimal context for existing task with:
 context = load_continuity_package(conn, workroot_id=workroot_id, task_id=task_id).to_dict()
 ```
 
-- [ ] **Step 5: Verify integration loop**
+- [x] **Step 5: Verify integration loop**
 
 Run:
 
@@ -1080,7 +1080,7 @@ PYTHONPATH=src python3 -m unittest tests.integration.test_agent_protocol_loop -v
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/ai_workroot/context/continuity.py src/ai_workroot/protocol/controller.py tests/integration/test_agent_protocol_loop.py

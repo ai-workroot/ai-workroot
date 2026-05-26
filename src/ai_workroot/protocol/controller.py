@@ -8,6 +8,7 @@ import sqlite3
 from typing import Any, Optional
 import uuid
 
+from ai_workroot.context.continuity import load_continuity_package
 from ai_workroot.protocol.directives import directive
 from ai_workroot.protocol.errors import ProtocolError
 from ai_workroot.protocol.events import canonical_json, request_hash
@@ -29,6 +30,11 @@ def sync(request_data: dict[str, Any]) -> dict[str, Any]:
     with sqlite3.connect(sqlite_path) as conn:
         current_task_id = str((request.known_state or {}).get("task_id") or "")
         if request.reason == "continue" and current_task_id:
+            context = load_continuity_package(
+                conn,
+                workroot_id=workroot["workrootId"],
+                task_id=current_task_id,
+            ).to_dict()
             directive_payload = directive(
                 "continue_task",
                 goal="Continue the current Workroot task.",
@@ -40,6 +46,7 @@ def sync(request_data: dict[str, Any]) -> dict[str, Any]:
             task_id = current_task_id
             run_id = (request.known_state or {}).get("run_id")
         elif request.query.strip():
+            context = {"brief": "", "refs": [], "warnings": []}
             directive_payload = directive(
                 "commit_required",
                 goal="Persist the user's intent before creating task facts.",
@@ -50,6 +57,7 @@ def sync(request_data: dict[str, Any]) -> dict[str, Any]:
             task_id = None
             run_id = None
         else:
+            context = {"brief": "", "refs": [], "warnings": []}
             directive_payload = directive(
                 "no_persistent_work",
                 goal=None,
@@ -67,10 +75,10 @@ def sync(request_data: dict[str, Any]) -> dict[str, Any]:
             task_id=task_id,
             run_id=str(run_id) if run_id else None,
             allowed_events=list(directive_payload["expected_events"]),
-            required_before_stop=list(directive_payload["required_before_stop"]),
+                required_before_stop=list(directive_payload["required_before_stop"]),
         )
 
-    return _sync_response(workroot, directive_payload, lease, context={"brief": "", "refs": [], "warnings": []})
+    return _sync_response(workroot, directive_payload, lease, context=context)
 
 
 def commit(request_data: dict[str, Any]) -> dict[str, Any]:
