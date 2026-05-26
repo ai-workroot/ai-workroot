@@ -78,13 +78,13 @@
 - Modify: `tests/unit/test_protocol_projections.py`
 - Modify: `tests/integration/test_agent_protocol_loop.py`
 
-- [ ] Write failing projection test for `commit(progress)` with `items_created`.
-- [ ] Write failing projection test for `commit(progress)` with `items_updated` marking item `done`.
-- [ ] Write failing integration assertion that next `sync(continue)` includes open and recently done TaskItems.
-- [ ] Implement item create/update projection inside `project_progress()`.
-- [ ] Bump task/run/context state versions after item projection.
-- [ ] Load task item refs in `load_continuity_package()`.
-- [ ] Run focused tests and commit.
+- [x] Write failing projection test for `commit(progress)` with `items_created`.
+- [x] Write failing projection test for `commit(progress)` with `items_updated` marking item `done`.
+- [x] Write failing integration assertion that next `sync(continue)` includes open and recently done TaskItems.
+- [x] Implement item create/update projection inside `project_progress()`.
+- [x] Bump task/run/context state versions after item projection.
+- [x] Load task item refs in `load_continuity_package()`.
+- [x] Run focused tests and commit.
 
 ### Task 4: Inbox Temporary Task Lifecycle
 

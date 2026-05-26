@@ -75,6 +75,21 @@ class AgentProtocolLoopTest(unittest.TestCase):
                     "task_id": task_id,
                     "run_id": run_id,
                     "summary": "Continuity loader is the next missing piece.",
+                    "items_created": [
+                        {
+                            "item_id": "item-open-loop",
+                            "title": "Wire continuity loader",
+                            "status": "doing",
+                            "order": 10,
+                        },
+                        {
+                            "item_id": "item-done-loop",
+                            "title": "Verify projection loop",
+                            "status": "done",
+                            "order": 20,
+                            "result_summary": "Projection loop is green.",
+                        },
+                    ],
                     "open_questions": [],
                     "source_refs": [],
                 },
@@ -122,6 +137,24 @@ class AgentProtocolLoopTest(unittest.TestCase):
                 "id": "handoff-evt-handoff-loop",
                 "role": "next_step",
                 "summary": "Wire sync to load the latest continuity package.",
+            },
+            next_sync["context"]["refs"],
+        )
+        self.assertIn(
+            {
+                "type": "task_item",
+                "id": "item-open-loop",
+                "role": "open",
+                "summary": "Wire continuity loader",
+            },
+            next_sync["context"]["refs"],
+        )
+        self.assertIn(
+            {
+                "type": "task_item",
+                "id": "item-done-loop",
+                "role": "recent_done",
+                "summary": "Verify projection loop: Projection loop is green.",
             },
             next_sync["context"]["refs"],
         )

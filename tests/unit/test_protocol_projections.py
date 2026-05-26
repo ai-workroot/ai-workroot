@@ -87,6 +87,97 @@ class ProtocolProjectionTest(unittest.TestCase):
         self.assertEqual(row, ("Implemented protocol models.",))
         self.assertEqual(response["lease"]["task_id"], task_id)
 
+    def test_commit_progress_creates_task_items(self) -> None:
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
+        task_id = intent_response["lease"]["task_id"]
+        run_id = intent_response["lease"]["run_id"]
+
+        response = commit(
+            self.commit_request(
+                intent_response["lease"]["lease_id"],
+                "progress",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "summary": "Planned task item work.",
+                    "items_created": [
+                        {
+                            "item_id": "item-schema",
+                            "title": "Implement task item schema",
+                            "status": "todo",
+                            "order": 10,
+                        }
+                    ],
+                },
+                event_id="evt-progress-create-items",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        with sqlite3.connect(self.sqlite_path) as conn:
+            row = conn.execute(
+                "SELECT title, status, item_order FROM task_items WHERE item_id = 'item-schema'"
+            ).fetchone()
+        self.assertEqual(row, ("Implement task item schema", "todo", 10))
+        self.assertIn(
+            {"type": "task_item_created", "target_type": "task_item", "target_id": "item-schema"},
+            response["effects"],
+        )
+
+    def test_commit_progress_updates_task_items(self) -> None:
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
+        task_id = intent_response["lease"]["task_id"]
+        run_id = intent_response["lease"]["run_id"]
+        created = commit(
+            self.commit_request(
+                intent_response["lease"]["lease_id"],
+                "progress",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "summary": "Created item.",
+                    "items_created": [{"item_id": "item-schema", "title": "Implement task item schema"}],
+                },
+                event_id="evt-progress-create-item-for-update",
+            )
+        )
+
+        response = commit(
+            self.commit_request(
+                created["lease"]["lease_id"],
+                "progress",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "summary": "Completed item.",
+                    "items_updated": [
+                        {
+                            "item_id": "item-schema",
+                            "status": "done",
+                            "result_summary": "Task item schema is active.",
+                        }
+                    ],
+                },
+                event_id="evt-progress-update-item",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        with sqlite3.connect(self.sqlite_path) as conn:
+            row = conn.execute(
+                "SELECT status, result_summary, completed_at FROM task_items WHERE item_id = 'item-schema'"
+            ).fetchone()
+        self.assertEqual(row[:2], ("done", "Task item schema is active."))
+        self.assertIsNotNone(row[2])
+        self.assertIn(
+            {"type": "task_item_updated", "target_type": "task_item", "target_id": "item-schema"},
+            response["effects"],
+        )
+
     def test_commit_handoff_returns_safe_to_stop(self) -> None:
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
@@ -152,8 +243,10 @@ class ProtocolProjectionTest(unittest.TestCase):
             "task_hint": {"title": "Protocol P0", "task_id": None, "parent_task_id": None},
         }
 
-    def commit_request(self, lease_id: str, kind: str, payload: dict[str, object]) -> dict[str, object]:
-        event_id = f"evt-{kind}-{payload.get('target_id') or payload.get('run_id') or 'new'}"
+    def commit_request(
+        self, lease_id: str, kind: str, payload: dict[str, object], event_id: str | None = None
+    ) -> dict[str, object]:
+        event_id = event_id or f"evt-{kind}-{payload.get('target_id') or payload.get('run_id') or 'new'}"
         return {
             "protocol_version": "workroot.v1",
             "request_id": f"req-{event_id}",

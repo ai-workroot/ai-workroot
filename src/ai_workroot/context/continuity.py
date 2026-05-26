@@ -46,6 +46,27 @@ def load_continuity_package(
         """,
         (workroot_id, task_id),
     ).fetchone()
+    task_items = conn.execute(
+        """
+        SELECT item_id, title, status, result_summary
+        FROM task_items
+        WHERE workroot_id = ? AND task_id = ?
+          AND status IN ('todo', 'doing', 'blocked')
+        ORDER BY item_order ASC, updated_at DESC
+        LIMIT 10
+        """,
+        (workroot_id, task_id),
+    ).fetchall()
+    done_items = conn.execute(
+        """
+        SELECT item_id, title, result_summary
+        FROM task_items
+        WHERE workroot_id = ? AND task_id = ? AND status = 'done'
+        ORDER BY completed_at DESC, updated_at DESC
+        LIMIT 5
+        """,
+        (workroot_id, task_id),
+    ).fetchall()
 
     refs: list[dict[str, str]] = []
     brief = ""
@@ -67,6 +88,27 @@ def load_continuity_package(
                 "id": str(handoff[0]),
                 "role": "next_step",
                 "summary": handoff_summary,
+            }
+        )
+    for item_id, title, _status, _result_summary in task_items:
+        refs.append(
+            {
+                "type": "task_item",
+                "id": str(item_id),
+                "role": "open",
+                "summary": str(title or ""),
+            }
+        )
+    for item_id, title, result_summary in done_items:
+        summary_text = str(title or "")
+        if result_summary:
+            summary_text = f"{summary_text}: {result_summary}"
+        refs.append(
+            {
+                "type": "task_item",
+                "id": str(item_id),
+                "role": "recent_done",
+                "summary": summary_text,
             }
         )
     return ContinuityPackage(brief=brief, refs=refs, warnings=[])

@@ -12,6 +12,7 @@ from ai_workroot.protocol.lease import bump_state_version, now_utc
 
 
 TASK_LEASE_EVENTS = ["progress", "handoff", "state"]
+TASK_ITEM_STATUSES = {"todo", "doing", "done", "blocked", "canceled"}
 
 TASK_TRANSITIONS = {
     "active": {"paused", "blocked", "closed", "released"},
@@ -225,11 +226,20 @@ def project_progress(
         (summary_id, now, workroot_id, task_id),
     )
 
+    item_effects = _project_task_items(
+        conn,
+        workroot_id=workroot_id,
+        task_id=task_id,
+        run_id=run_id,
+        event=event,
+        now=now,
+    )
     _bump_task_run_context(conn, workroot_id, task_id, run_id)
     return _continue_result(
         effects=[
             {"type": "task_run_updated", "target_type": "task_run", "target_id": run_id},
             {"type": "task_summary_created", "target_type": "task_summary", "target_id": summary_id},
+            *item_effects,
         ],
         task_id=task_id,
         run_id=run_id,
@@ -474,6 +484,121 @@ def _update_current_summary_next_actions(
         """,
         (json.dumps(next_actions, ensure_ascii=False, sort_keys=True), workroot_id, task_id),
     )
+
+
+def _project_task_items(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    task_id: str,
+    run_id: str,
+    event: dict[str, Any],
+    now: str,
+) -> list[dict[str, str]]:
+    payload = event["payload"]
+    effects: list[dict[str, str]] = []
+    for index, item in enumerate(_list_of_dicts(payload.get("items_created")), start=1):
+        item_id = _text_or_none(item.get("item_id")) or _stable_id("item", f"{event['event_id']}-{index}")
+        status = _task_item_status(item.get("status"), default="todo")
+        completed_at = now if status == "done" else None
+        title = _text_or_none(item.get("title")) or f"Task item {index}"
+        conn.execute(
+            """
+            INSERT INTO task_items (
+              item_id, workroot_id, task_id, run_id, title, status, item_order,
+              detail, result_summary, source_event_id, created_at, updated_at,
+              completed_at, metadata_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(item_id) DO UPDATE SET
+              workroot_id=excluded.workroot_id,
+              task_id=excluded.task_id,
+              run_id=excluded.run_id,
+              title=excluded.title,
+              status=excluded.status,
+              item_order=excluded.item_order,
+              detail=excluded.detail,
+              result_summary=excluded.result_summary,
+              source_event_id=excluded.source_event_id,
+              updated_at=excluded.updated_at,
+              completed_at=excluded.completed_at,
+              metadata_json=excluded.metadata_json
+            """,
+            (
+                item_id,
+                workroot_id,
+                task_id,
+                run_id,
+                title,
+                status,
+                int(item.get("order") or item.get("item_order") or 0),
+                _text_or_none(item.get("detail")),
+                _text_or_none(item.get("result_summary")),
+                str(event["event_id"]),
+                now,
+                now,
+                completed_at,
+                json.dumps({"source_event_id": event["event_id"]}, sort_keys=True),
+            ),
+        )
+        effects.append({"type": "task_item_created", "target_type": "task_item", "target_id": item_id})
+
+    for item in _list_of_dicts(payload.get("items_updated")):
+        item_id = _required_text(item, "item_id")
+        row = conn.execute(
+            """
+            SELECT title, status, item_order, detail, result_summary, completed_at
+            FROM task_items
+            WHERE workroot_id = ? AND task_id = ? AND item_id = ?
+            """,
+            (workroot_id, task_id, item_id),
+        ).fetchone()
+        if row is None:
+            raise ProtocolError("projection_failed", f"task item not found: {item_id}")
+        status = _task_item_status(item.get("status"), default=str(row[1]))
+        completed_at = now if status == "done" and row[5] is None else row[5]
+        conn.execute(
+            """
+            UPDATE task_items
+            SET title = ?,
+                status = ?,
+                item_order = ?,
+                detail = ?,
+                result_summary = ?,
+                source_event_id = ?,
+                updated_at = ?,
+                completed_at = ?
+            WHERE workroot_id = ? AND task_id = ? AND item_id = ?
+            """,
+            (
+                _text_or_none(item.get("title")) or str(row[0]),
+                status,
+                int(item.get("order") or item.get("item_order") or row[2] or 0),
+                _text_or_none(item.get("detail")) if "detail" in item else row[3],
+                _text_or_none(item.get("result_summary")) if "result_summary" in item else row[4],
+                str(event["event_id"]),
+                now,
+                completed_at,
+                workroot_id,
+                task_id,
+                item_id,
+            ),
+        )
+        effects.append({"type": "task_item_updated", "target_type": "task_item", "target_id": item_id})
+    return effects
+
+
+def _list_of_dicts(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _task_item_status(value: Any, *, default: str) -> str:
+    status = _text_or_none(value) or default
+    if status not in TASK_ITEM_STATUSES:
+        raise ProtocolError("projection_failed", f"invalid task item status: {status}")
+    return status
 
 
 def _dict_value(data: dict[str, Any], key: str) -> dict[str, Any]:
