@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.protocol.controller import sync
+from ai_workroot.protocol.controller import commit, sync
 from ai_workroot.state.environment import initialize_environment, register_workroot
 from ai_workroot.state.layout import workroot_sqlite_path
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
@@ -73,6 +73,22 @@ class ProtocolControllerSyncTest(unittest.TestCase):
 
         after = self.count_semantic_rows(sqlite_path)
         self.assertEqual(after, before)
+
+    def test_sync_validation_error_returns_protocol_error_response(self) -> None:
+        response = sync({"request_id": "req-bad-sync"})
+
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["error"]["code"], "missing_protocol_version")
+        self.assertEqual(response["directive"]["type"], "resync_required")
+        self.assertEqual(response["warnings"], [])
+
+    def test_commit_validation_error_returns_protocol_error_response(self) -> None:
+        response = commit({"request_id": "req-bad-commit"})
+
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["error"]["code"], "missing_protocol_version")
+        self.assertEqual(response["directive"]["type"], "resync_required")
+        self.assertEqual(response["warnings"], [])
 
     def count_semantic_rows(self, sqlite_path: Path) -> tuple[int, int, int]:
         with sqlite3.connect(sqlite_path) as conn:

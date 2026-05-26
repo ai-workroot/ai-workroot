@@ -10,7 +10,7 @@ import uuid
 
 from ai_workroot.context.continuity import load_continuity_package
 from ai_workroot.protocol.directives import directive
-from ai_workroot.protocol.errors import ProtocolError
+from ai_workroot.protocol.errors import ProtocolError, protocol_error_response
 from ai_workroot.protocol.events import canonical_json, request_hash
 from ai_workroot.protocol.lease import create_lease, load_lease, now_utc, validate_lease
 from ai_workroot.protocol.model import CommitRequest, SyncRequest
@@ -21,7 +21,10 @@ from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 
 def sync(request_data: dict[str, Any]) -> dict[str, Any]:
-    request = SyncRequest.from_dict(request_data)
+    try:
+        request = SyncRequest.from_dict(request_data)
+    except ProtocolError as exc:
+        return protocol_error_response(exc.code, details=exc.details)
     workroot = _resolve_workroot(request)
     state_directory = Path(workroot["stateDirectory"])
     sqlite_path = workroot_sqlite_path(state_directory)
@@ -82,10 +85,13 @@ def sync(request_data: dict[str, Any]) -> dict[str, Any]:
 
 
 def commit(request_data: dict[str, Any]) -> dict[str, Any]:
-    request = CommitRequest.from_dict(request_data)
+    try:
+        request = CommitRequest.from_dict(request_data)
+    except ProtocolError as exc:
+        return protocol_error_response(exc.code, details=exc.details)
     located = _locate_workroot_by_lease(request.exchange_lease_id)
     if located is None:
-        return _error_response("lease_not_found")
+        return protocol_error_response("lease_not_found")
     workroot, sqlite_path = located
     request_digest = request_hash(request_data)
     with sqlite3.connect(sqlite_path) as conn:
@@ -93,7 +99,7 @@ def commit(request_data: dict[str, Any]) -> dict[str, Any]:
         if existing and existing["request_hash"] == request_digest:
             return json.loads(existing["response_json"])
         if existing and existing["request_hash"] != request_digest:
-            return _error_response("idempotency_key_conflict")
+            return protocol_error_response("idempotency_key_conflict")
 
         validation = validate_lease(conn, request.exchange_lease_id, events=request.events)
         if not validation.ok:
@@ -210,7 +216,7 @@ def commit(request_data: dict[str, Any]) -> dict[str, Any]:
             )
         except ProtocolError as exc:
             conn.rollback()
-            return _error_response(exc.code, details=exc.details)
+            return protocol_error_response(exc.code, details=exc.details)
         except Exception:
             conn.rollback()
             raise
@@ -318,15 +324,6 @@ def _append_event_effects(
                 created_at,
             ),
         )
-
-
-def _error_response(code: str, *, details: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-    return {
-        "ok": False,
-        "error": {"code": code, "message": code, "details": details or {}},
-        "directive": directive("resync_required", next_action="Call sync and retry if still relevant."),
-        "warnings": [],
-    }
 
 
 def _sync_response(

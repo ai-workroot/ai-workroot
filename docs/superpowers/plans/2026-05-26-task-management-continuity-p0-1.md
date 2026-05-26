@@ -44,15 +44,15 @@
 - Modify: `tests/unit/test_protocol_controller.py`
 - Modify: `tests/unit/test_agent_exchange_command.py`
 
-- [ ] Write failing tests:
+- [x] Write failing tests:
   - `sync({"request_id":"bad"})` returns `ok=false`, `error.code=missing_protocol_version`, `directive.type=resync_required`.
   - `commit({"request_id":"bad"})` returns the same structured shape.
   - `run_commit_request()` returns JSON protocol error for malformed protocol request files.
-- [ ] Run focused tests and verify failure.
-- [ ] Add `protocol_error_response(code, details=None, next_action=None)` in `protocol/errors.py`.
-- [ ] Catch `ProtocolError` around `SyncRequest.from_dict()` and `CommitRequest.from_dict()`.
-- [ ] Keep transport JSON parse errors as CLI errors.
-- [ ] Run focused tests and commit.
+- [x] Run focused tests and verify failure.
+- [x] Add `protocol_error_response(code, details=None, next_action=None)` in `protocol/errors.py`.
+- [x] Catch `ProtocolError` around `SyncRequest.from_dict()` and `CommitRequest.from_dict()`.
+- [x] Keep transport JSON parse errors as CLI errors.
+- [x] Run focused tests and commit.
 
 ### Task 2: TaskItems Schema And Work Model
 

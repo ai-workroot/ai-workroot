@@ -21,3 +21,26 @@ class ErrorResponse:
 
     def to_dict(self) -> dict[str, Any]:
         return {"code": self.code, "message": self.message, "details": self.details}
+
+
+def protocol_error_response(
+    code: str,
+    *,
+    details: Optional[dict[str, Any]] = None,
+    next_action: str = "Call sync and retry if still relevant.",
+) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "error": {"code": code, "message": code, "details": details or {}},
+        "directive": {
+            "type": "resync_required",
+            "goal": None,
+            "next_action": next_action,
+            "expected_events": [],
+            "required_before_stop": [],
+            "must_not": [],
+            "ask_user_when": [],
+            "metadata": {},
+        },
+        "warnings": [],
+    }

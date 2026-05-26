@@ -81,6 +81,17 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(response, {"ok": True})
         commit.assert_called_once_with(request)
 
+    def test_commit_helper_returns_protocol_error_response(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            request_path = Path(tmp) / "commit.json"
+            request_path.write_text(json.dumps({"request_id": "req-bad-commit"}), encoding="utf-8")
+
+            response = run_commit_request(request_path)
+
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["error"]["code"], "missing_protocol_version")
+        self.assertEqual(response["directive"]["type"], "resync_required")
+
 
 if __name__ == "__main__":
     unittest.main()
