@@ -164,6 +164,12 @@ class E2EOptInPolicyTest(unittest.TestCase):
         self.assertIn(REQUIRED_CONTEXT_COMMAND, LIVE_AGENT_PROMPT)
         self.assertIn("Do not inspect README.md directly", LIVE_AGENT_PROMPT)
 
+    def test_live_agent_targets_all_personas(self) -> None:
+        from tests.e2e.live_agent import expected_live_agent_persona_slugs
+        from tests.e2e.personas import PERSONAS
+
+        self.assertEqual(expected_live_agent_persona_slugs(), tuple(persona.slug for persona in PERSONAS))
+
     def test_e2e_harness_enables_context_diagnostic_logging_by_default(self) -> None:
         from tests.e2e.harness import env_for
         from tests.e2e.safety import new_default_run_root, prepare_run_root
