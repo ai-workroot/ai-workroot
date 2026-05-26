@@ -66,6 +66,37 @@ class ProtocolProjectionTest(unittest.TestCase):
         self.assertEqual(run, ("active", "Implement protocol P0"))
         self.assertIn("progress", response["contract"]["allowed_events"])
 
+    def test_commit_temporary_intent_creates_inbox_task_and_run(self) -> None:
+        response = commit(
+            self.commit_request(
+                self.create_lease(events=["intent"]),
+                "intent",
+                {
+                    "intent_text": "Keep a temporary discussion thread",
+                    "classification": {"persistence": "temporary", "confidence": 0.8, "reason": "inbox test"},
+                    "task_hint": {"title": "Temporary protocol discussion", "task_id": None, "parent_task_id": None},
+                },
+                event_id="evt-intent-temporary",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        task_id = response["lease"]["task_id"]
+        run_id = response["lease"]["run_id"]
+        with sqlite3.connect(self.sqlite_path) as conn:
+            task = conn.execute(
+                """
+                SELECT role, process_level, task_kind, retention_policy, visibility, title
+                FROM tasks
+                WHERE task_id = ?
+                """,
+                (task_id,),
+            ).fetchone()
+            run = conn.execute("SELECT status, goal FROM task_runs WHERE run_id = ?", (run_id,)).fetchone()
+
+        self.assertEqual(task, ("inbox", "L0", "inbox", "rolling_7d", "implicit", "Temporary protocol discussion"))
+        self.assertEqual(run, ("active", "Keep a temporary discussion thread"))
+
     def test_commit_progress_updates_run_and_returns_next_lease(self) -> None:
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
@@ -235,6 +266,74 @@ class ProtocolProjectionTest(unittest.TestCase):
         with sqlite3.connect(self.sqlite_path) as conn:
             row = conn.execute("SELECT status FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
         self.assertEqual(row, ("paused",))
+
+    def test_state_transition_archives_active_task(self) -> None:
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
+        task_id = intent_response["lease"]["task_id"]
+
+        response = commit(
+            self.commit_request(
+                intent_response["lease"]["lease_id"],
+                "state",
+                {
+                    "target_type": "task",
+                    "target_id": task_id,
+                    "from_status": "active",
+                    "to_status": "archived",
+                    "reason": "Temporary branch no longer needed.",
+                },
+                event_id="evt-state-archive",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        with sqlite3.connect(self.sqlite_path) as conn:
+            row = conn.execute("SELECT status, archived_at FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
+        self.assertEqual(row[0], "archived")
+        self.assertIsNotNone(row[1])
+
+    def test_state_promotes_inbox_task_to_normal_task(self) -> None:
+        intent_response = commit(
+            self.commit_request(
+                self.create_lease(events=["intent"]),
+                "intent",
+                {
+                    "intent_text": "Explore a topic until it becomes real work",
+                    "classification": {"persistence": "temporary", "confidence": 0.8, "reason": "inbox test"},
+                    "task_hint": {"title": "Temporary topic", "task_id": None, "parent_task_id": None},
+                },
+                event_id="evt-intent-promote-temporary",
+            )
+        )
+        task_id = intent_response["lease"]["task_id"]
+
+        response = commit(
+            self.commit_request(
+                intent_response["lease"]["lease_id"],
+                "state",
+                {
+                    "target_type": "task",
+                    "target_id": task_id,
+                    "to_role": "normal",
+                    "to_process_level": "L1",
+                    "to_visibility": "normal",
+                    "to_retention_policy": "until_closed",
+                    "reason": "User wants to continue as formal work.",
+                },
+                event_id="evt-state-promote-temporary",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertIn({"type": "task_promoted", "target_type": "task", "target_id": task_id}, response["effects"])
+        with sqlite3.connect(self.sqlite_path) as conn:
+            row = conn.execute(
+                "SELECT role, process_level, visibility, retention_policy FROM tasks WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()
+        self.assertEqual(row, ("normal", "L1", "normal", "until_closed"))
 
     def intent_payload(self) -> dict[str, object]:
         return {

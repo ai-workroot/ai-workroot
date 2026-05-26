@@ -93,13 +93,13 @@
 - Modify: `tests/unit/test_protocol_projections.py`
 - Modify: `tests/integration/test_agent_protocol_loop.py`
 
-- [ ] Write failing test for `commit(intent, classification.persistence=temporary)` creating `Task(role=inbox, process_level=L0)`.
-- [ ] Write failing test for state archive transition `active -> archived`.
-- [ ] Write failing test for promoting inbox task to normal role/process level.
-- [ ] Implement temporary task projection without adding a new Inbox entity.
-- [ ] Align task state machine with spec.
-- [ ] Implement role/process promotion through `state` event payload fields.
-- [ ] Run focused tests and commit.
+- [x] Write failing test for `commit(intent, classification.persistence=temporary)` creating `Task(role=inbox, process_level=L0)`.
+- [x] Write failing test for state archive transition `active -> archived`.
+- [x] Write failing test for promoting inbox task to normal role/process level.
+- [x] Implement temporary task projection without adding a new Inbox entity.
+- [x] Align task state machine with spec.
+- [x] Implement role/process promotion through `state` event payload fields.
+- [x] Run focused tests and commit.
 
 ### Task 5: Backlog And Quality Gate
 

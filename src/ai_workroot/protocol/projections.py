@@ -15,13 +15,17 @@ TASK_LEASE_EVENTS = ["progress", "handoff", "state"]
 TASK_ITEM_STATUSES = {"todo", "doing", "done", "blocked", "canceled"}
 
 TASK_TRANSITIONS = {
-    "active": {"paused", "blocked", "closed", "released"},
-    "paused": {"active", "blocked", "closed"},
-    "blocked": {"active", "paused", "closed"},
-    "released": {"closed", "archived"},
-    "closed": {"archived"},
-    "archived": set(),
+    "active": {"paused", "blocked", "closed", "archived", "released"},
+    "paused": {"active", "closed", "archived", "released"},
+    "blocked": {"active", "paused", "closed", "released"},
+    "closed": {"archived", "released"},
+    "archived": {"released"},
+    "released": set(),
 }
+TASK_ROLES = {"inbox", "normal"}
+TASK_PROCESS_LEVELS = {"L0", "L1", "L2", "L3"}
+TASK_RETENTION_POLICIES = {"transient", "rolling_7d", "until_closed", "long_term"}
+TASK_VISIBILITIES = {"implicit", "normal", "pinned"}
 
 
 @dataclass(frozen=True)
@@ -79,7 +83,7 @@ def project_intent(
             allowed_events=[],
             required_before_stop=[],
         )
-    if persistence != "normal":
+    if persistence not in {"normal", "temporary"}:
         raise ProtocolError("event_not_allowed", f"persistence is not implemented in P0: {persistence}")
 
     task_hint = _dict_value(payload, "task_hint")
@@ -95,6 +99,18 @@ def project_intent(
     agent_name = _text_or_none(source.get("actor_name")) or "agent"
     session_id = _text_or_none(source.get("session_id"))
     now = now_utc()
+    if persistence == "temporary":
+        task_kind = "inbox"
+        process_level = "L0"
+        role = "inbox"
+        retention_policy = "rolling_7d"
+        visibility = "implicit"
+    else:
+        task_kind = "task"
+        process_level = "L1"
+        role = "normal"
+        retention_policy = "until_closed"
+        visibility = "normal"
 
     task_exists = _task_exists(conn, workroot_id, task_id)
     if task_exists:
@@ -122,13 +138,13 @@ def project_intent(
                 workroot_id,
                 title,
                 "active",
-                "task",
-                "L1",
-                "normal",
+                task_kind,
+                process_level,
+                role,
                 parent_task_id,
                 root_task_id,
-                "until_closed",
-                "normal",
+                retention_policy,
+                visibility,
                 occurred_at,
                 now,
                 json.dumps({"source_event_id": event_id}, sort_keys=True),
@@ -325,11 +341,21 @@ def project_state(
     if payload.get("target_type") != "task":
         raise ProtocolError("event_not_allowed", "P0 state projection only supports task targets")
     task_id = _required_text(payload, "target_id")
-    from_status = _required_text(payload, "from_status")
-    to_status = _required_text(payload, "to_status")
     lease_task_id = _text_or_none(lease.get("task_id"))
     if lease_task_id and lease_task_id != task_id:
         raise ProtocolError("state_conflict", "state event targets a different task than the lease")
+
+    if _has_task_metadata_transition(payload):
+        return _project_task_metadata_state(
+            conn,
+            workroot_id=workroot_id,
+            task_id=task_id,
+            run_id=_text_or_none(lease.get("run_id")),
+            payload=payload,
+        )
+
+    from_status = _required_text(payload, "from_status")
+    to_status = _required_text(payload, "to_status")
 
     row = conn.execute(
         """
@@ -368,6 +394,67 @@ def project_state(
         effects=[{"type": "task_state_updated", "target_type": "task", "target_id": task_id}],
         task_id=task_id,
         run_id=_text_or_none(lease.get("run_id")),
+    )
+
+
+def _project_task_metadata_state(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    task_id: str,
+    run_id: Optional[str],
+    payload: dict[str, Any],
+) -> ProjectionResult:
+    row = conn.execute(
+        """
+        SELECT role, process_level, visibility, retention_policy, task_kind
+        FROM tasks
+        WHERE workroot_id = ? AND task_id = ?
+        """,
+        (workroot_id, task_id),
+    ).fetchone()
+    if row is None:
+        raise ProtocolError("projection_failed", f"task not found: {task_id}")
+
+    role = _validate_choice(_text_or_none(payload.get("to_role")) or str(row[0]), TASK_ROLES, "to_role")
+    process_level = _validate_choice(
+        _text_or_none(payload.get("to_process_level")) or str(row[1]),
+        TASK_PROCESS_LEVELS,
+        "to_process_level",
+    )
+    visibility = _validate_choice(
+        _text_or_none(payload.get("to_visibility")) or str(row[2]),
+        TASK_VISIBILITIES,
+        "to_visibility",
+    )
+    retention_policy = _validate_choice(
+        _text_or_none(payload.get("to_retention_policy")) or str(row[3]),
+        TASK_RETENTION_POLICIES,
+        "to_retention_policy",
+    )
+    task_kind = _text_or_none(payload.get("to_task_kind")) or ("task" if role == "normal" else str(row[4] or "inbox"))
+    now = now_utc()
+    conn.execute(
+        """
+        UPDATE tasks
+        SET role = ?,
+            process_level = ?,
+            visibility = ?,
+            retention_policy = ?,
+            task_kind = ?,
+            updated_at = ?
+        WHERE workroot_id = ? AND task_id = ?
+        """,
+        (role, process_level, visibility, retention_policy, task_kind, now, workroot_id, task_id),
+    )
+    bump_state_version(conn, workroot_id, "workroot", now)
+    bump_state_version(conn, workroot_id, f"task:{task_id}", now)
+    bump_state_version(conn, workroot_id, "context", now)
+    effect_type = "task_promoted" if row[0] == "inbox" and role == "normal" else "task_metadata_updated"
+    return _continue_result(
+        effects=[{"type": effect_type, "target_type": "task", "target_id": task_id}],
+        task_id=task_id,
+        run_id=run_id,
     )
 
 
@@ -599,6 +686,19 @@ def _task_item_status(value: Any, *, default: str) -> str:
     if status not in TASK_ITEM_STATUSES:
         raise ProtocolError("projection_failed", f"invalid task item status: {status}")
     return status
+
+
+def _has_task_metadata_transition(payload: dict[str, Any]) -> bool:
+    return any(
+        key in payload
+        for key in ("to_role", "to_process_level", "to_visibility", "to_retention_policy", "to_task_kind")
+    )
+
+
+def _validate_choice(value: str, allowed: set[str], field_name: str) -> str:
+    if value not in allowed:
+        raise ProtocolError("projection_failed", f"invalid {field_name}: {value}")
+    return value
 
 
 def _dict_value(data: dict[str, Any], key: str) -> dict[str, Any]:
