@@ -39,11 +39,11 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         self.assertIn("invalid choice", result.stderr)
         self.assertIn("legacy", result.stderr)
 
-    def test_package_cli_version_remains_current_release_without_branch_bump(self) -> None:
+    def test_package_cli_version_reports_protocol_release(self) -> None:
         result = run_package_cli("--version")
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("AI Workroot 0.9.530", result.stdout)
+        self.assertEqual(result.stdout.strip(), "AI Workroot 0.9.531")
 
 
 if __name__ == "__main__":

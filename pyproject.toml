@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-workroot"
-version = "0.9.530"
+version = "0.9.531"
 description = "Personal local-first AI Workroot foundation"
 readme = "README.md"
 requires-python = ">=3.9"

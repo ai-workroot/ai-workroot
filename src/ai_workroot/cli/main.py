@@ -91,7 +91,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.version:
-        print("AI Workroot 0.9.530")
+        print("AI Workroot 0.9.531")
         return 0
 
     if args.command == "init":
