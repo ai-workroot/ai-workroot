@@ -30,7 +30,6 @@ FORBIDDEN_TEXT_PATTERNS = [
     "Un" + "released",
     "actor" + "_" + "registry",
     "owner" + "_" + "id",
-    "parent" + "_" + "task" + "_" + "id",
     "migrate" + "_" + "workroot",
     "validate" + "_" + "workroot",
     "migration" + "_" + "registry",

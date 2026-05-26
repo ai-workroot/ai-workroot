@@ -4,7 +4,7 @@ import os
 import unittest
 from pathlib import Path
 
-from tests.e2e.live_agent import run_codex_live_agent
+from tests.e2e.live_agent import REQUIRED_CONTEXT_COMMAND, run_codex_live_agent
 
 
 class LiveAgentE2ETest(unittest.TestCase):
@@ -19,6 +19,7 @@ class LiveAgentE2ETest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr_path.read_text(encoding="utf-8"))
         self.assertTrue(result.last_message_path.is_file())
         self.assertIn("LIVE_AGENT_E2E_OK", result.last_message_path.read_text(encoding="utf-8"))
+        self.assertIn(REQUIRED_CONTEXT_COMMAND, result.stderr_path.read_text(encoding="utf-8"))
         self.assertTrue(result.summary_path.is_file())
 
 

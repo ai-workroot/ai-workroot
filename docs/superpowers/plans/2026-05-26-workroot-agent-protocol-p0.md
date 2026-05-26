@@ -12,7 +12,7 @@
 
 ## Reference Spec
 
-- Final Spec: `/Users/zeer/workroot_agent_protocol_docs_bundle/workroot_agent_protocol_v1_spec_0.9.531_final.md`
+- Final Spec: external review bundle `workroot_agent_protocol_v1_spec_0.9.531_final.md`
 - Branch: `feat/0.9.531-agent-protocol-task-continuity`
 - SQLite path remains: `<stateDirectory>/cache/workroot.sqlite`
 - Runtime views path: `<stateDirectory>/runtime`

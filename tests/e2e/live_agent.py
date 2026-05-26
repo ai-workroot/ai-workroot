@@ -16,6 +16,12 @@ from tests.e2e.safety import ensure_not_real_repo_cwd_for_live_e2e, prepare_run_
 
 REMOTE_LLM_OPT_IN_ENV = "AI_WORKROOT_E2E_ALLOW_REMOTE_LLM"
 CODEX_HOME_FILE_ALLOWLIST = ("auth.json", "config.toml", "AGENTS.md")
+REQUIRED_CONTEXT_COMMAND = "python3 -m ai_workroot context --agent codex --cwd . --query 'Clean Mode' --debug"
+LIVE_AGENT_PROMPT = (
+    "Live-agent E2E smoke. Do not modify files. First run exactly this command from cwd .: "
+    f"{REQUIRED_CONTEXT_COMMAND}. Do not inspect README.md directly. Then reply with exactly two short lines: "
+    "LIVE_AGENT_E2E_OK, then one sentence describing the visible Context Package metadata from that command output."
+)
 
 
 @dataclass(frozen=True)
@@ -83,11 +89,7 @@ def run_codex_live_agent(*, run_root: Path, sandbox_base: Path | None = None) ->
     stderr_path = transcript_dir / "codex-stderr.txt"
     last_message_path = transcript_dir / "codex-last-message.txt"
     summary_path = run_root / "reports" / "live-agent-summary.json"
-    prompt = (
-        "Live-agent E2E smoke. Do not modify files. Inspect the local Workroot context for cwd . "
-        "and reply with exactly two short lines: LIVE_AGENT_E2E_OK, then one sentence describing "
-        "the visible Context Package metadata."
-    )
+    prompt = LIVE_AGENT_PROMPT
     prompt_path.write_text(prompt + "\n", encoding="utf-8")
 
     live_env = build_live_agent_environment(env, run_root=run_root)
@@ -97,11 +99,13 @@ def run_codex_live_agent(*, run_root: Path, sandbox_base: Path | None = None) ->
         "exec",
         "--cd",
         str(user_directory),
+        "--add-dir",
+        str(ai_workroot_home),
         "--skip-git-repo-check",
         "--ephemeral",
         "--ignore-rules",
         "--sandbox",
-        "read-only",
+        "workspace-write",
         "--output-last-message",
         str(last_message_path),
         prompt,
