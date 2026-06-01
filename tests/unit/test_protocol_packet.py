@@ -41,9 +41,12 @@ class ProtocolPacketTest(unittest.TestCase):
         self.assertEqual(packet["work"]["summary"], "Redesign Agent protocol interaction")
         self.assertEqual(packet["call"]["action"], "commit")
         self.assertEqual(packet["call"]["shape"], "start_work")
+        self.assertEqual(packet["call"]["when"], "now")
         self.assertEqual(packet["call"]["fields"], ["title", "summary", "persistence"])
         self.assertEqual(packet["refs"], {"exchange": "lease-1"})
         self.assertEqual(packet["write"]["status"], "not_recorded")
+        self.assertEqual(packet["write"]["meaning"], "No durable fact was written.")
+        self.assertNotIn("warnings", packet["write"])
         self.assertIn("--shape start-work", packet["adapter_hint"]["cli"])
         serialized = json.dumps(packet, ensure_ascii=False)
         self.assertNotIn("debug", serialized)
@@ -89,8 +92,10 @@ class ProtocolPacketTest(unittest.TestCase):
         self.assertEqual(packet["work"]["open"], ["Open 1", "Open 2", "Open 3"])
         self.assertEqual(packet["work"]["done"], ["Done 1: A", "Done 2: B", "Done 3: C"])
         self.assertEqual(packet["call"]["shape"], "checkpoint")
+        self.assertEqual(packet["call"]["when"], "at_checkpoint")
         self.assertEqual(packet["call"]["also"], ["asset_if_created", "decision_if_made", "continuation_before_stop"])
         self.assertEqual(packet["refs"], {"exchange": "lease-2", "task": "task-1", "run": "run-1"})
+        self.assertEqual(packet["write"]["meaning"], "Previous Workroot fact was saved.")
 
     def test_packet_markdown_is_private_and_contains_json(self) -> None:
         response = {
@@ -131,6 +136,7 @@ class ProtocolPacketTest(unittest.TestCase):
         packet = build_private_packet(response, adapter="cli", agent="codex")
 
         self.assertEqual(packet["call"]["action"], "sync")
+        self.assertEqual(packet["call"]["when"], "if_durable_persistence_is_still_relevant")
         self.assertNotIn("shape", packet["call"])
         self.assertIn("adapter_hint", packet)
         self.assertEqual(
@@ -161,10 +167,88 @@ class ProtocolPacketTest(unittest.TestCase):
         packet = build_private_packet(response, adapter="cli", agent="codex")
 
         self.assertEqual(packet["call"]["shape"], "state_update")
+        self.assertEqual(packet["call"]["when"], "at_checkpoint")
         self.assertEqual(packet["call"]["fields"], ["target", "change"])
         self.assertNotIn("optional", packet["call"])
         self.assertIn("adapter_hint", packet)
         self.assertIn("--shape state-update", packet["adapter_hint"]["cli"])
+
+    def test_write_meanings_are_natural_language_and_empty_warnings_are_omitted(self) -> None:
+        cases = [
+            (True, "applied", "Previous Workroot fact was saved."),
+            (False, "not_recorded", "No durable fact was written."),
+            (False, "resync_required", "Sync again before retrying persistence."),
+            (
+                False,
+                "quarantined",
+                "Workroot recorded the attempt but did not project it into durable continuity.",
+            ),
+            (False, "rejected", "Workroot rejected the write. Continue user work and sync before retrying."),
+            (False, "unknown", "Continue helping the user."),
+        ]
+        for accepted, status, meaning in cases:
+            with self.subTest(status=status):
+                response = {
+                    "agent_may_continue": True,
+                    "workroot_view": {"focus": "quick", "confidence": "medium", "task_brief": "Answer"},
+                    "workroot_contract": {
+                        "next_exchange": {"action": "none", "reason": "no_exchange_needed", "required": False},
+                        "commit_contract": {"lease_id": None, "accepted_shapes": [], "required_before_stop": []},
+                        "state_refs": {},
+                    },
+                    "result": {"accepted": accepted, "status": status, "warnings": []},
+                }
+
+                packet = build_private_packet(response, adapter="cli", agent="codex")
+
+                self.assertEqual(packet["write"]["meaning"], meaning)
+                self.assertNotIn("warnings", packet["write"])
+
+    def test_write_warnings_are_included_when_present(self) -> None:
+        response = {
+            "agent_may_continue": True,
+            "workroot_view": {"focus": "quick", "confidence": "medium", "task_brief": "Answer"},
+            "workroot_contract": {
+                "next_exchange": {"action": "none", "reason": "no_exchange_needed", "required": False},
+                "commit_contract": {"lease_id": None, "accepted_shapes": [], "required_before_stop": []},
+                "state_refs": {},
+            },
+            "result": {"accepted": False, "status": "rejected", "warnings": ["Needs sync"]},
+        }
+
+        packet = build_private_packet(response, adapter="cli", agent="codex")
+
+        self.assertEqual(packet["write"]["warnings"], ["Needs sync"])
+
+    def test_call_when_covers_action_and_shape_timing(self) -> None:
+        cases = [
+            ("none", "no_exchange_needed", [], "if_needed"),
+            ("commit", "start_work", ["checkpoint"], "now"),
+            ("commit", "checkpoint", ["continuation_checkpoint"], "before_stop_or_switch"),
+            ("commit", "asset_ready", ["asset"], "after_user_visible_file_created"),
+            ("commit", "decision_ready", ["decision"], "after_stable_decision"),
+            ("commit", "state_sync", ["state_update"], "at_checkpoint"),
+        ]
+        for action, reason, accepted_shapes, expected_when in cases:
+            with self.subTest(action=action, reason=reason, accepted_shapes=accepted_shapes):
+                response = {
+                    "agent_may_continue": True,
+                    "workroot_view": {"focus": "continuation", "confidence": "medium", "task_brief": "Work"},
+                    "workroot_contract": {
+                        "next_exchange": {"action": action, "reason": reason, "required": False},
+                        "commit_contract": {
+                            "lease_id": "lease-x",
+                            "accepted_shapes": accepted_shapes,
+                            "required_before_stop": [],
+                        },
+                        "state_refs": {},
+                    },
+                    "result": {"accepted": False, "status": "not_recorded", "warnings": []},
+                }
+
+                packet = build_private_packet(response, adapter="cli", agent="codex")
+
+                self.assertEqual(packet["call"]["when"], expected_when)
 
 
 if __name__ == "__main__":

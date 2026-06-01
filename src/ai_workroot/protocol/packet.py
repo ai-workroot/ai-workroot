@@ -145,7 +145,8 @@ def _build_call(
     next_exchange: dict[str, Any],
     commit_contract: dict[str, Any],
 ) -> dict[str, Any]:
-    call: dict[str, Any] = {"action": action}
+    reason = _text(next_exchange.get("reason"))
+    call: dict[str, Any] = {"action": action, "when": _call_when(action, shape, reason)}
     if next_exchange.get("reason"):
         call["reason"] = next_exchange["reason"]
     if "required" in next_exchange:
@@ -191,9 +192,11 @@ def _build_write(result: dict[str, Any]) -> dict[str, Any]:
     write = {
         "accepted": accepted,
         "status": status,
-        "warnings": [item for item in _list(result.get("warnings")) if item],
         "meaning": _write_meaning(accepted, status),
     }
+    warnings = [item for item in _list(result.get("warnings")) if item]
+    if warnings:
+        write["warnings"] = warnings
     return write
 
 
@@ -240,6 +243,22 @@ def _also_for_shape(shape: str, required_before_stop: Any) -> list[str]:
     return also
 
 
+def _call_when(action: str, shape: str | None, reason: str) -> str:
+    if action == "none":
+        return "if_needed"
+    if action == "sync":
+        return "if_durable_persistence_is_still_relevant"
+    if shape == "start_work" or reason == "start_work":
+        return "now"
+    if shape == "continuation":
+        return "before_stop_or_switch"
+    if shape == "asset":
+        return "after_user_visible_file_created"
+    if shape == "decision":
+        return "after_stable_decision"
+    return "at_checkpoint"
+
+
 def _titles(items: Any) -> list[str]:
     titles: list[str] = []
     for item in _list(items)[:3]:
@@ -275,11 +294,17 @@ def _normalize_shape(shape: Any) -> str:
 
 
 def _write_meaning(accepted: bool, status: str) -> str:
-    if accepted:
-        return "write_applied"
+    if accepted and status == "applied":
+        return "Previous Workroot fact was saved."
     if status == "not_recorded":
-        return "not_written_yet"
-    return "write_not_applied"
+        return "No durable fact was written."
+    if status == "resync_required":
+        return "Sync again before retrying persistence."
+    if status == "quarantined":
+        return "Workroot recorded the attempt but did not project it into durable continuity."
+    if status == "rejected":
+        return "Workroot rejected the write. Continue user work and sync before retrying."
+    return "Continue helping the user."
 
 
 def _dict(value: Any) -> dict[str, Any]:
