@@ -156,10 +156,12 @@ def _build_call(
             {
                 "shape": shape,
                 "fields": FIELDS_BY_SHAPE[shape],
-                "optional": OPTIONAL_BY_SHAPE.get(shape, []),
                 "capture_rule": CAPTURE_RULE_BY_SHAPE[shape],
             }
         )
+        optional = OPTIONAL_BY_SHAPE.get(shape, [])
+        if optional:
+            call["optional"] = optional
         also = _also_for_shape(shape, commit_contract.get("required_before_stop"))
         if also:
             call["also"] = also

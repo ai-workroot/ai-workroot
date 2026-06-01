@@ -138,6 +138,34 @@ class ProtocolPacketTest(unittest.TestCase):
             "workroot agent sync --agent codex --cwd . --reason before_work --query <short intent>",
         )
 
+    def test_state_update_packet_omits_empty_optional_fields(self) -> None:
+        response = {
+            "agent_may_continue": True,
+            "workroot_view": {
+                "focus": "continuation",
+                "confidence": "high",
+                "task_brief": "Update protocol state",
+            },
+            "workroot_contract": {
+                "next_exchange": {"action": "commit", "reason": "state_sync", "required": False},
+                "commit_contract": {
+                    "lease_id": "lease-3",
+                    "accepted_shapes": ["state_update"],
+                    "required_before_stop": [],
+                },
+                "state_refs": {"task_ref": "task-2", "run_ref": "run-2"},
+            },
+            "result": {"accepted": False, "status": "not_recorded", "warnings": []},
+        }
+
+        packet = build_private_packet(response, adapter="cli", agent="codex")
+
+        self.assertEqual(packet["call"]["shape"], "state_update")
+        self.assertEqual(packet["call"]["fields"], ["target", "change"])
+        self.assertNotIn("optional", packet["call"])
+        self.assertIn("adapter_hint", packet)
+        self.assertIn("--shape state-update", packet["adapter_hint"]["cli"])
+
 
 if __name__ == "__main__":
     unittest.main()
