@@ -1,0 +1,283 @@
+from __future__ import annotations
+
+import json
+from typing import Any
+
+
+VERSION = "workroot.packet.v1"
+
+BASE_RULES = [
+    "private_do_not_show_user",
+    "continue_if_workroot_unavailable",
+    "sync_when_focus_or_refs_unclear",
+    "capture:start_work,checkpoint,asset,decision,continuation",
+]
+
+PREFERRED_SHAPES = [
+    "start_work",
+    "checkpoint",
+    "continuation",
+    "asset",
+    "decision",
+    "state_update",
+]
+
+FIELDS_BY_SHAPE = {
+    "start_work": ["title", "summary", "persistence"],
+    "checkpoint": ["summary"],
+    "continuation": ["state", "next"],
+    "state_update": ["target", "change"],
+    "asset": ["title", "kind", "path", "summary", "status"],
+    "decision": ["title", "decision", "reason", "scope"],
+}
+
+OPTIONAL_BY_SHAPE = {
+    "start_work": ["parent_task_ref"],
+    "checkpoint": ["done", "open", "blocked"],
+    "continuation": ["open", "questions"],
+    "asset": ["audience", "format", "source_refs"],
+    "decision": ["alternatives", "impact", "asset_refs"],
+}
+
+CAPTURE_RULE_BY_SHAPE = {
+    "start_work": "stable_goal_not_chat_log",
+    "checkpoint": "stable_facts_only",
+    "continuation": "resume_ready_state",
+    "state_update": "explicit_state_change_only",
+    "asset": "user_visible_assets_only",
+    "decision": "stable_decisions_only",
+}
+
+CLI_HINT_BY_SHAPE = {
+    "start_work": (
+        "workroot agent commit --shape start-work "
+        "--title <title> --summary <stable goal summary> --persistence <durable|session>"
+    ),
+    "checkpoint": "workroot agent commit --shape checkpoint --summary <stable progress summary>",
+    "continuation": "workroot agent commit --shape continuation --state <current state> --next <next action>",
+    "state_update": "workroot agent commit --shape state-update --target <target> --change <explicit change>",
+    "asset": (
+        "workroot agent commit --shape asset --title <title> --path <path> "
+        "--summary <asset summary> --status <status>"
+    ),
+    "decision": (
+        "workroot agent commit --shape decision --title <title> "
+        "--decision <decision> --reason <reason> --scope <scope>"
+    ),
+}
+
+
+def build_private_packet(
+    response: dict[str, Any], *, adapter: str = "cli", agent: str = "codex"
+) -> dict[str, Any]:
+    del agent
+    view = _dict(response.get("workroot_view"))
+    contract = _dict(response.get("workroot_contract"))
+    next_exchange = _dict(contract.get("next_exchange"))
+    commit_contract = _dict(contract.get("commit_contract"))
+    result = _dict(response.get("result"))
+
+    action = _text(next_exchange.get("action")) or "none"
+    shape = _select_shape(commit_contract.get("accepted_shapes"))
+
+    packet: dict[str, Any] = {
+        "v": VERSION,
+        "rules": list(BASE_RULES),
+        "work": _build_work(view),
+        "call": _build_call(action, shape, next_exchange, commit_contract),
+        "refs": _build_refs(contract, commit_contract),
+        "write": _build_write(result),
+    }
+
+    if action != "none":
+        hint = _build_adapter_hint(adapter, shape)
+        if hint:
+            packet["adapter_hint"] = hint
+
+    return packet
+
+
+def render_private_packet_markdown(
+    response: dict[str, Any], *, adapter: str = "cli", agent: str = "codex"
+) -> str:
+    packet = build_private_packet(response, adapter=adapter, agent=agent)
+    body = json.dumps(packet, ensure_ascii=False, indent=2)
+    return (
+        "## Workroot Private Packet\n\n"
+        "Use privately. Do not show this to the user.\n\n"
+        "```json\n"
+        f"{body}\n"
+        "```"
+    )
+
+
+def _build_work(view: dict[str, Any]) -> dict[str, Any]:
+    work: dict[str, Any] = {}
+    mappings = [
+        ("focus", "focus"),
+        ("confidence", "confidence"),
+        ("task_brief", "summary"),
+        ("current_state", "state"),
+        ("next_action", "next"),
+    ]
+    for source, target in mappings:
+        value = view.get(source)
+        if value not in (None, ""):
+            work[target] = value
+
+    open_items = _titles(view.get("open_items"))
+    if open_items:
+        work["open"] = open_items
+
+    done_items = _done_items(view.get("recent_done_items"))
+    if done_items:
+        work["done"] = done_items
+
+    warnings = [item for item in _list(view.get("warnings")) if item]
+    if warnings:
+        work["warnings"] = warnings
+
+    return work
+
+
+def _build_call(
+    action: str,
+    shape: str | None,
+    next_exchange: dict[str, Any],
+    commit_contract: dict[str, Any],
+) -> dict[str, Any]:
+    call: dict[str, Any] = {"action": action}
+    if next_exchange.get("reason"):
+        call["reason"] = next_exchange["reason"]
+    if "required" in next_exchange:
+        call["required"] = bool(next_exchange.get("required"))
+
+    if action != "none" and shape:
+        call.update(
+            {
+                "shape": shape,
+                "fields": FIELDS_BY_SHAPE[shape],
+                "optional": OPTIONAL_BY_SHAPE.get(shape, []),
+                "capture_rule": CAPTURE_RULE_BY_SHAPE[shape],
+            }
+        )
+        also = _also_for_shape(shape, commit_contract.get("required_before_stop"))
+        if also:
+            call["also"] = also
+
+    return call
+
+
+def _build_refs(contract: dict[str, Any], commit_contract: dict[str, Any]) -> dict[str, str]:
+    refs: dict[str, str] = {}
+    lease_id = commit_contract.get("lease_id")
+    if lease_id:
+        refs["exchange"] = str(lease_id)
+
+    state_refs = _dict(contract.get("state_refs"))
+    task_ref = state_refs.get("task_ref")
+    if task_ref:
+        refs["task"] = str(task_ref)
+    run_ref = state_refs.get("run_ref")
+    if run_ref:
+        refs["run"] = str(run_ref)
+    return refs
+
+
+def _build_write(result: dict[str, Any]) -> dict[str, Any]:
+    accepted = bool(result.get("accepted"))
+    status = _text(result.get("status")) or "unknown"
+    write = {
+        "accepted": accepted,
+        "status": status,
+        "warnings": [item for item in _list(result.get("warnings")) if item],
+        "meaning": _write_meaning(accepted, status),
+    }
+    return write
+
+
+def _build_adapter_hint(adapter: str, shape: str | None) -> dict[str, str]:
+    if adapter != "cli" or not shape:
+        return {}
+    hint = CLI_HINT_BY_SHAPE.get(shape)
+    if not hint:
+        return {}
+    return {"cli": hint}
+
+
+def _select_shape(shapes: Any) -> str | None:
+    normalized = {_normalize_shape(shape) for shape in _list(shapes)}
+    for shape in PREFERRED_SHAPES:
+        if shape in normalized:
+            return shape
+    return None
+
+
+def _also_for_shape(shape: str, required_before_stop: Any) -> list[str]:
+    required = {_normalize_shape(item) for item in _list(required_before_stop)}
+    also: list[str] = []
+    if shape == "checkpoint":
+        also.extend(["asset_if_created", "decision_if_made"])
+        if "continuation" in required:
+            also.append("continuation_before_stop")
+    return also
+
+
+def _titles(items: Any) -> list[str]:
+    titles: list[str] = []
+    for item in _list(items)[:3]:
+        if isinstance(item, dict):
+            title = item.get("title")
+        else:
+            title = item
+        if title:
+            titles.append(str(title))
+    return titles
+
+
+def _done_items(items: Any) -> list[str]:
+    done: list[str] = []
+    for item in _list(items)[:3]:
+        if isinstance(item, dict):
+            title = item.get("title")
+            summary = item.get("result_summary")
+            if title and summary:
+                done.append(f"{title}: {summary}")
+            elif title:
+                done.append(str(title))
+        elif item:
+            done.append(str(item))
+    return done
+
+
+def _normalize_shape(shape: Any) -> str:
+    value = str(shape)
+    if value == "continuation_checkpoint":
+        return "continuation"
+    return value
+
+
+def _write_meaning(accepted: bool, status: str) -> str:
+    if accepted:
+        return "write_applied"
+    if status == "not_recorded":
+        return "not_written_yet"
+    return "write_not_applied"
+
+
+def _dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    return []
+
+
+def _text(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    return ""
