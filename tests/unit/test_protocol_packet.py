@@ -112,6 +112,32 @@ class ProtocolPacketTest(unittest.TestCase):
         self.assertIn('"focus": "quick"', rendered)
         self.assertNotIn("adapter_hint", rendered)
 
+    def test_sync_packet_includes_adapter_hint_without_shape(self) -> None:
+        response = {
+            "agent_may_continue": True,
+            "workroot_view": {
+                "focus": "continuation",
+                "confidence": "medium",
+                "task_brief": "Resume protocol work",
+            },
+            "workroot_contract": {
+                "next_exchange": {"action": "sync", "reason": "before_work", "required": False},
+                "commit_contract": {"lease_id": None, "accepted_shapes": [], "required_before_stop": []},
+                "state_refs": {},
+            },
+            "result": {"accepted": False, "status": "not_recorded", "warnings": []},
+        }
+
+        packet = build_private_packet(response, adapter="cli", agent="codex")
+
+        self.assertEqual(packet["call"]["action"], "sync")
+        self.assertNotIn("shape", packet["call"])
+        self.assertIn("adapter_hint", packet)
+        self.assertEqual(
+            packet["adapter_hint"]["cli"],
+            "workroot agent sync --agent codex --cwd . --reason before_work --query <short intent>",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

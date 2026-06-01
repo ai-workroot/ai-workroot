@@ -70,7 +70,6 @@ CLI_HINT_BY_SHAPE = {
 def build_private_packet(
     response: dict[str, Any], *, adapter: str = "cli", agent: str = "codex"
 ) -> dict[str, Any]:
-    del agent
     view = _dict(response.get("workroot_view"))
     contract = _dict(response.get("workroot_contract"))
     next_exchange = _dict(contract.get("next_exchange"))
@@ -90,7 +89,7 @@ def build_private_packet(
     }
 
     if action != "none":
-        hint = _build_adapter_hint(adapter, shape)
+        hint = _build_adapter_hint(adapter, agent, action, shape, next_exchange)
         if hint:
             packet["adapter_hint"] = hint
 
@@ -196,8 +195,24 @@ def _build_write(result: dict[str, Any]) -> dict[str, Any]:
     return write
 
 
-def _build_adapter_hint(adapter: str, shape: str | None) -> dict[str, str]:
-    if adapter != "cli" or not shape:
+def _build_adapter_hint(
+    adapter: str,
+    agent: str,
+    action: str,
+    shape: str | None,
+    next_exchange: dict[str, Any],
+) -> dict[str, str]:
+    if adapter != "cli":
+        return {}
+    if action == "sync":
+        reason = _text(next_exchange.get("reason")) or "sync"
+        return {
+            "cli": (
+                f"workroot agent sync --agent {agent} --cwd . "
+                f"--reason {reason} --query <short intent>"
+            )
+        }
+    if not shape:
         return {}
     hint = CLI_HINT_BY_SHAPE.get(shape)
     if not hint:
