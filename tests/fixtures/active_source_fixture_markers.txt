@@ -1,0 +1,13 @@
+# Business and E2E scenario markers that must not leak into active source.
+founder
+personal fonder
+live-mixed-complexity
+live task continuity
+operating brief
+technical risk note
+customer interview
+research synthesis
+executive summary
+pricing cadence
+onboarding language
+long run

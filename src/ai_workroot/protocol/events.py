@@ -20,6 +20,23 @@ def request_hash(data: dict[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(canonical_json(data).encode("utf-8")).hexdigest()
 
 
+def semantic_commit_request(request_data: dict[str, Any], *, workroot_id: str) -> dict[str, Any]:
+    return {
+        "protocol_version": request_data.get("protocol_version"),
+        "action": "commit",
+        "workroot_id": workroot_id,
+        "exchange_lease_id": request_data.get("exchange_lease_id") or "",
+        "atomic_batch": request_data.get("atomic_batch") is not False,
+        "events": [_semantic_event(event) for event in request_data.get("events") or [] if isinstance(event, dict)],
+    }
+
+
+def semantic_commit_hash(request_data: dict[str, Any], *, workroot_id: str) -> tuple[str, str]:
+    normalized = semantic_commit_request(request_data, workroot_id=workroot_id)
+    normalized_json = canonical_json(normalized)
+    return "sha256:" + hashlib.sha256(normalized_json.encode("utf-8")).hexdigest(), normalized_json
+
+
 def validate_event_envelope(event: dict[str, Any]) -> dict[str, Any]:
     required = ("event_id", "kind", "schema_version", "occurred_at", "source", "confirmation", "payload", "evidence")
     for field in required:
@@ -31,4 +48,16 @@ def validate_event_envelope(event: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError("invalid_event_schema", "evidence must be a list")
     if not isinstance(event["payload"], dict):
         raise ProtocolError("invalid_event_schema", "payload must be an object")
+    if event["kind"] == "progress" and any(key in event["payload"] for key in ("done", "open", "blocked")):
+        raise ProtocolError("invalid_event_schema", "progress shorthand must be converted before projection")
     return event
+
+
+def _semantic_event(event: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": event.get("kind"),
+        "schema_version": event.get("schema_version"),
+        "payload": event.get("payload") if isinstance(event.get("payload"), dict) else {},
+        "evidence": event.get("evidence") if isinstance(event.get("evidence"), list) else [],
+        "confirmation": event.get("confirmation") if isinstance(event.get("confirmation"), dict) else {},
+    }

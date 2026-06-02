@@ -333,10 +333,14 @@ CREATE TABLE IF NOT EXISTS protocol_commit_batches (
   request_id TEXT NOT NULL,
   idempotency_key TEXT NOT NULL,
   request_hash TEXT NOT NULL,
+  semantic_hash TEXT NOT NULL DEFAULT '',
+  normalized_request_json TEXT NOT NULL DEFAULT '{}',
   response_json TEXT,
   status TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z',
   received_at TEXT NOT NULL,
-  completed_at TEXT
+  completed_at TEXT,
+  error_json TEXT
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_protocol_commit_batches_idempotency
@@ -394,6 +398,8 @@ CREATE TABLE IF NOT EXISTS state_versions (
   scope TEXT NOT NULL,
   version INTEGER NOT NULL,
   updated_at TEXT NOT NULL,
+  updated_by_event_id TEXT,
+  reason TEXT,
   PRIMARY KEY (workroot_id, scope)
 );
 
@@ -525,7 +531,8 @@ CREATE TABLE IF NOT EXISTS context_packages (
   package_id TEXT PRIMARY KEY,
   workroot_id TEXT NOT NULL,
   mode TEXT,
-  rendered TEXT
+  rendered TEXT,
+  created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z'
 );
 
 CREATE TABLE IF NOT EXISTS context_traces (
@@ -615,6 +622,9 @@ VALUES ('007-relationship-node-canonical-targets', strftime('%Y-%m-%dT%H:%M:%SZ'
 
 INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
 VALUES ('008-handoff-package-fields', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
+
+INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
+VALUES ('009-agent-protocol-task-continuity', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 """
 
 
@@ -627,9 +637,11 @@ def initialize_workroot_sqlite(path: Path) -> None:
         _ensure_active_work_runtime_columns(connection)
         _ensure_handoff_package_columns(connection)
         _ensure_protocol_runtime_columns(connection)
+        _ensure_protocol_v2_columns(connection)
         _ensure_active_asset_runtime_columns(connection)
         _ensure_relationship_node_target_columns(connection)
         _ensure_context_candidate_time_columns(connection)
+        _ensure_context_runtime_columns(connection)
         _ensure_context_recall_hint_time_columns(connection)
         connection.executescript(SCHEMA)
 
@@ -722,6 +734,24 @@ def _ensure_protocol_runtime_columns(connection: sqlite3.Connection) -> None:
         _add_column_if_missing(connection, "handoffs", name, definition)
 
 
+def _ensure_protocol_v2_columns(connection: sqlite3.Connection) -> None:
+    batch_columns = {
+        "semantic_hash": "TEXT NOT NULL DEFAULT ''",
+        "normalized_request_json": "TEXT NOT NULL DEFAULT '{}'",
+        "created_at": "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z'",
+        "error_json": "TEXT",
+    }
+    for name, definition in batch_columns.items():
+        _add_column_if_missing(connection, "protocol_commit_batches", name, definition)
+
+    state_version_columns = {
+        "updated_by_event_id": "TEXT",
+        "reason": "TEXT",
+    }
+    for name, definition in state_version_columns.items():
+        _add_column_if_missing(connection, "state_versions", name, definition)
+
+
 def _ensure_active_asset_runtime_columns(connection: sqlite3.Connection) -> None:
     columns = {row[1] for row in connection.execute("PRAGMA table_info(assets)").fetchall()}
     if "surface_id" not in columns:
@@ -745,6 +775,15 @@ def _ensure_context_candidate_time_columns(connection: sqlite3.Connection) -> No
     for name in ("updatedAt", "lastUsedAt"):
         if name not in columns:
             connection.execute(f"ALTER TABLE context_candidates ADD COLUMN {name} TEXT")
+
+
+def _ensure_context_runtime_columns(connection: sqlite3.Connection) -> None:
+    _add_column_if_missing(
+        connection,
+        "context_packages",
+        "created_at",
+        "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z'",
+    )
 
 
 def _ensure_context_recall_hint_time_columns(connection: sqlite3.Connection) -> None:

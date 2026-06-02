@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from ai_workroot.protocol.errors import ProtocolError
-from ai_workroot.protocol.events import validate_event_envelope
+from ai_workroot.protocol.work_signal import WorkSignal
 
 
 PROTOCOL_VERSION = "workroot.v1"
@@ -40,6 +40,7 @@ class SyncRequest:
     reason: str
     query: str
     known_state: dict[str, Any]
+    work_signal: dict[str, object]
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "SyncRequest":
@@ -62,6 +63,7 @@ class SyncRequest:
             reason=reason,
             query=data.get("query") or "",
             known_state=data.get("known_state") or {},
+            work_signal=WorkSignal.from_dict(data.get("work_signal")).to_dict(),
         )
 
 
@@ -69,6 +71,8 @@ class SyncRequest:
 class CommitRequest:
     request_id: str
     exchange_lease_id: str
+    cwd: Optional[str]
+    workroot_id: Optional[str]
     idempotency_key: str
     atomic_batch: bool
     events: list[dict[str, Any]]
@@ -79,15 +83,15 @@ class CommitRequest:
         events = data.get("events")
         if not isinstance(events, list) or not events:
             raise ProtocolError("empty_event_batch")
-        if data.get("atomic_batch") is False:
-            raise ProtocolError("partial_batch_not_supported")
-        for field in ("request_id", "exchange_lease_id", "idempotency_key"):
+        for field in ("request_id", "idempotency_key"):
             if not data.get(field):
                 raise ProtocolError(f"missing_{field}")
         return cls(
             request_id=data["request_id"],
-            exchange_lease_id=data["exchange_lease_id"],
+            exchange_lease_id=data.get("exchange_lease_id") or "",
+            cwd=data.get("cwd"),
+            workroot_id=data.get("workroot_id"),
             idempotency_key=data["idempotency_key"],
-            atomic_batch=True,
-            events=[validate_event_envelope(event) for event in events],
+            atomic_batch=data.get("atomic_batch") is not False,
+            events=[event for event in events if isinstance(event, dict)],
         )

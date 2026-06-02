@@ -6,7 +6,9 @@ from typing import Any, Optional
 
 
 DIRECTIVE_TYPES = {
+    "answer_without_persistence",
     "continue_task",
+    "continue_without_persistence",
     "ask_user",
     "commit_required",
     "handoff_required",
@@ -14,7 +16,10 @@ DIRECTIVE_TYPES = {
     "promote_candidate",
     "archive_candidate",
     "blocked",
+    "capture_workroot",
     "safe_to_stop",
+    "not_recorded",
+    "recover",
     "no_persistent_work",
 }
 
@@ -33,8 +38,10 @@ def directive(
         raise ValueError(f"unknown directive type: {directive_type}")
     return {
         "type": directive_type,
+        "message": goal or next_action or "",
         "goal": goal,
         "next_action": next_action,
+        "expected_commit_kinds": expected_events or [],
         "expected_events": expected_events or [],
         "required_before_stop": required_before_stop or [],
         "must_not": must_not or [],

@@ -60,7 +60,7 @@ class WorkrootCliDiscoveryTest(unittest.TestCase):
         response = json.loads(result.stdout)
         self.assertFalse(response["ok"])
         self.assertEqual(response["error"]["code"], "missing_protocol_version")
-        self.assertEqual(response["directive"]["type"], "resync_required")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
 
     def test_package_cli_version_reports_protocol_release(self) -> None:
         result = run_package_cli("--version")

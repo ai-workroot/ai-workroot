@@ -25,6 +25,18 @@ class LeaseValidationResult:
     directive: Optional[dict[str, Any]] = None
 
 
+@dataclass(frozen=True)
+class LeaseSafetyDecision:
+    status: str
+    lease: Optional[dict[str, Any]]
+    warnings: tuple[str, ...] = ()
+    error_code: str = ""
+
+    @property
+    def can_project(self) -> bool:
+        return self.status == "applied"
+
+
 def load_state_versions(conn: sqlite3.Connection, workroot_id: str, scopes: list[str]) -> dict[str, int]:
     versions: dict[str, int] = {}
     for scope in scopes:
@@ -37,18 +49,25 @@ def load_state_versions(conn: sqlite3.Connection, workroot_id: str, scopes: list
 
 
 def bump_state_version(
-    conn: sqlite3.Connection, workroot_id: str, scope: str, updated_at: Optional[str] = None
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    scope: str,
+    updated_at: Optional[str] = None,
+    *,
+    updated_by_event_id: Optional[str] = None,
+    reason: Optional[str] = None,
 ) -> None:
-    current = load_state_versions(conn, workroot_id, [scope])[scope]
     conn.execute(
         """
-        INSERT INTO state_versions (workroot_id, scope, version, updated_at)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO state_versions (workroot_id, scope, version, updated_at, updated_by_event_id, reason)
+        VALUES (?, ?, 1, ?, ?, ?)
         ON CONFLICT(workroot_id, scope) DO UPDATE SET
-          version=excluded.version,
-          updated_at=excluded.updated_at
+          version=state_versions.version + 1,
+          updated_at=excluded.updated_at,
+          updated_by_event_id=excluded.updated_by_event_id,
+          reason=excluded.reason
         """,
-        (workroot_id, scope, current + 1, updated_at or now_utc()),
+        (workroot_id, scope, updated_at or now_utc(), updated_by_event_id, reason),
     )
 
 
@@ -137,6 +156,49 @@ def validate_lease(
     return LeaseValidationResult(ok=True, lease=lease)
 
 
+def decide_lease_safety(
+    conn: sqlite3.Connection,
+    lease_id: str,
+    *,
+    workroot_id: str,
+    events: list[dict[str, Any]],
+    now: Optional[str] = None,
+) -> LeaseSafetyDecision:
+    lease = load_lease(conn, lease_id)
+    if lease is None:
+        return LeaseSafetyDecision(status="rejected", lease=None, error_code="lease_not_found")
+    if lease["workroot_id"] != workroot_id:
+        return LeaseSafetyDecision(status="rejected", lease=lease, error_code="lease_workroot_mismatch")
+
+    allowed_events = set(lease["allowed_events"])
+    for event in events:
+        if event.get("kind") not in allowed_events:
+            return LeaseSafetyDecision(status="rejected", lease=lease, error_code="event_not_allowed")
+
+    current_versions = load_state_versions(conn, workroot_id, list(lease["observed_versions"].keys()))
+    versions_match = current_versions == lease["observed_versions"]
+    checked_at = now or now_utc()
+    expired = lease["status"] == "expired" or checked_at > str(lease["expires_at"] or "")
+    active = lease["status"] == "active"
+
+    if not versions_match:
+        return LeaseSafetyDecision(status="resync_required", lease=lease, error_code="state_conflict")
+    if active and not expired:
+        return LeaseSafetyDecision(status="applied", lease=lease)
+    if expired and _all_events_safe_after_expiry(events):
+        conn.execute("UPDATE exchange_leases SET status = 'expired' WHERE lease_id = ?", (lease_id,))
+        return LeaseSafetyDecision(
+            status="applied",
+            lease=lease,
+            warnings=("lease_expired_safe_projection",),
+            error_code="lease_expired",
+        )
+    if expired:
+        conn.execute("UPDATE exchange_leases SET status = 'expired' WHERE lease_id = ?", (lease_id,))
+        return LeaseSafetyDecision(status="resync_required", lease=lease, error_code="lease_expired")
+    return LeaseSafetyDecision(status="rejected", lease=lease, error_code="lease_not_active")
+
+
 def load_lease(conn: sqlite3.Connection, lease_id: str) -> Optional[dict[str, Any]]:
     row = conn.execute(
         """
@@ -173,12 +235,17 @@ def _lease_error(code: str) -> LeaseValidationResult:
 
 
 def _observed_scopes(*, task_id: Optional[str], run_id: Optional[str]) -> list[str]:
-    scopes = ["workroot", "context"]
+    scopes = ["workroot", "event_log"]
     if task_id:
         scopes.append(f"task:{task_id}")
+        scopes.append(f"context:task:{task_id}")
     if run_id:
         scopes.append(f"run:{run_id}")
     return scopes
+
+
+def _all_events_safe_after_expiry(events: list[dict[str, Any]]) -> bool:
+    return bool(events) and all(event.get("kind") in {"progress", "handoff"} for event in events)
 
 
 def _default_expiry(issued_at: str) -> str:

@@ -34,7 +34,7 @@ class RuntimeWorkTest(unittest.TestCase):
             workroot_id="wr_demo",
             task_id="task-architecture",
             title="Architecture reset",
-            task_kind="project",
+            task_kind="task",
             process_level="L2",
         )
 
@@ -47,7 +47,7 @@ class RuntimeWorkTest(unittest.TestCase):
         ).fetchone()
         self.assertEqual(task.task_id, "task-architecture")
         self.assertEqual(task.process_level, "L2")
-        self.assertEqual(row, ("task-architecture", "wr_demo", "Architecture reset", "active", "project", "L2"))
+        self.assertEqual(row, ("task-architecture", "wr_demo", "Architecture reset", "active", "task", "L2"))
         invalidation = conn.execute(
             """
             SELECT index_id, reason

@@ -24,7 +24,7 @@ def create_task(
     task_id: str,
     title: str,
     status: str = "active",
-    task_kind: str = "project",
+    task_kind: str = "task",
     process_level: str = "L1",
 ) -> Task:
     task = Task(task_id=task_id, title=title, status=status, task_kind=task_kind, process_level=process_level)

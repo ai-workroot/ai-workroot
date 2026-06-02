@@ -26,11 +26,11 @@ def ensure_workroot_id(workroot_id: str) -> str:
 
 
 def resolve_ai_workroot_home(home: str | Path | None = None) -> Path:
+    if home is not None:
+        return Path(home).expanduser().resolve()
     override = os.environ.get("AI_WORKROOT_HOME")
     if override:
         return Path(override).expanduser().resolve()
-    if home is not None:
-        return Path(home).expanduser().resolve()
     if platform.system() == "Windows":
         local_app_data = os.environ.get("LOCALAPPDATA")
         if local_app_data:

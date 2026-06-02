@@ -92,6 +92,36 @@ class ReleaseSurfaceContractTest(unittest.TestCase):
             self.assertIn("local metadata must not be committed: .idea", text)
             self.assertIn("local metadata must not be committed: .idea/workspace.xml", text)
 
+    def test_release_validation_ignores_token_variable_control_flow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "src/example.py"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                "def collect(values):\n"
+                "    for token in values:\n"
+                "        if not token:\n"
+                "            continue\n"
+                "        yield token\n",
+                encoding="utf-8",
+            )
+            errors: list[str] = []
+
+            validate_release_surface(root, errors)
+
+            self.assertEqual(errors, [])
+
+    def test_release_validation_rejects_secret_like_key_assignments(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret_file = root / "config.yaml"
+            secret_file.write_text("token: secret-value\n", encoding="utf-8")
+            errors: list[str] = []
+
+            validate_release_surface(root, errors)
+
+            self.assertIn("possible private residue in config.yaml", "\n".join(errors))
+
 
 if __name__ == "__main__":
     unittest.main()

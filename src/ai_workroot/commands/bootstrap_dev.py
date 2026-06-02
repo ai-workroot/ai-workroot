@@ -18,7 +18,7 @@ from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 PROJECT_MARKER = "workroot.project.json"
 LOCAL_DIR = ".ai-workroot-local"
-VERSION = "0.9.530"
+VERSION = "0.9.531"
 
 
 @dataclass(frozen=True)

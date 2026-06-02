@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+import os
 
 from tests.e2e.harness import REPO_ROOT, env_for
 from tests.e2e.personas import Persona
@@ -150,6 +151,91 @@ class E2ESafetyTest(unittest.TestCase):
         from tests.e2e.runner import SUITES
 
         self.assertIn("live-agent", SUITES)
+
+    def test_e2e_runner_lists_live_protocol_suite_when_explicitly_enabled(self) -> None:
+        from tests.e2e.runner import SUITES
+
+        self.assertIn("live-protocol", SUITES)
+
+    def test_e2e_runner_lists_live_task_continuity_suite_when_explicitly_enabled(self) -> None:
+        from tests.e2e.runner import REMOTE_LLM_SUITES, SUITES
+
+        self.assertIn("live-task-continuity", SUITES)
+        self.assertIn("live-task-continuity", REMOTE_LLM_SUITES)
+
+    def test_live_protocol_requires_remote_llm_opt_in(self) -> None:
+        from tests.e2e.runner import main
+
+        previous_run = os.environ.get("AI_WORKROOT_RUN_E2E")
+        previous_remote = os.environ.get("AI_WORKROOT_E2E_ALLOW_REMOTE_LLM")
+        try:
+            os.environ["AI_WORKROOT_RUN_E2E"] = "1"
+            os.environ.pop("AI_WORKROOT_E2E_ALLOW_REMOTE_LLM", None)
+            with tempfile.TemporaryDirectory() as tmp:
+                sandbox_base = Path(tmp) / "sandboxes"
+                run_root = sandbox_base / "run-live-protocol-opt-in"
+
+                rc = main(
+                    [
+                        "--suite",
+                        "live-protocol",
+                        "--dry-run",
+                        "--sandbox-base",
+                        str(sandbox_base),
+                        "--run-root",
+                        str(run_root),
+                    ]
+                )
+
+            self.assertEqual(rc, 2)
+        finally:
+            if previous_run is None:
+                os.environ.pop("AI_WORKROOT_RUN_E2E", None)
+            else:
+                os.environ["AI_WORKROOT_RUN_E2E"] = previous_run
+            if previous_remote is None:
+                os.environ.pop("AI_WORKROOT_E2E_ALLOW_REMOTE_LLM", None)
+            else:
+                os.environ["AI_WORKROOT_E2E_ALLOW_REMOTE_LLM"] = previous_remote
+
+    def test_e2e_runner_accepts_live_task_role_and_rounds_in_dry_run(self) -> None:
+        from tests.e2e.runner import main
+
+        previous_run = os.environ.get("AI_WORKROOT_RUN_E2E")
+        previous_remote = os.environ.get("AI_WORKROOT_E2E_ALLOW_REMOTE_LLM")
+        try:
+            os.environ["AI_WORKROOT_RUN_E2E"] = "1"
+            os.environ["AI_WORKROOT_E2E_ALLOW_REMOTE_LLM"] = "1"
+            with tempfile.TemporaryDirectory() as tmp:
+                sandbox_base = Path(tmp) / "sandboxes"
+                run_root = sandbox_base / "run-live-task-role-dry-run"
+
+                rc = main(
+                    [
+                        "--suite",
+                        "live-task-continuity",
+                        "--dry-run",
+                        "--rounds",
+                        "50",
+                        "--role",
+                        "live-founder-operator",
+                        "--sandbox-base",
+                        str(sandbox_base),
+                        "--run-root",
+                        str(run_root),
+                    ]
+                )
+
+            self.assertEqual(rc, 0)
+        finally:
+            if previous_run is None:
+                os.environ.pop("AI_WORKROOT_RUN_E2E", None)
+            else:
+                os.environ["AI_WORKROOT_RUN_E2E"] = previous_run
+            if previous_remote is None:
+                os.environ.pop("AI_WORKROOT_E2E_ALLOW_REMOTE_LLM", None)
+            else:
+                os.environ["AI_WORKROOT_E2E_ALLOW_REMOTE_LLM"] = previous_remote
 
 
 if __name__ == "__main__":

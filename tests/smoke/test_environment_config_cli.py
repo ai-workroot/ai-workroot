@@ -45,15 +45,15 @@ class EnvironmentConfigCliSmokeTest(unittest.TestCase):
             policy_defaults = json.loads((home / "preferences/policy-defaults.json").read_text(encoding="utf-8"))
             self.assertEqual(config["custom"], "keep-me")
             self.assertEqual(config["kind"], "WorkrootEnvironment")
-            self.assertEqual(config["version"], "0.9.530")
+            self.assertEqual(config["version"], "0.9.531")
             self.assertEqual(config["summary"]["registeredWorkrootCount"], 2)
             self.assertEqual(config["summary"]["activeWorkrootCount"], 2)
             self.assertRegex(config["summary"]["lastRegistryUpdatedAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
             self.assertEqual(config["maintenance"]["status"], "idle")
             self.assertEqual(operator_preferences["customPreference"], "keep-me")
-            self.assertEqual(operator_preferences["version"], "0.9.530")
+            self.assertEqual(operator_preferences["version"], "0.9.531")
             self.assertEqual(policy_defaults["customPolicy"], "keep-me")
-            self.assertEqual(policy_defaults["version"], "0.9.530")
+            self.assertEqual(policy_defaults["version"], "0.9.531")
 
     def test_init_creates_minimal_environment_config_contract_and_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

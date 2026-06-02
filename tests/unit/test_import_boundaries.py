@@ -80,6 +80,28 @@ class ImportBoundariesTest(unittest.TestCase):
 
         self.assertEqual(legacy_paths, [])
 
+    def test_active_python_source_uses_ascii_only(self) -> None:
+        violations: list[str] = []
+        for path in (SRC / "ai_workroot").rglob("*.py"):
+            for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                if any(ord(char) > 127 for char in line):
+                    violations.append(f"{path.relative_to(ROOT)}:{line_number}")
+
+        self.assertEqual(violations, [])
+
+    def test_protocol_focus_has_no_natural_language_marker_tables(self) -> None:
+        path = SRC / "ai_workroot" / "protocol" / "focus.py"
+        source = path.read_text(encoding="utf-8")
+        forbidden = (
+            "DURABLE_MARKERS",
+            "CONTINUATION_MARKERS",
+            "GUARDED_MARKERS",
+            "_contains_any",
+            "_has_start_boundary",
+        )
+
+        self.assertEqual([name for name in forbidden if name in source], [])
+
     def test_src_does_not_import_legacy_modules(self) -> None:
         violations: list[str] = []
         forbidden = ("legacy_", ".legacy_", "legacy_seed", "public_seed")
@@ -147,10 +169,10 @@ class ImportBoundariesTest(unittest.TestCase):
             "assets": {"state"},
             "cli": {"commands"},
             "commands": {"agent_entry", "context", "diagnostics", "protocol", "state"},
-            "context": {"relationships", "release", "retrieval", "state"},
+            "context": {"protocol", "relationships", "release", "retrieval", "state"},
             "diagnostics": {"agent_entry", "state"},
             "handoff": {"state"},
-            "protocol": {"context", "state"},
+            "protocol": {"state"},
             "relationships": {"state"},
             "release": set(),
             "retrieval": {"state"},

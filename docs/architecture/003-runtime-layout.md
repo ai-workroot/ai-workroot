@@ -104,6 +104,36 @@ Each Workroot has:
 - `diagnostics/`: doctor/check outputs.
 - `cache/`: derived caches.
 
+Runtime read views:
+
+- SQLite at `cache/workroot.sqlite` is the canonical per-Workroot fact store.
+- Files in `state/`, `tasks/`, `handoffs/`, `assets/`, `relationships/`, `indexes/`, `context/`, and `diagnostics/` are rebuildable read views or diagnostics.
+- Protocol projection must not treat these read-view files as facts.
+- `context/latest.md` is a bounded diagnostic preview, not a full context archive.
+- `context/latest-trace.json` records whether the latest context preview was truncated.
+- Current derived views include:
+
+```text
+state/current.json
+tasks/current.json
+tasks/active.json
+handoffs/current.md
+handoffs/current.json
+assets/manifest.json
+relationships/summary.json
+indexes/manifest.json
+context/latest.md
+context/latest-trace.json
+diagnostics/protocol-friction.json
+```
+
+## Protocol commit batches
+
+- `protocol_commit_batches` and `protocol_events` are canonical SQLite facts.
+- Version `0.9.531` supports atomic commit batches only.
+- `atomic_batch=false` is a reserved future protocol mode. The controller rejects it before Workroot location or durable writes with `unsupported_atomic_batch_mode`.
+- Agents may continue user-visible work after that rejection, then sync and retry with `atomic_batch=true` if durable persistence is still relevant.
+
 ## Source repository under bootstrap-dev
 
 The AI Workroot source repository is a Clean Workroot user directory.

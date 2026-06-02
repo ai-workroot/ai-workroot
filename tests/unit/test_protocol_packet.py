@@ -47,7 +47,9 @@ class ProtocolPacketTest(unittest.TestCase):
         self.assertEqual(packet["write"]["status"], "not_recorded")
         self.assertEqual(packet["write"]["meaning"], "No durable fact was written.")
         self.assertNotIn("warnings", packet["write"])
+        self.assertIn("--lease lease-1", packet["adapter_hint"]["cli"])
         self.assertIn("--shape start-work", packet["adapter_hint"]["cli"])
+        self.assertNotIn("quick", packet["adapter_hint"]["cli"])
         serialized = json.dumps(packet, ensure_ascii=False)
         self.assertNotIn("debug", serialized)
         self.assertNotIn("effects", serialized)
@@ -97,6 +99,44 @@ class ProtocolPacketTest(unittest.TestCase):
         self.assertEqual(packet["refs"], {"exchange": "lease-2", "task": "task-1", "run": "run-1"})
         self.assertEqual(packet["write"]["meaning"], "Previous Workroot fact was saved.")
 
+    def test_packet_call_includes_copyable_command_and_markdown_preface(self) -> None:
+        response = {
+            "agent_may_continue": True,
+            "workroot_view": {
+                "focus": "continuation",
+                "confidence": "high",
+                "task_brief": "Protocol packet design",
+                "current_state": "Core fields agreed.",
+                "next_action": "Implement packet renderer.",
+                "open_items": [],
+                "recent_done_items": [],
+                "warnings": [],
+            },
+            "workroot_contract": {
+                "next_exchange": {"action": "commit", "reason": "meaningful_checkpoint", "required": False},
+                "commit_contract": {
+                    "lease_id": "lease-copyable",
+                    "accepted_shapes": ["checkpoint", "continuation"],
+                    "required_before_stop": ["continuation"],
+                },
+                "state_refs": {"task_ref": "task-1", "run_ref": "run-1"},
+            },
+            "result": {"accepted": True, "status": "applied", "warnings": []},
+        }
+
+        packet = build_private_packet(response, adapter="cli", agent="codex")
+        rendered = render_private_packet_markdown(response, adapter="cli", agent="codex")
+
+        self.assertIn("command", packet["call"])
+        self.assertIn("workroot agent commit", packet["call"]["command"])
+        self.assertIn("--format packet", packet["call"]["command"])
+        self.assertIn("--shape checkpoint", packet["call"]["command"])
+        self.assertIn("--lease lease-copyable", packet["call"]["command"])
+        self.assertIn("--cwd .", packet["call"]["command"])
+        self.assertIn("Meaning:", rendered)
+        self.assertIn("Exact next call:", rendered)
+        self.assertIn(packet["call"]["command"], rendered)
+
     def test_packet_markdown_is_private_and_contains_json(self) -> None:
         response = {
             "agent_may_continue": True,
@@ -139,10 +179,45 @@ class ProtocolPacketTest(unittest.TestCase):
         self.assertEqual(packet["call"]["when"], "if_durable_persistence_is_still_relevant")
         self.assertNotIn("shape", packet["call"])
         self.assertIn("adapter_hint", packet)
-        self.assertEqual(
+        self.assertIn(
+            'workroot agent sync --agent codex --cwd . --reason before_work --query "<short intent>"',
             packet["adapter_hint"]["cli"],
-            "workroot agent sync --agent codex --cwd . --reason before_work --query <short intent>",
         )
+        self.assertIn("--work-signal", packet["adapter_hint"]["cli"])
+        self.assertEqual(
+            packet["call"]["work_signal"],
+            {
+                "phase": "planning",
+                "work_kind": "task",
+                "intended_action": "plan",
+                "focus": "<short intent>",
+            },
+        )
+
+    def test_sync_packet_adapter_hint_maps_internal_exchange_reason_to_valid_cli_reason(self) -> None:
+        response = {
+            "agent_may_continue": True,
+            "workroot_view": {
+                "focus": "new_work",
+                "confidence": "medium",
+                "task_brief": "Start durable work after startup context",
+            },
+            "workroot_contract": {
+                "next_exchange": {"action": "sync", "reason": "alignment_required", "required": False},
+                "commit_contract": {"lease_id": None, "accepted_shapes": [], "required_before_stop": []},
+                "state_refs": {},
+            },
+            "result": {"accepted": False, "status": "not_recorded", "warnings": []},
+        }
+
+        packet = build_private_packet(response, adapter="cli", agent="codex")
+
+        self.assertIn(
+            'workroot agent sync --agent codex --cwd . --reason before_work --query "<short intent>"',
+            packet["adapter_hint"]["cli"],
+        )
+        self.assertIn("--work-signal", packet["adapter_hint"]["cli"])
+        self.assertNotIn("alignment_required", packet["adapter_hint"]["cli"])
 
     def test_state_update_packet_omits_empty_optional_fields(self) -> None:
         response = {
@@ -171,7 +246,54 @@ class ProtocolPacketTest(unittest.TestCase):
         self.assertEqual(packet["call"]["fields"], ["target", "change"])
         self.assertNotIn("optional", packet["call"])
         self.assertIn("adapter_hint", packet)
+        self.assertIn("--lease lease-3", packet["adapter_hint"]["cli"])
         self.assertIn("--shape state-update", packet["adapter_hint"]["cli"])
+
+    def test_asset_packet_hint_uses_asset_kind_and_lease(self) -> None:
+        response = {
+            "agent_may_continue": True,
+            "workroot_view": {"focus": "continuation", "confidence": "high", "task_brief": "Capture asset"},
+            "workroot_contract": {
+                "next_exchange": {"action": "commit", "reason": "asset_ready", "required": False},
+                "commit_contract": {
+                    "lease_id": "lease-asset",
+                    "accepted_shapes": ["asset"],
+                    "required_before_stop": [],
+                },
+                "state_refs": {"task_ref": "task-1", "run_ref": "run-1"},
+            },
+            "result": {"accepted": False, "status": "not_recorded", "warnings": []},
+        }
+
+        packet = build_private_packet(response, adapter="cli", agent="codex")
+
+        self.assertEqual(packet["call"]["fields"], ["title", "asset_kind", "path", "summary", "status"])
+        self.assertIn("--lease lease-asset", packet["adapter_hint"]["cli"])
+        self.assertIn("--asset-kind", packet["adapter_hint"]["cli"])
+        self.assertNotIn("--kind", packet["adapter_hint"]["cli"])
+
+    def test_decision_packet_hint_uses_reason_text_and_lease(self) -> None:
+        response = {
+            "agent_may_continue": True,
+            "workroot_view": {"focus": "decision", "confidence": "high", "task_brief": "Capture decision"},
+            "workroot_contract": {
+                "next_exchange": {"action": "commit", "reason": "decision_ready", "required": False},
+                "commit_contract": {
+                    "lease_id": "lease-decision",
+                    "accepted_shapes": ["decision"],
+                    "required_before_stop": [],
+                },
+                "state_refs": {"task_ref": "task-1", "run_ref": "run-1"},
+            },
+            "result": {"accepted": False, "status": "not_recorded", "warnings": []},
+        }
+
+        packet = build_private_packet(response, adapter="cli", agent="codex")
+
+        self.assertEqual(packet["call"]["fields"], ["title", "decision", "reason_text", "scope"])
+        self.assertIn("--lease lease-decision", packet["adapter_hint"]["cli"])
+        self.assertIn("--reason-text", packet["adapter_hint"]["cli"])
+        self.assertNotIn("--reason <", packet["adapter_hint"]["cli"])
 
     def test_write_meanings_are_natural_language_and_empty_warnings_are_omitted(self) -> None:
         cases = [

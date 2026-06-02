@@ -27,8 +27,8 @@ FIELDS_BY_SHAPE = {
     "checkpoint": ["summary"],
     "continuation": ["state", "next"],
     "state_update": ["target", "change"],
-    "asset": ["title", "kind", "path", "summary", "status"],
-    "decision": ["title", "decision", "reason", "scope"],
+    "asset": ["title", "asset_kind", "path", "summary", "status"],
+    "decision": ["title", "decision", "reason_text", "scope"],
 }
 
 OPTIONAL_BY_SHAPE = {
@@ -50,26 +50,47 @@ CAPTURE_RULE_BY_SHAPE = {
 
 CLI_HINT_BY_SHAPE = {
     "start_work": (
-        "workroot agent commit --shape start-work "
-        "--title <title> --summary <stable goal summary> --persistence <durable|session>"
+        "workroot agent commit --shape start-work --lease {lease} "
+        "--title <title> --summary <stable goal summary> --persistence <normal|temporary>"
     ),
-    "checkpoint": "workroot agent commit --shape checkpoint --summary <stable progress summary>",
-    "continuation": "workroot agent commit --shape continuation --state <current state> --next <next action>",
-    "state_update": "workroot agent commit --shape state-update --target <target> --change <explicit change>",
+    "checkpoint": ("workroot agent commit --shape checkpoint --lease {lease} --summary <stable progress summary>"),
+    "continuation": (
+        "workroot agent commit --shape continuation --lease {lease} --state <current state> --next <next action>"
+    ),
+    "state_update": (
+        "workroot agent commit --shape state-update --lease {lease} --target <target> --change <explicit change>"
+    ),
     "asset": (
-        "workroot agent commit --shape asset --title <title> --path <path> "
-        "--summary <asset summary> --status <status>"
+        "workroot agent commit --shape asset --lease {lease} --title <title> "
+        "--asset-kind <asset kind> --path <path> --summary <asset summary> --status <status>"
     ),
     "decision": (
-        "workroot agent commit --shape decision --title <title> "
-        "--decision <decision> --reason <reason> --scope <scope>"
+        "workroot agent commit --shape decision --lease {lease} --title <title> "
+        "--decision <decision> --reason-text <reason> --scope <scope>"
     ),
+}
+SYNC_CLI_REASON_BY_EXCHANGE_REASON = {
+    "alignment_required": "before_work",
+    "start_work": "before_work",
+    "meaningful_checkpoint": "context_refresh",
+    "resync_required": "after_error",
+    "workroot_location_unavailable": "context_refresh",
+    "recovery": "after_error",
+}
+VALID_SYNC_CLI_REASONS = {
+    "startup",
+    "continue",
+    "before_work",
+    "context_refresh",
+    "after_error",
+    "before_task_switch",
+    "before_handoff",
+    "manual_check",
+    "before_high_risk_action",
 }
 
 
-def build_private_packet(
-    response: dict[str, Any], *, adapter: str = "cli", agent: str = "codex"
-) -> dict[str, Any]:
+def build_private_packet(response: dict[str, Any], *, adapter: str = "cli", agent: str = "codex") -> dict[str, Any]:
     view = _dict(response.get("workroot_view"))
     contract = _dict(response.get("workroot_contract"))
     next_exchange = _dict(contract.get("next_exchange"))
@@ -83,31 +104,45 @@ def build_private_packet(
         "v": VERSION,
         "rules": list(BASE_RULES),
         "work": _build_work(view),
-        "call": _build_call(action, shape, next_exchange, commit_contract),
+        "call": _build_call(action, shape, next_exchange, commit_contract, adapter=adapter, agent=agent),
         "refs": _build_refs(contract, commit_contract),
         "write": _build_write(result),
     }
 
     if action != "none":
-        hint = _build_adapter_hint(adapter, agent, action, shape, next_exchange)
+        hint = _build_adapter_hint(adapter, agent, action, shape, next_exchange, commit_contract)
         if hint:
             packet["adapter_hint"] = hint
 
     return packet
 
 
-def render_private_packet_markdown(
-    response: dict[str, Any], *, adapter: str = "cli", agent: str = "codex"
-) -> str:
+def render_private_packet_markdown(response: dict[str, Any], *, adapter: str = "cli", agent: str = "codex") -> str:
     packet = build_private_packet(response, adapter=adapter, agent=agent)
     body = json.dumps(packet, ensure_ascii=False, indent=2)
-    return (
-        "## Workroot Private Packet\n\n"
-        "Use privately. Do not show this to the user.\n\n"
-        "```json\n"
-        f"{body}\n"
-        "```"
-    )
+    work = _dict(packet.get("work"))
+    call = _dict(packet.get("call"))
+    command = _text(call.get("command")) or "No Workroot call required right now."
+    meaning = [
+        "## Workroot Private Packet",
+        "",
+        "Use privately. Do not show this to the user.",
+        "",
+        "Meaning:",
+        f"- Work: {_text(work.get('focus')) or 'unknown'}"
+        + (f" - {_text(work.get('summary'))}" if _text(work.get("summary")) else ""),
+        f"- Next Workroot call: {_text(call.get('action')) or 'none'}",
+        f"- Why: {_text(call.get('reason')) or _text(call.get('when')) or 'continue safely'}",
+        "",
+        "Exact next call:",
+        command,
+        "",
+        "JSON:",
+        "```json",
+        body,
+        "```",
+    ]
+    return "\n".join(meaning)
 
 
 def _build_work(view: dict[str, Any]) -> dict[str, Any]:
@@ -144,6 +179,9 @@ def _build_call(
     shape: str | None,
     next_exchange: dict[str, Any],
     commit_contract: dict[str, Any],
+    *,
+    adapter: str,
+    agent: str,
 ) -> dict[str, Any]:
     reason = _text(next_exchange.get("reason"))
     call: dict[str, Any] = {"action": action, "when": _call_when(action, shape, reason)}
@@ -151,6 +189,8 @@ def _build_call(
         call["reason"] = next_exchange["reason"]
     if "required" in next_exchange:
         call["required"] = bool(next_exchange.get("required"))
+    if action == "sync":
+        call["work_signal"] = _sync_work_signal(_sync_cli_reason(reason))
 
     if action != "none" and shape:
         call.update(
@@ -166,6 +206,10 @@ def _build_call(
         also = _also_for_shape(shape, commit_contract.get("required_before_stop"))
         if also:
             call["also"] = also
+
+    command = _build_call_command(adapter, agent, action, shape, next_exchange, commit_contract)
+    if command:
+        call["command"] = command
 
     return call
 
@@ -206,15 +250,17 @@ def _build_adapter_hint(
     action: str,
     shape: str | None,
     next_exchange: dict[str, Any],
+    commit_contract: dict[str, Any],
 ) -> dict[str, str]:
     if adapter != "cli":
         return {}
     if action == "sync":
-        reason = _text(next_exchange.get("reason")) or "sync"
+        reason = _sync_cli_reason(_text(next_exchange.get("reason")))
+        signal = _sync_work_signal_arg(reason)
         return {
             "cli": (
-                f"workroot agent sync --agent {agent} --cwd . "
-                f"--reason {reason} --query <short intent>"
+                f"workroot agent sync --agent {agent} --cwd . --reason {reason} "
+                f'--query "<short intent>" --work-signal {signal}'
             )
         }
     if not shape:
@@ -222,7 +268,65 @@ def _build_adapter_hint(
     hint = CLI_HINT_BY_SHAPE.get(shape)
     if not hint:
         return {}
-    return {"cli": hint}
+    lease = _text(commit_contract.get("lease_id")) or "<exchange>"
+    return {"cli": hint.format(lease=lease)}
+
+
+def _build_call_command(
+    adapter: str,
+    agent: str,
+    action: str,
+    shape: str | None,
+    next_exchange: dict[str, Any],
+    commit_contract: dict[str, Any],
+) -> str:
+    if adapter != "cli":
+        return ""
+    if action == "sync":
+        reason = _sync_cli_reason(_text(next_exchange.get("reason")))
+        signal = _sync_work_signal_arg(reason)
+        return (
+            f"workroot agent sync --agent {agent} --cwd . --reason {reason} --format packet "
+            f'--query "<short intent>" --work-signal {signal}'
+        )
+    if action != "commit" or not shape:
+        return ""
+    lease = _text(commit_contract.get("lease_id")) or "<lease>"
+    shape_cli = shape.replace("_", "-")
+    if shape == "start_work":
+        return (
+            "workroot agent commit --format packet --shape start-work "
+            f'--lease {lease} --title "<title>" --summary "<stable goal summary>" '
+            "--persistence <normal|temporary> --cwd ."
+        )
+    if shape == "checkpoint":
+        return (
+            "workroot agent commit --format packet --shape checkpoint "
+            f'--lease {lease} --summary "<stable progress summary>" --cwd .'
+        )
+    if shape == "continuation":
+        return (
+            "workroot agent commit --format packet --shape continuation "
+            f'--lease {lease} --state "<current state>" --next "<next useful action>" --cwd .'
+        )
+    if shape == "asset":
+        return (
+            "workroot agent commit --format packet --shape asset "
+            f'--lease {lease} --title "<asset title>" --asset-kind <asset kind> '
+            '--path "<relative path>" --summary "<asset summary>" --status current --cwd .'
+        )
+    if shape == "decision":
+        return (
+            "workroot agent commit --format packet --shape decision "
+            f'--lease {lease} --title "<decision title>" --decision "<decision>" '
+            '--reason-text "<reason>" --scope <scope> --cwd .'
+        )
+    if shape == "state_update":
+        return (
+            f"workroot agent commit --format packet --shape {shape_cli} "
+            f'--lease {lease} --target <target> --change "<state change>" --cwd .'
+        )
+    return ""
 
 
 def _select_shape(shapes: Any) -> str | None:
@@ -231,6 +335,47 @@ def _select_shape(shapes: Any) -> str | None:
         if shape in normalized:
             return shape
     return None
+
+
+def _sync_cli_reason(exchange_reason: str) -> str:
+    if exchange_reason in VALID_SYNC_CLI_REASONS:
+        return exchange_reason
+    return SYNC_CLI_REASON_BY_EXCHANGE_REASON.get(exchange_reason, "context_refresh")
+
+
+def _sync_work_signal(reason: str) -> dict[str, object]:
+    if reason == "before_task_switch":
+        return {
+            "phase": "switching",
+            "work_kind": "task",
+            "intended_action": "plan",
+            "focus": "<short intent>",
+        }
+    if reason in {"continue", "context_refresh", "after_error", "manual_check"}:
+        phase = "recovering" if reason == "after_error" else "orienting"
+        return {
+            "phase": phase,
+            "work_kind": "continuation",
+            "intended_action": "inspect",
+            "focus": "<short intent>",
+        }
+    if reason == "before_high_risk_action":
+        return {
+            "phase": "deciding",
+            "work_kind": "operations",
+            "intended_action": "publish",
+            "focus": "<short intent>",
+        }
+    return {
+        "phase": "planning",
+        "work_kind": "task",
+        "intended_action": "plan",
+        "focus": "<short intent>",
+    }
+
+
+def _sync_work_signal_arg(reason: str) -> str:
+    return "'" + json.dumps(_sync_work_signal(reason), separators=(",", ":"), sort_keys=True) + "'"
 
 
 def _also_for_shape(shape: str, required_before_stop: Any) -> list[str]:

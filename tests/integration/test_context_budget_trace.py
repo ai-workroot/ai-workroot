@@ -185,6 +185,189 @@ class ContextBudgetTraceTest(unittest.TestCase):
             self.assertIn(("rendered-package", "final-fallback"), trim_rows)
             self.assertEqual(use_count, 1)
 
+    def test_context_package_persistence_is_bounded_with_preview_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                for index in range(10):
+                    upsert_context_candidate(
+                        conn,
+                        {
+                            "candidate_id": f"cand-large-package-{index:02d}",
+                            "workroot_id": workroot_id,
+                            "source_type": "asset",
+                            "source_id": f"asset-large-package-{index:02d}",
+                            "title": f"Large package candidate {index:02d}",
+                            "summary": "large package persistence detail " * 1000,
+                            "importance": "critical",
+                            "context_policy": "always",
+                        },
+                    )
+
+            package = build_context_package(
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="large package persistence detail",
+                    target_tokens=80_000,
+                    hard_token_limit=120_000,
+                ),
+                ai_workroot_home=home,
+            )
+
+            with sqlite3.connect(db_path) as conn:
+                rendered = conn.execute("SELECT rendered FROM context_packages ORDER BY rowid DESC LIMIT 1").fetchone()[
+                    0
+                ]
+                trace = json.loads(
+                    conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+                )
+
+            self.assertGreater(len(package.encode("utf-8")), 64 * 1024)
+            self.assertLessEqual(len(rendered.encode("utf-8")), 64 * 1024)
+            self.assertTrue(trace["renderedPreview"]["truncated"])
+            self.assertEqual(trace["renderedPreview"]["maxBytes"], 64 * 1024)
+
+    def test_context_runtime_retention_prunes_old_packages_traces_and_children(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-retention",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-retention",
+                        "title": "Retention candidate",
+                        "summary": "retention detail " * 300,
+                        "importance": "critical",
+                        "context_policy": "always",
+                    },
+                )
+
+            for index in range(105):
+                build_context_package(
+                    ContextRequest(
+                        agent="codex",
+                        cwd=user_dir,
+                        query=f"retention detail {index}",
+                        debug=True,
+                        hard_token_limit=80,
+                        target_tokens=40,
+                    ),
+                    ai_workroot_home=home,
+                )
+
+            with sqlite3.connect(db_path) as conn:
+                counts = {
+                    table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                    for table in (
+                        "context_packages",
+                        "context_traces",
+                        "candidate_selections",
+                        "budget_trim_decisions",
+                    )
+                }
+                orphan_selections = conn.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM candidate_selections s
+                    LEFT JOIN context_traces t ON t.trace_id = s.trace_id
+                    WHERE t.trace_id IS NULL
+                    """
+                ).fetchone()[0]
+                orphan_trims = conn.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM budget_trim_decisions d
+                    LEFT JOIN context_traces t ON t.trace_id = d.trace_id
+                    WHERE t.trace_id IS NULL
+                    """
+                ).fetchone()[0]
+
+            self.assertEqual(counts["context_packages"], 100)
+            self.assertEqual(counts["context_traces"], 100)
+            self.assertLessEqual(counts["candidate_selections"], 100)
+            self.assertLessEqual(counts["budget_trim_decisions"], 100)
+            self.assertEqual(orphan_selections, 0)
+            self.assertEqual(orphan_trims, 0)
+
+    def test_context_output_includes_isolated_workroot_control_section(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="continue work"),
+                ai_workroot_home=home,
+            )
+
+        self.assertIn("## Workroot Private Packet", package)
+        self.assertIn("Use privately. Do not show this to the user.", package)
+        self.assertIn('"v": "workroot.packet.v1"', package)
+        self.assertIn('"call": {', package)
+        self.assertNotIn("workroot agent commit --kind", package)
+        self.assertIn("## Task Context", package)
+        self.assertLess(package.index("## Workroot Private Packet"), package.index("## Task Context"))
+
+    def test_context_does_not_render_quarantined_protocol_event_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO protocol_events (
+                      event_id, batch_id, workroot_id, request_id, lease_id, idempotency_key,
+                      kind, schema_version, payload_json, evidence_json, confirmation_json,
+                      source_json, occurred_at, received_at, status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "event-quarantined",
+                        "batch-q",
+                        workroot_id,
+                        "req-q",
+                        "",
+                        "idem-q",
+                        "progress",
+                        "progress.v1",
+                        '{"summary":"SHOULD_NOT_RENDER"}',
+                        "[]",
+                        "{}",
+                        "{}",
+                        "2026-05-27T00:00:00Z",
+                        "2026-05-27T00:00:00Z",
+                        "quarantined",
+                    ),
+                )
+                conn.commit()
+
+            package = build_context_package(
+                ContextRequest(agent="codex", cwd=user_dir, query="ordinary context"),
+                ai_workroot_home=home,
+            )
+
+        self.assertNotIn("SHOULD_NOT_RENDER", package)
+
     def test_context_diagnostic_logging_writes_summary_to_managed_logs_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -328,14 +511,19 @@ class ContextBudgetTraceTest(unittest.TestCase):
                         "source_type": "asset",
                         "source_id": "asset-long-marker",
                         "title": "Long marker candidate",
-                        "summary": "没有空格的中文内容" * 200,
+                        "summary": "unspacedcontextcontent" * 200,
                         "importance": "critical",
                     },
                 )
 
             package = build_context_package(
                 ContextRequest(
-                    agent="codex", cwd=user_dir, query="中文", debug=True, hard_token_limit=60, target_tokens=30
+                    agent="codex",
+                    cwd=user_dir,
+                    query="compact query",
+                    debug=True,
+                    hard_token_limit=60,
+                    target_tokens=30,
                 ),
                 ai_workroot_home=home,
             )

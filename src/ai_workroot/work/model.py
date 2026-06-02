@@ -30,7 +30,7 @@ class Task:
     task_id: str
     title: str
     status: str = "active"
-    task_kind: str = "project"
+    task_kind: str = "task"
     process_level: str = "L1"
 
     def can_transition_to(self, status: str) -> bool:
@@ -44,7 +44,7 @@ class Task:
         self.status = "closed"
 
     def should_request_decomposition(self) -> bool:
-        return self.process_level == "L2" or self.task_kind == "project"
+        return self.process_level in {"L2", "L3"}
 
 
 @dataclass(frozen=True)

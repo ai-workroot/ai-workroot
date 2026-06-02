@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,6 +37,29 @@ class AgentProtocolLoopTest(unittest.TestCase):
         else:
             os.environ["AI_WORKROOT_HOME"] = self.previous_home
 
+    def lease_id(self, response: dict[str, object]) -> str:
+        return str(response["workroot_contract"]["commit_contract"]["lease_id"])
+
+    def task_id(self, response: dict[str, object]) -> str:
+        return str(response["workroot_contract"]["state_refs"]["task_ref"])
+
+    def run_id(self, response: dict[str, object]) -> str:
+        return str(response["workroot_contract"]["state_refs"]["run_ref"])
+
+    def effects(self, event_id: str) -> list[dict[str, str]]:
+        sqlite_path = workroot_sqlite_path(Path(self.registration.state_directory))
+        with sqlite3.connect(sqlite_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT effect_type, target_type, target_id
+                FROM protocol_event_effects
+                WHERE event_id = ?
+                ORDER BY effect_id
+                """,
+                (event_id,),
+            ).fetchall()
+        return [{"type": row[0], "target_type": row[1], "target_id": row[2]} for row in rows]
+
     def test_next_agent_can_continue_from_latest_handoff(self) -> None:
         first_sync = sync(
             {
@@ -45,14 +69,15 @@ class AgentProtocolLoopTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Implement protocol P0 continuity.",
+                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
             }
         )
 
         self.assertTrue(first_sync["ok"])
-        self.assertEqual(first_sync["directive"]["type"], "commit_required")
+        self.assertEqual(first_sync["workroot_contract"]["next_exchange"]["action"], "commit")
         intent = commit(
             self.commit_request(
-                first_sync["lease"]["lease_id"],
+                self.lease_id(first_sync),
                 "intent",
                 "evt-intent-loop",
                 {
@@ -63,12 +88,12 @@ class AgentProtocolLoopTest(unittest.TestCase):
             )
         )
         self.assertTrue(intent["ok"])
-        task_id = intent["lease"]["task_id"]
-        run_id = intent["lease"]["run_id"]
+        task_id = self.task_id(intent)
+        run_id = self.run_id(intent)
 
         progress = commit(
             self.commit_request(
-                intent["lease"]["lease_id"],
+                self.lease_id(intent),
                 "progress",
                 "evt-progress-loop",
                 {
@@ -99,7 +124,7 @@ class AgentProtocolLoopTest(unittest.TestCase):
 
         handoff = commit(
             self.commit_request(
-                progress["lease"]["lease_id"],
+                self.lease_id(progress),
                 "handoff",
                 "evt-handoff-loop",
                 {
@@ -115,7 +140,7 @@ class AgentProtocolLoopTest(unittest.TestCase):
             )
         )
         self.assertTrue(handoff["ok"])
-        self.assertEqual(handoff["directive"]["type"], "safe_to_stop")
+        self.assertEqual(handoff["workroot_contract"]["next_exchange"]["action"], "none")
 
         next_sync = sync(
             {
@@ -129,8 +154,8 @@ class AgentProtocolLoopTest(unittest.TestCase):
         )
 
         self.assertTrue(next_sync["ok"])
-        self.assertEqual(next_sync["directive"]["type"], "continue_task")
-        self.assertIn("Continuity loader is the next missing piece.", next_sync["context"]["brief"])
+        self.assertEqual(next_sync["workroot_contract"]["next_exchange"]["action"], "commit")
+        self.assertIn("Continuity loader is the next missing piece.", next_sync["workroot_view"]["task_brief"])
         self.assertIn(
             {
                 "type": "handoff",
@@ -138,7 +163,7 @@ class AgentProtocolLoopTest(unittest.TestCase):
                 "role": "next_step",
                 "summary": "Wire sync to load the latest continuity package.",
             },
-            next_sync["context"]["refs"],
+            next_sync["workroot_view"]["refs"],
         )
         self.assertIn(
             {
@@ -147,7 +172,7 @@ class AgentProtocolLoopTest(unittest.TestCase):
                 "role": "open",
                 "summary": "Wire continuity loader",
             },
-            next_sync["context"]["refs"],
+            next_sync["workroot_view"]["refs"],
         )
         self.assertIn(
             {
@@ -156,7 +181,7 @@ class AgentProtocolLoopTest(unittest.TestCase):
                 "role": "recent_done",
                 "summary": "Verify projection loop: Projection loop is green.",
             },
-            next_sync["context"]["refs"],
+            next_sync["workroot_view"]["refs"],
         )
 
     def test_temporary_task_can_resume_and_promote_to_normal_work(self) -> None:
@@ -168,11 +193,12 @@ class AgentProtocolLoopTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Explore a temporary topic.",
+                "work_signal": {"phase": "planning", "work_kind": "inbox", "intended_action": "preserve"},
             }
         )
         intent = commit(
             self.commit_request(
-                first_sync["lease"]["lease_id"],
+                self.lease_id(first_sync),
                 "intent",
                 "evt-intent-temporary-loop",
                 {
@@ -183,12 +209,12 @@ class AgentProtocolLoopTest(unittest.TestCase):
             )
         )
         self.assertTrue(intent["ok"])
-        task_id = intent["lease"]["task_id"]
-        run_id = intent["lease"]["run_id"]
+        task_id = self.task_id(intent)
+        run_id = self.run_id(intent)
 
         progress = commit(
             self.commit_request(
-                intent["lease"]["lease_id"],
+                self.lease_id(intent),
                 "progress",
                 "evt-progress-temporary-loop",
                 {
@@ -204,7 +230,7 @@ class AgentProtocolLoopTest(unittest.TestCase):
         self.assertTrue(progress["ok"])
         handoff = commit(
             self.commit_request(
-                progress["lease"]["lease_id"],
+                self.lease_id(progress),
                 "handoff",
                 "evt-handoff-temporary-loop",
                 {
@@ -233,12 +259,12 @@ class AgentProtocolLoopTest(unittest.TestCase):
         )
         self.assertIn(
             {"type": "task_item", "id": "item-temporary-open", "role": "open", "summary": "Decide whether to promote"},
-            next_sync["context"]["refs"],
+            next_sync["workroot_view"]["refs"],
         )
 
         promoted = commit(
             self.commit_request(
-                next_sync["lease"]["lease_id"],
+                self.lease_id(next_sync),
                 "state",
                 "evt-state-promote-temporary-loop",
                 {
@@ -253,7 +279,66 @@ class AgentProtocolLoopTest(unittest.TestCase):
             )
         )
         self.assertTrue(promoted["ok"])
-        self.assertIn({"type": "task_promoted", "target_type": "task", "target_id": task_id}, promoted["effects"])
+        self.assertIn(
+            {"type": "task_promoted", "target_type": "task", "target_id": task_id},
+            self.effects("evt-state-promote-temporary-loop"),
+        )
+
+    def test_next_sync_reports_degraded_continuity_when_run_completed_without_handoff(self) -> None:
+        first_sync = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-no-handoff",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "before_work",
+                "query": "Implement recovery.",
+                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+            }
+        )
+        intent = commit(
+            self.commit_request(
+                self.lease_id(first_sync),
+                "intent",
+                "evt-intent-no-handoff",
+                {
+                    "intent_text": "Implement recovery",
+                    "classification": {"persistence": "normal", "confidence": 0.9, "reason": "integration"},
+                    "task_hint": {"title": "Recovery", "task_id": None, "parent_task_id": None},
+                },
+            )
+        )
+        task_id = self.task_id(intent)
+        run_id = self.run_id(intent)
+        progress = commit(
+            self.commit_request(
+                self.lease_id(intent),
+                "progress",
+                "evt-progress-no-handoff",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "summary": "Useful result without handoff.",
+                    "run_status": "completed",
+                },
+            )
+        )
+        self.assertTrue(progress["ok"])
+
+        continued = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-recover-no-handoff",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "continue",
+                "query": "continue",
+                "known_state": {"task_id": task_id, "run_id": run_id},
+            }
+        )
+
+        self.assertTrue(continued["agent_may_continue"])
+        self.assertIn("handoff", " ".join(continued["workroot_view"]["warnings"]).lower())
 
     def commit_request(
         self,

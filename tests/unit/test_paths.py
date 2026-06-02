@@ -32,6 +32,12 @@ class WorkrootPathsTest(unittest.TestCase):
             with mock.patch.dict(os.environ, {}, clear=True):
                 self.assertEqual(resolve_ai_workroot_home(Path(tmp)), Path(tmp).resolve())
 
+    def test_explicit_home_argument_wins_over_env(self) -> None:
+        with tempfile.TemporaryDirectory() as explicit:
+            with tempfile.TemporaryDirectory() as env_home:
+                with mock.patch.dict(os.environ, {"AI_WORKROOT_HOME": env_home}):
+                    self.assertEqual(resolve_ai_workroot_home(Path(explicit)), Path(explicit).resolve())
+
     def test_windows_default(self) -> None:
         with mock.patch.dict(os.environ, {"LOCALAPPDATA": r"C:\Users\Example\AppData\Local"}, clear=True):
             with mock.patch("platform.system", return_value="Windows"):

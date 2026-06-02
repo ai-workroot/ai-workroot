@@ -52,19 +52,41 @@ class ProtocolProjectionTest(unittest.TestCase):
             )
             return lease["lease_id"]
 
+    def lease_id(self, response: dict[str, object]) -> str:
+        return str(response["workroot_contract"]["commit_contract"]["lease_id"])
+
+    def task_id(self, response: dict[str, object]) -> str:
+        return str(response["workroot_contract"]["state_refs"]["task_ref"])
+
+    def run_id(self, response: dict[str, object]) -> str:
+        return str(response["workroot_contract"]["state_refs"]["run_ref"])
+
+    def effects(self, event_id: str) -> list[dict[str, str]]:
+        with sqlite3.connect(self.sqlite_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT effect_type, target_type, target_id
+                FROM protocol_event_effects
+                WHERE event_id = ?
+                ORDER BY effect_id
+                """,
+                (event_id,),
+            ).fetchall()
+        return [{"type": row[0], "target_type": row[1], "target_id": row[2]} for row in rows]
+
     def test_commit_intent_creates_task_and_run(self) -> None:
         response = commit(self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload()))
 
         self.assertTrue(response["ok"])
-        task_id = response["lease"]["task_id"]
-        run_id = response["lease"]["run_id"]
+        task_id = self.task_id(response)
+        run_id = self.run_id(response)
         with sqlite3.connect(self.sqlite_path) as conn:
             task = conn.execute("SELECT role, process_level, title FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
             run = conn.execute("SELECT status, goal FROM task_runs WHERE run_id = ?", (run_id,)).fetchone()
 
         self.assertEqual(task, ("normal", "L1", "Protocol P0"))
         self.assertEqual(run, ("active", "Implement protocol P0"))
-        self.assertIn("progress", response["contract"]["allowed_events"])
+        self.assertIn("progress", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
 
     def test_commit_temporary_intent_creates_inbox_task_and_run(self) -> None:
         response = commit(
@@ -81,8 +103,8 @@ class ProtocolProjectionTest(unittest.TestCase):
         )
 
         self.assertTrue(response["ok"])
-        task_id = response["lease"]["task_id"]
-        run_id = response["lease"]["run_id"]
+        task_id = self.task_id(response)
+        run_id = self.run_id(response)
         with sqlite3.connect(self.sqlite_path) as conn:
             task = conn.execute(
                 """
@@ -101,12 +123,12 @@ class ProtocolProjectionTest(unittest.TestCase):
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
         )
-        task_id = intent_response["lease"]["task_id"]
-        run_id = intent_response["lease"]["run_id"]
+        task_id = self.task_id(intent_response)
+        run_id = self.run_id(intent_response)
 
         response = commit(
             self.commit_request(
-                intent_response["lease"]["lease_id"],
+                self.lease_id(intent_response),
                 "progress",
                 {"task_id": task_id, "run_id": run_id, "summary": "Implemented protocol models."},
             )
@@ -116,18 +138,47 @@ class ProtocolProjectionTest(unittest.TestCase):
         with sqlite3.connect(self.sqlite_path) as conn:
             row = conn.execute("SELECT output_summary FROM task_runs WHERE run_id = ?", (run_id,)).fetchone()
         self.assertEqual(row, ("Implemented protocol models.",))
-        self.assertEqual(response["lease"]["task_id"], task_id)
+        self.assertEqual(self.task_id(response), task_id)
+
+    def test_commit_progress_can_complete_run_without_handoff(self) -> None:
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
+        task_id = self.task_id(intent_response)
+        run_id = self.run_id(intent_response)
+
+        response = commit(
+            self.commit_request(
+                self.lease_id(intent_response),
+                "progress",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "summary": "Run produced a usable result.",
+                    "run_status": "completed",
+                },
+                event_id="evt-progress-completed",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        with sqlite3.connect(self.sqlite_path) as conn:
+            row = conn.execute(
+                "SELECT status, output_summary, ended_at FROM task_runs WHERE run_id = ?", (run_id,)
+            ).fetchone()
+        self.assertEqual(row[:2], ("completed", "Run produced a usable result."))
+        self.assertIsNotNone(row[2])
 
     def test_commit_progress_creates_task_items(self) -> None:
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
         )
-        task_id = intent_response["lease"]["task_id"]
-        run_id = intent_response["lease"]["run_id"]
+        task_id = self.task_id(intent_response)
+        run_id = self.run_id(intent_response)
 
         response = commit(
             self.commit_request(
-                intent_response["lease"]["lease_id"],
+                self.lease_id(intent_response),
                 "progress",
                 {
                     "task_id": task_id,
@@ -154,18 +205,18 @@ class ProtocolProjectionTest(unittest.TestCase):
         self.assertEqual(row, ("Implement task item schema", "todo", 10))
         self.assertIn(
             {"type": "task_item_created", "target_type": "task_item", "target_id": "item-schema"},
-            response["effects"],
+            self.effects("evt-progress-create-items"),
         )
 
     def test_commit_progress_updates_task_items(self) -> None:
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
         )
-        task_id = intent_response["lease"]["task_id"]
-        run_id = intent_response["lease"]["run_id"]
+        task_id = self.task_id(intent_response)
+        run_id = self.run_id(intent_response)
         created = commit(
             self.commit_request(
-                intent_response["lease"]["lease_id"],
+                self.lease_id(intent_response),
                 "progress",
                 {
                     "task_id": task_id,
@@ -179,7 +230,7 @@ class ProtocolProjectionTest(unittest.TestCase):
 
         response = commit(
             self.commit_request(
-                created["lease"]["lease_id"],
+                self.lease_id(created),
                 "progress",
                 {
                     "task_id": task_id,
@@ -206,18 +257,44 @@ class ProtocolProjectionTest(unittest.TestCase):
         self.assertIsNotNone(row[2])
         self.assertIn(
             {"type": "task_item_updated", "target_type": "task_item", "target_id": "item-schema"},
-            response["effects"],
+            self.effects("evt-progress-update-item"),
         )
+
+    def test_commit_progress_skips_invalid_item_update_but_preserves_summary(self) -> None:
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
+        task_id = self.task_id(intent_response)
+        run_id = self.run_id(intent_response)
+
+        response = commit(
+            self.commit_request(
+                self.lease_id(intent_response),
+                "progress",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "summary": "Safe summary preserved.",
+                    "items_updated": [{"item_id": "", "status": "impossible"}],
+                },
+                event_id="evt-progress-skip-invalid-item-update",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        with sqlite3.connect(self.sqlite_path) as conn:
+            summary = conn.execute("SELECT summary_text FROM task_summaries WHERE task_id = ?", (task_id,)).fetchone()
+        self.assertEqual(summary, ("Safe summary preserved.",))
 
     def test_commit_progress_rejects_terminal_task_item_reopen(self) -> None:
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
         )
-        task_id = intent_response["lease"]["task_id"]
-        run_id = intent_response["lease"]["run_id"]
+        task_id = self.task_id(intent_response)
+        run_id = self.run_id(intent_response)
         created = commit(
             self.commit_request(
-                intent_response["lease"]["lease_id"],
+                self.lease_id(intent_response),
                 "progress",
                 {
                     "task_id": task_id,
@@ -233,7 +310,7 @@ class ProtocolProjectionTest(unittest.TestCase):
 
         response = commit(
             self.commit_request(
-                created["lease"]["lease_id"],
+                self.lease_id(created),
                 "progress",
                 {
                     "task_id": task_id,
@@ -255,12 +332,12 @@ class ProtocolProjectionTest(unittest.TestCase):
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
         )
-        task_id = intent_response["lease"]["task_id"]
-        run_id = intent_response["lease"]["run_id"]
+        task_id = self.task_id(intent_response)
+        run_id = self.run_id(intent_response)
 
         response = commit(
             self.commit_request(
-                intent_response["lease"]["lease_id"],
+                self.lease_id(intent_response),
                 "handoff",
                 {
                     "task_id": task_id,
@@ -276,7 +353,7 @@ class ProtocolProjectionTest(unittest.TestCase):
         )
 
         self.assertTrue(response["ok"])
-        self.assertEqual(response["directive"]["type"], "safe_to_stop")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "none")
         with sqlite3.connect(self.sqlite_path) as conn:
             row = conn.execute(
                 "SELECT status, current_state, next_action FROM handoffs WHERE task_id = ?",
@@ -288,11 +365,11 @@ class ProtocolProjectionTest(unittest.TestCase):
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
         )
-        task_id = intent_response["lease"]["task_id"]
+        task_id = self.task_id(intent_response)
 
         response = commit(
             self.commit_request(
-                intent_response["lease"]["lease_id"],
+                self.lease_id(intent_response),
                 "state",
                 {
                     "target_type": "task",
@@ -313,11 +390,11 @@ class ProtocolProjectionTest(unittest.TestCase):
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
         )
-        task_id = intent_response["lease"]["task_id"]
+        task_id = self.task_id(intent_response)
 
         response = commit(
             self.commit_request(
-                intent_response["lease"]["lease_id"],
+                self.lease_id(intent_response),
                 "state",
                 {
                     "target_type": "task",
@@ -349,11 +426,11 @@ class ProtocolProjectionTest(unittest.TestCase):
                 event_id="evt-intent-promote-temporary",
             )
         )
-        task_id = intent_response["lease"]["task_id"]
+        task_id = self.task_id(intent_response)
 
         response = commit(
             self.commit_request(
-                intent_response["lease"]["lease_id"],
+                self.lease_id(intent_response),
                 "state",
                 {
                     "target_type": "task",
@@ -369,13 +446,138 @@ class ProtocolProjectionTest(unittest.TestCase):
         )
 
         self.assertTrue(response["ok"])
-        self.assertIn({"type": "task_promoted", "target_type": "task", "target_id": task_id}, response["effects"])
+        self.assertIn(
+            {"type": "task_promoted", "target_type": "task", "target_id": task_id},
+            self.effects("evt-state-promote-temporary"),
+        )
         with sqlite3.connect(self.sqlite_path) as conn:
             row = conn.execute(
                 "SELECT role, process_level, visibility, retention_policy FROM tasks WHERE task_id = ?",
                 (task_id,),
             ).fetchone()
         self.assertEqual(row, ("normal", "L1", "normal", "until_closed"))
+
+    def test_commit_asset_records_asset_candidate_and_task_relationship(self) -> None:
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
+        task_id = self.task_id(intent_response)
+        run_id = self.run_id(intent_response)
+
+        response = commit(
+            self.commit_request(
+                self.lease_id(intent_response),
+                "asset",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "title": "Protocol design",
+                    "asset_kind": "design_doc",
+                    "path": "docs/protocol.md",
+                    "summary": "Final protocol design for Agent exchange.",
+                    "status": "current",
+                },
+                event_id="evt-asset-protocol-design",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["result"]["status"], "applied")
+        self.assertIn("asset", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+        asset_effects = self.effects("evt-asset-protocol-design")
+        asset_id = next(effect["target_id"] for effect in asset_effects if effect["target_type"] == "asset")
+        with sqlite3.connect(self.sqlite_path) as conn:
+            asset = conn.execute(
+                "SELECT asset_type, title, lifecycle_status, current_path FROM assets WHERE asset_id = ?",
+                (asset_id,),
+            ).fetchone()
+            candidate = conn.execute(
+                """
+                SELECT source_type, source_id, title, summary, context_policy
+                FROM context_candidates
+                WHERE candidate_id = ?
+                """,
+                (f"asset:{asset_id}",),
+            ).fetchone()
+            edge = conn.execute(
+                """
+                SELECT relationship_type, status
+                FROM relationship_edges
+                WHERE edge_id = ?
+                """,
+                (f"edge-task-{task_id}-asset-{asset_id}",),
+            ).fetchone()
+
+        self.assertEqual(asset, ("design_doc", "Protocol design", "current", "docs/protocol.md"))
+        self.assertEqual(
+            candidate,
+            (
+                "asset",
+                asset_id,
+                "Protocol design",
+                "Final protocol design for Agent exchange.",
+                "task-related",
+            ),
+        )
+        self.assertEqual(edge, ("produced_asset", "active"))
+        self.assertIn({"type": "asset_recorded", "target_type": "asset", "target_id": asset_id}, asset_effects)
+
+    def test_commit_decision_records_candidate_and_task_relationship_without_decision_table(self) -> None:
+        intent_response = commit(
+            self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
+        )
+        task_id = self.task_id(intent_response)
+        run_id = self.run_id(intent_response)
+
+        response = commit(
+            self.commit_request(
+                self.lease_id(intent_response),
+                "decision",
+                {
+                    "task_id": task_id,
+                    "run_id": run_id,
+                    "title": "Protocol entry",
+                    "decision": "Use shape-native commit for LLM-facing protocol.",
+                    "reason": "Internal event kinds should not leak into model-facing instructions.",
+                    "scope": "agent-protocol",
+                },
+                event_id="evt-decision-shape-native",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["result"]["status"], "applied")
+        decision_id = "decision-evt-decision-shape-native"
+        with sqlite3.connect(self.sqlite_path) as conn:
+            candidate = conn.execute(
+                """
+                SELECT source_type, source_id, title, summary, domains
+                FROM context_candidates
+                WHERE candidate_id = ?
+                """,
+                (f"decision:{decision_id}",),
+            ).fetchone()
+            edge = conn.execute(
+                """
+                SELECT relationship_type, status
+                FROM relationship_edges
+                WHERE edge_id = ?
+                """,
+                (f"edge-task-{task_id}-decision-{decision_id}",),
+            ).fetchone()
+            decision_table = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='decisions'"
+            ).fetchone()
+
+        self.assertEqual(candidate[0:3], ("decision", decision_id, "Protocol entry"))
+        self.assertIn("Use shape-native commit", candidate[3])
+        self.assertIn("scope:agent-protocol", candidate[4])
+        self.assertEqual(edge, ("made_decision", "active"))
+        self.assertIsNone(decision_table)
+        self.assertIn(
+            {"type": "decision_recorded", "target_type": "decision", "target_id": decision_id},
+            self.effects("evt-decision-shape-native"),
+        )
 
     def intent_payload(self) -> dict[str, object]:
         return {
