@@ -162,14 +162,13 @@ Large binary files, raw datasets, generated databases, build outputs, and caches
 
 Use databases by workload:
 
-- SQLite: local lookup, FTS, relationship traversal, lightweight state
-- DuckDB: local analytical work, tabular profiling, reproducible reports
+- SQLite: canonical managed system facts, local lookup, FTS, relationship traversal, and lightweight state
+- DuckDB: optional local analytical work, tabular profiling, and reproducible reports
 - vector index: optional future semantic retrieval when keyword and link traversal are not enough
-- relationship index: relationship navigation when links become dense
+- relationship index: derived relationship navigation when links become dense
 
-All databases must be:
+Optional databases, generated indexes, and acceleration stores must be:
 
-- optional unless explicitly part of managed state for the feature
 - local-first
 - rebuildable from managed records or manifests
 - disposable without losing durable knowledge
@@ -183,9 +182,10 @@ Use the right format for the layer:
 - JSON for compact structured contracts
 - YAML or JSON for future human-authored extension manifests when explicitly supported
 - JSON Schema for validation
-- SQLite, DuckDB, vector indexes, relationship indexes, and caches for rebuildable acceleration
+- SQLite for canonical managed runtime facts plus local FTS/read models
+- DuckDB, vector indexes, relationship indexes, and caches for optional rebuildable acceleration
 
-The source of truth should remain inspectable and portable. Generated stores should never become the only copy of durable knowledge.
+The source of truth should remain inspectable and portable. Managed SQLite is the active runtime fact store; user-visible assets and durable summaries should remain understandable outside a single agent. Generated stores should never become hidden archives or the only copy of durable user value.
 
 ## Rebuild And Incremental Update
 

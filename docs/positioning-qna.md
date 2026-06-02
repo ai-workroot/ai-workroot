@@ -69,7 +69,7 @@ AI Workroot also cares about decisions, progress, handoff, invalidation, intenti
 
 No.
 
-At first glance, AI Workroot may look like a folder because the public seed is file-first.
+At first glance, AI Workroot may look like a folder because the user still sees a clean local asset space.
 
 But an ordinary folder mainly answers:
 
@@ -83,7 +83,7 @@ AI Workroot tries to answer:
 
 > How does this continuity remain owned by the person?
 
-The current file layout is an implementation shape. The deeper purpose is continuity.
+The visible file layout is only one implementation surface. The deeper purpose is continuity.
 
 ---
 

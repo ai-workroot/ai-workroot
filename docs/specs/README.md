@@ -1,8 +1,14 @@
-# AI Workroot 0.9.530 Specs
+# AI Workroot Specs
 
-Status: accepted source of truth for the 0.9.530 Clean Workroot reset, with runnable legacy compatibility removal layered on top.
+Status: accepted source of truth for the 0.9.530 Clean Workroot reset, with runnable legacy compatibility removal layered on top. The current implementation line also includes the 0.9.531 Agent Protocol and Task Continuity foundation.
 
 AI Workroot 0.9.530 is a Clean Workroot architecture reset, not a normal bugfix release. The active architecture is Clean Workroot. Public Seed is historical and must not remain the active root layout after the replacement architecture is working.
+
+For the current 0.9.531 protocol runtime layer, read:
+
+- `docs/architecture/010-runtime-layering.md`
+- `docs/releases/0.9.531.md`
+- `docs/workroot-system-design.md`
 
 ## Reading Order
 

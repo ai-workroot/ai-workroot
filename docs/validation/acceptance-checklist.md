@@ -14,16 +14,21 @@
 
 ## Source tree
 
-- [ ] `src/ai_workroot/commands` exists.
-- [ ] `src/ai_workroot/state` exists.
-- [ ] `src/ai_workroot/context` exists.
-- [ ] `src/ai_workroot/retrieval` exists.
-- [ ] `src/ai_workroot/release` exists.
-- [ ] `src/ai_workroot/handoff` exists.
-- [ ] `src/ai_workroot/relationships` exists.
-- [ ] `src/ai_workroot/agent_entry` exists.
-- [ ] `src/ai_workroot/shared` exists.
-- [ ] `src/ai_workroot/cli` exists.
+- [ ] `src/ai_workroot/cli/` exists.
+- [ ] `src/ai_workroot/commands/` exists.
+- [ ] `src/ai_workroot/protocol/` exists.
+- [ ] `src/ai_workroot/state/` exists.
+- [ ] `src/ai_workroot/work/` exists.
+- [ ] `src/ai_workroot/assets/` exists.
+- [ ] `src/ai_workroot/relationships/` exists.
+- [ ] `src/ai_workroot/retrieval/` exists.
+- [ ] `src/ai_workroot/context/` exists.
+- [ ] `src/ai_workroot/release/` exists.
+- [ ] `src/ai_workroot/handoff/` exists.
+- [ ] `src/ai_workroot/agent_entry/` exists.
+- [ ] `src/ai_workroot/diagnostics/` exists.
+- [ ] `src/ai_workroot/shared/` exists.
+- [ ] `src/ai_workroot/templates/` exists.
 - [ ] user install scripts under `install/`.
 - [ ] scripts are dev wrappers only.
 
@@ -71,7 +76,7 @@
 - [ ] DeletionRecord exists.
 - [ ] Tombstone does not mutate target object.
 - [ ] redacted/deleted strictly protected.
-- [ ] tombstone visible/traceable but not hard excluded in 0.9.530.
+- [ ] tombstone visible/traceable but not hard excluded by default.
 
 ## Relationship Network
 

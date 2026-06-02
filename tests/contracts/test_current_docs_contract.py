@@ -115,6 +115,107 @@ class CurrentDocsContractTest(unittest.TestCase):
         self.assertIn("Handoff", docs["docs/architecture-map.md"])
         self.assertIn("derived transfer", docs["docs/architecture-map.md"])
 
+    def test_current_source_layout_docs_include_protocol_and_handoff_packages(self) -> None:
+        docs = (
+            "README.md",
+            "docs/workroot-system-design.md",
+            "docs/architecture.md",
+            "docs/kernel-implementation-specification.md",
+            "docs/specs/001-project-structure-and-naming.spec.md",
+            "docs/validation/acceptance-checklist.md",
+        )
+        required_packages = (
+            "src/ai_workroot/",
+            "commands/",
+            "protocol/",
+            "state/",
+            "work/",
+            "assets/",
+            "relationships/",
+            "retrieval/",
+            "context/",
+            "release/",
+            "handoff/",
+            "agent_entry/",
+            "diagnostics/",
+            "shared/",
+            "templates/",
+        )
+        for rel in docs:
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            with self.subTest(rel=rel):
+                for package in required_packages:
+                    self.assertIn(package, text)
+
+    def test_current_public_architecture_docs_include_protocol_runtime_layer(self) -> None:
+        docs = (
+            "README.md",
+            "ROADMAP.md",
+            "docs/architecture.md",
+            "docs/architecture-map.md",
+            "docs/workroot-system-design.md",
+            "docs/kernel-implementation-specification.md",
+            "docs/architecture/002-engineering-structure.md",
+            "docs/architecture/005-dependency-rules.md",
+            "docs/architecture/010-runtime-layering.md",
+            "docs/releases/0.9.531.md",
+        )
+        for rel in docs:
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            with self.subTest(rel=rel):
+                self.assertIn("Agent Protocol", text)
+                self.assertIn("protocol", text)
+
+    def test_release_checklist_uses_current_managed_state_truth_model(self) -> None:
+        text = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
+
+        self.assertIn("Managed SQLite is the canonical system fact store", text)
+        self.assertIn("Runtime read views are rebuildable", text)
+        self.assertNotIn("Files remain the source of truth.", text)
+        self.assertNotIn(
+            "SQLite, DuckDB, vector indexes, and graph indexes remain optional rebuildable accelerators.", text
+        )
+
+    def test_current_public_docs_use_current_managed_state_truth_model(self) -> None:
+        docs = (
+            "docs/launch-and-discovery.md",
+            "docs/scaling-and-longevity.md",
+            "docs/extension-contract.md",
+        )
+        forbidden = (
+            "Files remain the source of truth.",
+            "Databases and indexes are optional rebuildable accelerators.",
+            "SQLite, DuckDB, vector indexes, and relationship indexes are accelerators.",
+        )
+        for rel in docs:
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            with self.subTest(rel=rel):
+                self.assertIn("Managed SQLite", text)
+                for phrase in forbidden:
+                    self.assertNotIn(phrase, text)
+
+    def test_current_work_model_docs_include_protocol_task_continuity_terms(self) -> None:
+        docs = (
+            "docs/architecture.md",
+            "docs/workroot-system-design.md",
+            "docs/kernel-implementation-specification.md",
+            "docs/architecture/001-core-concepts.md",
+            "docs/architecture/002-engineering-structure.md",
+            "docs/architecture/006-final-core-concepts-and-boundaries.md",
+            "docs/architecture/010-runtime-layering.md",
+        )
+        required = ("TaskRun", "TaskItem")
+        protocol_required = (
+            "protocol commit batches",
+            "protocol events",
+        )
+        for rel in docs:
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            with self.subTest(rel=rel):
+                for phrase in required:
+                    self.assertIn(phrase, text)
+                self.assertTrue(any(phrase in text for phrase in protocol_required))
+
     def test_active_public_docs_do_not_use_public_seed_paths_as_current_workflow(self) -> None:
         docs = (
             "docs/product-experience.md",

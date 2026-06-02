@@ -2,7 +2,7 @@
 
 AI Workroot is a personal, local-first Workroot for individuals.
 
-This document defines the active 0.9.530 Clean Workroot system shape. The retired Public Seed design is preserved under `docs/history/public-seed/` and should not be treated as the current architecture.
+This document defines the active Clean Workroot system shape through the 0.9.531 Agent Protocol and Task Continuity line. The retired Public Seed design is preserved under `docs/history/public-seed/` and should not be treated as the current architecture.
 
 ## Purpose
 
@@ -23,6 +23,7 @@ AI Workroot defines:
 
 - Clean Workroot directory rules.
 - WorkrootEnvironment under `AI_WORKROOT_HOME`.
+- Workroot Agent Protocol sync/commit interaction and task continuity.
 - Workroot Management registry and directory bindings.
 - Work, Asset, Release Control, Relationship Network, Retrieval & Index Control, Context Control, Handoff, Agent Interface, System Health, and Extensions concepts.
 - Native Agent Entry behavior for Codex and Claude-compatible local agents.
@@ -82,6 +83,7 @@ The active source structure is:
 src/ai_workroot/
   cli/
   commands/
+  protocol/
   state/
   work/
   assets/
@@ -100,6 +102,7 @@ Responsibilities:
 
 - `cli`: thin command entry points.
 - `commands`: reusable application-level command entrypoints.
+- `protocol`: Agent-facing application control for sync, commit, focus resolution, leases, idempotency, and projection routing.
 - `state`: managed state layout, environment config, registry, SQLite, JSONL, migrations, and locks.
 - `work`: durable work facts and time events.
 - `assets`: asset metadata, lifecycle, and publication operations.
@@ -127,14 +130,17 @@ Dependency rules:
 
 ```text
 cli -> commands
+commands -> protocol
 commands -> capability modules
+protocol -> capability modules
+protocol -> state
 capability modules -> shared
 capability modules -> state when persistence is needed
 state -> shared
 shared/contracts -> standard library only
 ```
 
-CLI must not bypass `commands`. `shared/contracts` must not import project modules.
+CLI must not bypass `commands`. Capability modules must not import `protocol`. `shared/contracts` must not import project modules.
 
 ## AI_WORKROOT_HOME Layout
 
@@ -188,7 +194,7 @@ Owns `WorkrootEnvironment`, config, registry, directory bindings, aliases, Workr
 
 ### Work
 
-Owns factual process records: Task, AgentRun, WorkAction, WorkCheckpoint, RetrievalCard, InvalidationRecord, WorkEvent, and OperationTransaction.
+Owns factual process records: Task, TaskRun, TaskItem, protocol events and protocol commit batches, AgentRun where direct work operations need a lower-level run record, WorkAction, WorkCheckpoint, RetrievalCard, InvalidationRecord, WorkEvent, and OperationTransaction.
 
 ### Handoff
 
@@ -280,5 +286,7 @@ Historical tests may reference this material as non-runnable archive fixtures. C
 - `docs/architecture/002-engineering-structure.md`
 - `docs/architecture/003-runtime-layout.md`
 - `docs/architecture/004-legacy-capability-preservation.md`
+- `docs/architecture/010-runtime-layering.md`
 - `docs/specs/README.md`
+- `docs/releases/0.9.531.md`
 - `docs/releases/0.9.530.md`

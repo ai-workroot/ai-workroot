@@ -1,13 +1,13 @@
 # Architecture Map
 
-AI Workroot separates user assets, WorkrootEnvironment management, runtime orchestration, storage, indexing, agent entry, and release controls so AI work can continue across agents, models, tools, operating systems, and time.
+AI Workroot separates user assets, WorkrootEnvironment management, Agent Protocol runtime control, storage, indexing, agent entry, and release controls so AI work can continue across agents, models, tools, operating systems, and time.
 
 The active architecture is Clean Workroot:
 
 ```text
 user-selected directory   user assets, optional authorized Native Agent Entry
 AI_WORKROOT_HOME          WorkrootEnvironment and managed state
-src/ai_workroot/          CLI / Commands / Capability Modules / Shared / Templates
+src/ai_workroot/          CLI / Commands / protocol/ (Agent Protocol) / Capability Modules / State / Shared / Templates
 ```
 
 Public Seed is historical and lives under `docs/history/public-seed/` only.
@@ -20,9 +20,12 @@ flowchart LR
   Agent --> Entry[Native Agent Entry<br/>authorized launcher files]
   Agent --> CLI[workroot CLI]
   CLI --> Commands[Application commands]
-  Commands --> Env[WorkrootEnvironment<br/>AI_WORKROOT_HOME]
+  Commands --> Protocol[Agent Protocol<br/>sync / commit]
+  Protocol --> Env[WorkrootEnvironment<br/>AI_WORKROOT_HOME]
   Env --> WR[Per-Workroot managed state]
   UserDir[User-selected directory<br/>user assets] --> Commands
+  Protocol --> Work[Work continuity<br/>Task / Run / Handoff]
+  Work --> WR
   WR --> Context[Context Control<br/>Context Package]
   WR --> Release[Release Control]
   WR --> Rel[Relationship Network]
@@ -38,7 +41,16 @@ flowchart LR
 ```mermaid
 flowchart TB
   CLI[CLI<br/>terminal adapter] --> Commands[Commands<br/>application entrypoints]
+  Commands --> Protocol[Agent Protocol<br/>runtime control]
   Commands --> State[State<br/>managed state]
+  Protocol --> State
+  Protocol --> Work
+  Protocol --> Assets
+  Protocol --> Relationships
+  Protocol --> Retrieval
+  Protocol --> Context
+  Protocol --> Release
+  Protocol --> Handoff
   Commands --> Work[Work]
   Commands --> Assets[Assets]
   Commands --> Relationships[Relationships]
@@ -95,7 +107,7 @@ flowchart TB
   One --> Relationships[relationships]
   One --> Indexes[indexes]
   One --> Context[context]
-  One --> Handoff[handoff]
+  One --> Handoffs[handoffs]
   One --> Diagnostics[diagnostics]
   One --> Cache[cache]
 ```
@@ -136,3 +148,5 @@ flowchart LR
 Ordinary users should not need this map before they get value.
 
 Agents and contributors use the map to keep user directories clean, managed state explicit, context explainable, release controls enforceable, and legacy Public Seed material safely historical.
+
+The Agent Protocol is the current control layer between external agent commands and Workroot capabilities. It implements `sync` and `commit` while keeping Task, Asset, Relationship, Release, Retrieval, Context, and Handoff facts owned by their capability modules.

@@ -6,8 +6,12 @@
 cli -> commands
 
 commands -> state
+commands -> protocol
 commands -> work/assets/relationships/retrieval/context/release/handoff/agent_entry/diagnostics
 commands -> shared
+
+protocol -> state
+protocol -> work/assets/relationships/retrieval/context/release/handoff
 
 capability modules -> shared
 capability modules -> state when persistence is needed
@@ -35,16 +39,26 @@ Rules:
 
 Rules:
 
-1. Commands coordinate capabilities.
+1. Commands coordinate the Agent Protocol runtime and capabilities.
 2. Commands may call capability public modules.
-3. Commands should not implement SQL, retrieval scoring, release policy internals, or context rendering internals.
+3. Commands should not implement SQL, focus resolution, lease policy, retrieval scoring, release policy internals, or context rendering internals.
+
+## Protocol
+
+`protocol/` is the Agent Protocol runtime control layer.
+
+Rules:
+
+1. Protocol implements sync, commit, focus resolution, lease validation, idempotency, response guidance, recovery, and projection routing.
+2. Protocol may call capability modules and `state/`.
+3. Protocol must not import `cli/`.
+4. Protocol does not own Task, Handoff, Asset, Relationship, Release, Retrieval, or Context facts.
 
 ## Capability Modules
 
 Capability modules own local models and operations:
 
 ```text
-state/
 work/
 assets/
 relationships/
@@ -64,6 +78,17 @@ Rules:
 4. Release filters and sanitizes protected content but does not own retrieval indexes.
 5. Handoff owns derived transfer packages, not durable Work truth.
 6. Agent Entry generates entry files but is not an agent runtime.
+7. Capability modules must not import `protocol/`.
+
+## State
+
+`state/` owns managed state infrastructure.
+
+Rules:
+
+1. State may define SQLite schema and runtime paths.
+2. State must not implement Agent Protocol policy.
+3. State must not import `protocol/`, `commands/`, or `cli/`.
 
 ## Shared
 
@@ -82,5 +107,5 @@ Tests must prevent the most dangerous violations:
 - CLI bypassing `commands`.
 - `shared/contracts` importing project modules.
 - old layer-first package directories reappearing.
-- capability modules importing CLI.
-- state importing commands or CLI.
+- capability modules importing `protocol/` or CLI.
+- state importing protocol, commands, or CLI.

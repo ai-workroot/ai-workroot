@@ -123,7 +123,8 @@ Durable work facts and time events.
 Owns:
 
 - Task.
-- AgentRun.
+- TaskRun and TaskItem for task continuity projected through protocol events.
+- AgentRun for lower-level direct work-operation records where needed.
 - WorkAction.
 - WorkCheckpoint.
 - InvalidationRecord.

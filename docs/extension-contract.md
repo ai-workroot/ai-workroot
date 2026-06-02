@@ -18,7 +18,7 @@ The core protocol owns:
 
 Extensions may add capability-specific structure, but they must not redefine these core rules.
 
-The system should not restrict what useful work a Workroot can contain. Extensions and user-approved folders may create domain-specific structure, workflows, scripts, and indexes as long as they preserve stable contracts and do not turn generated state into the only source of truth.
+The system should not restrict what useful work a Workroot can contain. Extensions and user-approved folders may create domain-specific structure, workflows, scripts, and indexes as long as they preserve stable contracts and do not turn extension-generated state into the only source of truth.
 
 ## Permission Hints
 
@@ -67,7 +67,7 @@ A capability may add:
 A capability must not:
 
 - move durable knowledge out of managed Workroot records without an explicit export
-- make a database the only source of truth
+- make an extension database or generated index the only source of truth
 - require one model, agent, provider, or operating system
 - hide important task state outside Workroot records
 - weaken privacy, release, deletion, or tombstone rules
@@ -110,11 +110,11 @@ Those belong in local ignored files or documented local runtime configuration. T
 
 ## Database And Index Rules
 
-SQLite, DuckDB, vector indexes, and relationship indexes are accelerators.
+Managed SQLite is the current core Workroot runtime fact store. Extension databases and generated indexes are accelerators.
 
 They must be:
 
-- optional unless explicitly required by the active managed-state feature
+- optional unless explicitly required by a documented extension contract
 - rebuildable
 - disposable
 - documented by a manifest when non-trivial
@@ -123,7 +123,7 @@ They must be:
 
 Use the simplest store that fits the workload:
 
-- SQLite for local lookup, FTS, relationships, and lightweight state
+- SQLite for extension-local lookup, FTS, relationships, and lightweight state
 - DuckDB for local analytical or tabular workloads
 - vector indexes for optional future semantic retrieval when keyword and link traversal are insufficient
 - relationship indexes for dense relationship navigation

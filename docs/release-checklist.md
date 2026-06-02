@@ -63,8 +63,10 @@ vX.Y.Z
 
 ## Protocol Integrity
 
-- Files remain the source of truth.
-- SQLite, DuckDB, vector indexes, and graph indexes remain optional rebuildable accelerators.
+- Managed SQLite is the canonical system fact store for Workroot runtime facts.
+- Runtime read views are rebuildable files derived from managed SQLite facts.
+- User-visible asset files remain user-owned outputs, not protocol runtime state.
+- DuckDB, vector indexes, remote embeddings, and graph databases are not required active dependencies.
 - Released, tombstone, redacted, and deleted material is not part of default retrieval.
 - Durable lessons can survive even when painful source context is released.
 - Tombstone remains a first-class kernel term and is not collapsed into generic archive semantics.
@@ -99,11 +101,16 @@ Windows PowerShell parse validation is pending unless a Windows CI job or local 
 
 The final status should contain only intentional release changes.
 
-## 0.9.530 Clean Workroot Gates
+## 0.9.531 Current Release Gates
 
 - Clean Mode init creates no managed folders or control files inside the user-selected directory by default.
 - Native Agent Entry files are created or modified only after explicit authorization.
 - Managed state, indexes, context packages, handoffs, runtime data, logs, and debug traces live outside the user-selected directory by default.
+- Agent Protocol actions remain limited to `sync` and `commit`.
+- `sync` does not create durable Task, TaskRun, lease, or event facts.
+- Durable task continuity facts enter through `commit`.
+- Quick work does not create durable Workroot facts.
+- Runtime read views under tasks, handoffs, assets, relationships, indexes, context, diagnostics, and state are rebuildable.
 - SQLite Relationship Network, candidate, and FTS tables are present in managed state.
 - Context Control runs locally, prints a Markdown Context Package, and does not require remote calls.
 - Context Control treats 1 second as the normal hot-path target, not a hard accuracy limit.

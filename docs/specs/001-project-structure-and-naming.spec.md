@@ -1,7 +1,7 @@
 # Spec 001 — Project Structure and Naming
 
 Status: accepted
-Target: 0.9.530
+Target: 0.9.530 base, amended for 0.9.531 protocol runtime
 
 ## Purpose
 
@@ -14,6 +14,7 @@ Create or migrate toward:
 ```text
 src/ai_workroot/cli/
 src/ai_workroot/commands/
+src/ai_workroot/protocol/
 src/ai_workroot/state/
 src/ai_workroot/work/
 src/ai_workroot/assets/
@@ -21,6 +22,7 @@ src/ai_workroot/relationships/
 src/ai_workroot/retrieval/
 src/ai_workroot/context/
 src/ai_workroot/release/
+src/ai_workroot/handoff/
 src/ai_workroot/agent_entry/
 src/ai_workroot/diagnostics/
 src/ai_workroot/shared/

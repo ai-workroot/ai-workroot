@@ -1,16 +1,17 @@
 # Clean Workroot Implementation Specification
 
-This is the implementation-grade companion to `docs/workroot-system-design.md` for the 0.9.530 Clean Workroot architecture reset.
+This is the implementation-grade companion to `docs/workroot-system-design.md` for the Clean Workroot architecture through the 0.9.531 Agent Protocol and Task Continuity line.
 
 The retired Public Seed kernel specification is preserved under `docs/history/public-seed/` and 0.9.529 history docs. It is not the current active implementation specification.
 
 ## Active Scope
 
-0.9.530 establishes:
+The active implementation establishes:
 
 - Clean Workroot user-directory behavior.
 - `AI_WORKROOT_HOME` managed state through WorkrootEnvironment.
 - Command-first, capability-owned source boundaries.
+- Workroot Agent Protocol sync/commit runtime boundaries.
 - bootstrap-dev dogfood support for this source repository.
 - SQLite schema and migrations for per-Workroot state.
 - Context Control with explainable local retrieval.
@@ -24,6 +25,7 @@ The retired Public Seed kernel specification is preserved under `docs/history/pu
 src/ai_workroot/
   cli/
   commands/
+  protocol/
   state/
   work/
   assets/
@@ -31,6 +33,7 @@ src/ai_workroot/
   retrieval/
   context/
   release/
+  handoff/
   agent_entry/
   diagnostics/
   shared/
@@ -40,7 +43,8 @@ src/ai_workroot/
 Required import rules:
 
 - `cli` calls `commands`; it does not call state, retrieval, storage, indexing, or runtime internals directly.
-- `commands` coordinates capability modules.
+- `commands` coordinates protocol runtime and capability modules.
+- `protocol` implements Agent-facing sync/commit control and calls capability modules; capability modules must not import `protocol`.
 - capability modules own local models and operations.
 - `shared/contracts` uses only the Python standard library.
 - old layer-first package directories must not exist in active source.
@@ -126,8 +130,11 @@ Schema changes must use `schema_migrations` or `PRAGMA user_version` based migra
 Work keeps factual process continuity. Required concepts include:
 
 - Task
-- L0 / L1 / L2 process levels
-- AgentRun
+- L0 / L1 / L2 / L3 process levels
+- TaskRun
+- TaskItem
+- protocol commit batches and protocol events
+- AgentRun for lower-level direct work-operation records where needed
 - WorkAction
 - WorkCheckpoint
 - Retrieval Card
@@ -204,7 +211,7 @@ P0 retrieval is local-first and explainable:
 - Relationship Network one-hop signals
 - git state when available
 
-No vector database, remote embedding provider, or remote LLM dependency is required in 0.9.530.
+No vector database, remote embedding provider, or remote LLM dependency is required in the current local-first implementation line.
 
 FTS failures should degrade gracefully and record trace errors/fallbacks.
 
@@ -295,9 +302,10 @@ Legacy tests may copy that historical fixture into temporary directories. They m
 
 ## Release Definition Of Done
 
-0.9.530 is implementation-ready when:
+The current implementation line is release-ready when:
 
 - Clean Workroot docs/specs are current.
+- Agent Protocol sync/commit docs and tests are current.
 - Public Seed is historical only.
 - Package import boundaries pass.
 - Clean Mode smoke tests pass.

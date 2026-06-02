@@ -11,7 +11,7 @@ Most AI work disappears into chat history.
 Current public release line:
 
 ```text
-AI Workroot public seed
+AI Workroot 0.9.531 Agent Protocol and Task Continuity line
 ```
 
 AI Workroot gives that work a durable home:
@@ -79,7 +79,7 @@ Use these phrases naturally in documentation, examples, articles, and release po
 - AI task management
 - AI knowledge management
 - long-term AI work
-- file-first AI context
+- local-first AI context
 - AI agents for ordinary people
 - Codex and Claude Code continuity
 
@@ -107,7 +107,7 @@ Stop losing AI work in chat history. Give it a durable home you own.
 
 ```text
 AI Workroot is a personal, local-first Workroot for individuals.
-It helps you preserve AI context, memory, tasks, decisions, and handoff in files that stay portable across agents such as Codex and Claude Code.
+It helps you preserve AI context, memory, tasks, decisions, and handoff in a local Workroot that stays portable across agents such as Codex and Claude Code.
 ```
 
 ## First-Use Promise
@@ -132,8 +132,8 @@ Clone, rename only the outer folder, open with an AI agent, paste the starter pr
 - Ordinary users can say what they want to do, ask to continue, or say "Save what matters" without learning the internal framework.
 - The project is evolving toward a personal Workroot system with a simple user space and a rigorous kernel space.
 - A person's continuity should not be locked inside one AI product.
-- Files remain the source of truth.
-- Databases and indexes are optional rebuildable accelerators.
+- User-visible assets remain inspectable, portable, and cleanly separated from managed runtime state.
+- Managed SQLite is the canonical system fact store for Workroot runtime facts; runtime read views and indexes remain rebuildable.
 - AI agents are replaceable; the Workroot is the continuity layer.
 - The project welcomes exceptional individual contributors with philosophical depth, AI engineering excellence, and strong consumer AI product judgment.
 - The project offers concrete starter contribution paths through good first issues and GitHub templates.

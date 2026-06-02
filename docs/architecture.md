@@ -7,7 +7,7 @@ The core architectural claim remains:
 > The Workroot is the durable continuity layer.  
 > AI agents are replaceable collaborators.
 
-0.9.530 resets the active architecture to **Clean Workroot**. The old Public Seed layout is preserved under `docs/history/public-seed/` for history and legacy capability tests, but it is not the active source or user-directory model.
+0.9.530 resets the active architecture to **Clean Workroot**. 0.9.531 extends it with the Agent Protocol and Task Continuity foundation. The old Public Seed layout is preserved under `docs/history/public-seed/` for history and legacy capability tests, but it is not the active source or user-directory model.
 
 ## Active Architecture
 
@@ -34,6 +34,7 @@ The active source layout is lightweight, not heavy DDD:
 src/ai_workroot/
   cli/
   commands/
+  protocol/
   state/
   work/
   assets/
@@ -52,6 +53,7 @@ DDD is used only for strategic modeling. Implementation is command-first and cap
 
 - `cli`: thin terminal adapter.
 - `commands`: application command entrypoints.
+- `protocol`: Agent-facing application control for sync, commit, focus resolution, leases, idempotency, response guidance, and projection routing.
 - `state`: managed state, registry, SQLite, JSONL, locking, and migrations.
 - `work`, `assets`, `relationships`, `retrieval`, `context`, `release`, `handoff`, `agent_entry`, and `diagnostics`: capability-owned models and operations.
 - `shared`: reserved extensions and standard-library-only contracts.
@@ -82,8 +84,11 @@ Do not use Public Seed, Mind, Memory, Graph, Context Gate, TombstoneMarker, or R
 Work keeps factual process continuity:
 
 - Task
-- L0 / L1 / L2 process levels
-- AgentRun
+- L0 / L1 / L2 / L3 process levels
+- TaskRun
+- TaskItem
+- protocol commit batches and protocol events
+- AgentRun for lower-level direct work-operation records where needed
 - WorkAction
 - WorkCheckpoint
 - Retrieval Card
@@ -135,7 +140,7 @@ The user-selected directory remains clean by default. User-owned files remain th
 
 ## Retrieval And Context
 
-0.9.530 favors explainable local retrieval:
+The current line favors explainable local retrieval:
 
 - SQLite FTS
 - materialized context candidates
@@ -179,13 +184,15 @@ That history exists for compatibility review, legacy capability preservation, an
 
 ## Source Of Truth
 
-For the 0.9.530 architecture, read:
+For the current architecture, read:
 
 - `docs/architecture/000-overview.md`
 - `docs/architecture/001-core-concepts.md`
 - `docs/architecture/002-engineering-structure.md`
 - `docs/architecture/003-runtime-layout.md`
 - `docs/architecture/004-legacy-capability-preservation.md`
+- `docs/architecture/010-runtime-layering.md`
 - `docs/specs/README.md`
 - `docs/validation/acceptance-checklist.md`
+- `docs/releases/0.9.531.md`
 - `docs/releases/0.9.530.md`

@@ -1,8 +1,8 @@
 # Roadmap
 
-AI Workroot is currently in the 0.9.530 Clean Workroot architecture reset.
+AI Workroot is currently in the 0.9.531 Agent Protocol and Task Continuity line, built on the 0.9.530 Clean Workroot architecture reset.
 
-Public Seed is historical. The active product direction is personal, local-first Clean Workroot with managed state under `AI_WORKROOT_HOME` and clean user-selected directories by default.
+Public Seed is historical. The active product direction is personal, local-first Clean Workroot with managed state under `AI_WORKROOT_HOME`, clean user-selected directories by default, and a small Agent Protocol that lets AI agents `sync` and `commit` continuity facts without learning internal storage details.
 
 The roadmap is organized by priority:
 
@@ -15,18 +15,19 @@ Within each priority level, the order in the table is the default execution orde
 
 ---
 
-## P0 - Complete The Clean Workroot Reset
+## P0 - Complete The First Stable Workroot Loop
 
 | Order | Item | Type | Notes |
 |---:|---|---|---|
 | 1 | Keep Clean Mode strict | Engineering | User-selected directories stay clean by default; managed state stays under `AI_WORKROOT_HOME`. |
-| 2 | Stabilize the package structure | Engineering | Keep command-first, capability-owned import boundaries enforced by tests. |
-| 3 | Keep scripts closed over support roles | Engineering | `scripts/dev` is the only active scripts support surface; active product logic stays in `src/ai_workroot`. |
-| 4 | Finish bootstrap-dev dogfood | Engineering | Source repo dogfood uses `workroot.project.json`, ignored Native Agent Entry files, and `.ai-workroot-local/` without commits, tags, or pushes. |
-| 5 | Preserve legacy knowledge safely | History | Old Public Seed source is preserved as non-runnable history/fixtures, not as active root layout or runnable compatibility. |
-| 6 | Harden Context Control | Product / Engineering | Keep local retrieval explainable, bounded, configurable, and free of mandatory vector, remote embedding, or remote LLM dependencies. |
-| 7 | Complete release validation | Engineering | Release gates include unit, integration, smoke, negative, Clean Workroot doctor, archive boundary checks, and text audits. |
-| 8 | Dogfood AI Workroot daily | Product | Use Clean Workroot flows to manage the AI Workroot project itself and real personal work. |
+| 2 | Stabilize Agent Protocol continuity | Protocol / Engineering | Keep `sync` read-mostly, `commit` as the durable fact entry, and task ownership stable across agent turns. |
+| 3 | Stabilize the package structure | Engineering | Keep command-first, protocol-runtime, capability-owned import boundaries enforced by tests. |
+| 4 | Keep scripts closed over support roles | Engineering | `scripts/dev` is the only active scripts support surface; active product logic stays in `src/ai_workroot`. |
+| 5 | Keep bootstrap-dev dogfood safe | Engineering | Source repo dogfood uses `workroot.project.json`, ignored Native Agent Entry files, and `.ai-workroot-local/` without commits, tags, or pushes. |
+| 6 | Preserve legacy knowledge safely | History | Old Public Seed source is preserved as non-runnable history/fixtures, not as active root layout or runnable compatibility. |
+| 7 | Harden Context Control | Product / Engineering | Keep local retrieval explainable, bounded, configurable, and free of mandatory vector, remote embedding, or remote LLM dependencies. Layered L1/L2/L3 recall remains the next major context strategy upgrade. |
+| 8 | Complete release validation | Engineering | Release gates include unit, integration, smoke, negative, Clean Workroot doctor, archive boundary checks, and text audits. |
+| 9 | Dogfood AI Workroot daily | Product | Use Clean Workroot and Agent Protocol flows to manage the AI Workroot project itself and real personal work. |
 
 ---
 
@@ -37,7 +38,7 @@ Within each priority level, the order in the table is the default execution orde
 | 1 | Design the minimal Workroot Manager | Product | A personal manager for listing, opening, checking, and continuing Workroots. |
 | 2 | Define Portable Mode separately | Product / Architecture | Portable state can be designed later; it must not weaken Clean Workroot defaults. |
 | 3 | Improve Native Agent Entry onboarding | Protocol | Make authorized agent entry safe, short, path-safe, and easy to inspect. |
-| 4 | Define Codex / ChatGPT handoff format | Protocol | Make cross-AI handoff explicit and reusable. |
+| 4 | Expand protocol transports carefully | Protocol | Keep the stable Agent Protocol semantics while adding MCP or SDK entry surfaces later. |
 | 5 | Add real dogfooding examples | Documentation | Show how AI Workroot is used for the project itself and other real tasks. |
 | 6 | Improve Start Here flow | Product | Make first use feel simple and non-technical. |
 
@@ -71,4 +72,4 @@ Within each priority level, the order in the table is the default execution orde
 
 The current focus is P0.
 
-Do not start building a full client until the Clean Workroot reset is healthy, readable, and consistent.
+Do not start building a full client until Clean Workroot, Agent Protocol continuity, and public architecture docs are healthy, readable, and consistent.

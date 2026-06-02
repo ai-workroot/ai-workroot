@@ -37,6 +37,10 @@ Entities and concepts:
 - TaskKind
 - TaskProcessLevel
 - TaskDecompositionPolicy
+- TaskRun
+- TaskItem
+- ProtocolCommitBatch
+- ProtocolEvent
 - AgentRun
 - WorkAction
 - WorkCheckpoint
@@ -51,6 +55,7 @@ Boundaries:
 - Task is retained. WorkItem is not a formal product term.
 - Task can be decomposed through Relationship Network edges.
 - Task/Action/Run are factual process records. They are not mutated into tombstone states.
+- Protocol commit batches and protocol events are the Agent Protocol entry facts that project into Task, TaskRun, TaskItem, and related continuity records.
 
 ## 3. Handoff
 

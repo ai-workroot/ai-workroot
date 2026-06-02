@@ -61,6 +61,10 @@ Primary concepts:
 - `TaskKind`
 - `TaskProcessLevel`
 - `TaskDecompositionPolicy`
+- `TaskRun`
+- `TaskItem`
+- `ProtocolCommitBatch`
+- `ProtocolEvent`
 - `AgentRun`
 - `WorkAction`
 - `WorkCheckpoint`
@@ -77,6 +81,7 @@ Rules:
 - `WorkItem` is not a product term.
 - Task hierarchy is represented through Relationship Network, not by tightly coupling fields into Task.
 - Work facts are factual records. Release Control may overlay them, but does not mutate their core factual identity.
+- Protocol commit batches and protocol events are the durable Agent Protocol entry facts that project into Task, TaskRun, TaskItem, Handoff, Asset, and related continuity records.
 
 ## Core concept 3: Asset
 
