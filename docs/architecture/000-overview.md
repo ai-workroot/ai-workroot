@@ -51,6 +51,7 @@ These concepts are implemented through a command-first, capability-owned module 
 ```text
 cli/
 commands/
+protocol/
 state/
 work/
 assets/
@@ -88,3 +89,15 @@ templates/
 - Introduce the lightweight engineering structure.
 - Preserve old Work, Asset, Index, Release, Tombstone, Relationship, Context, Handoff, Agent, and Extension capabilities.
 - Rewrite docs/specs/roadmap/release validation around the new model.
+
+## 0.9.531 release line
+
+0.9.531 extends the Clean Workroot architecture with the Agent Protocol and Task Continuity foundation:
+
+- `protocol/` is the Agent-facing application control layer for sync and commit.
+- `commands/` adapts CLI and future transport inputs into protocol or capability calls.
+- Capability modules keep owning their own facts and operations.
+- `state/` remains managed state infrastructure.
+- `shared/` remains a tiny shared kernel, not a new core.
+
+For the current runtime layering, see [Runtime Layering](010-runtime-layering.md).

@@ -168,11 +168,32 @@ class ImportBoundariesTest(unittest.TestCase):
             "agent_entry": set(),
             "assets": {"state"},
             "cli": {"commands"},
-            "commands": {"agent_entry", "context", "diagnostics", "protocol", "state"},
+            "commands": {
+                "agent_entry",
+                "assets",
+                "context",
+                "diagnostics",
+                "handoff",
+                "protocol",
+                "relationships",
+                "release",
+                "retrieval",
+                "state",
+                "work",
+            },
             "context": {"protocol", "relationships", "release", "retrieval", "state"},
             "diagnostics": {"agent_entry", "state"},
             "handoff": {"state"},
-            "protocol": {"state"},
+            "protocol": {
+                "assets",
+                "context",
+                "handoff",
+                "relationships",
+                "release",
+                "retrieval",
+                "state",
+                "work",
+            },
             "relationships": {"state"},
             "release": set(),
             "retrieval": {"state"},
@@ -192,10 +213,46 @@ class ImportBoundariesTest(unittest.TestCase):
         self.assertEqual(unexpected, [])
         self.assertEqual(_package_dependency_cycles(edges), [])
 
-    def test_domain_packages_do_not_import_protocol(self) -> None:
+    def test_runtime_layering_docs_define_protocol_and_shared_boundaries(self) -> None:
+        expected_files = [
+            ROOT / "docs" / "architecture" / "010-runtime-layering.md",
+            SRC / "ai_workroot" / "protocol" / "README.md",
+            SRC / "ai_workroot" / "shared" / "README.md",
+        ]
+        for path in expected_files:
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertTrue(path.is_file())
+        if not all(path.is_file() for path in expected_files):
+            return
+
+        architecture_text = (ROOT / "docs" / "architecture" / "010-runtime-layering.md").read_text(encoding="utf-8")
+        required_terms = [
+            "Entry / Client Layer",
+            "Command / Use-case Adapter Layer",
+            "Protocol Runtime Layer",
+            "Capability Layer",
+            "State / Infrastructure Layer",
+            "Shared Kernel",
+            "protocol spec objects",
+            "runtime implementation",
+        ]
+        for term in required_terms:
+            with self.subTest(term=term):
+                self.assertIn(term, architecture_text)
+        protocol_readme = (SRC / "ai_workroot" / "protocol" / "README.md").read_text(encoding="utf-8")
+        for term in ("protocol spec objects", "Runtime implementation", "Capability modules importing `protocol/`"):
+            with self.subTest(protocol_readme_term=term):
+                self.assertIn(term, protocol_readme)
+
+        shared_readme = (SRC / "ai_workroot" / "shared" / "README.md").read_text(encoding="utf-8")
+        for term in ("tiny shared kernel", "must not become a new `core/` package", "capability models"):
+            with self.subTest(shared_readme_term=term):
+                self.assertIn(term, shared_readme)
+
+    def test_capability_packages_do_not_import_protocol(self) -> None:
         forbidden = ("ai_workroot.protocol",)
         violations: list[str] = []
-        for package in ("work", "assets", "handoff"):
+        for package in ("work", "assets", "handoff", "state", "release", "retrieval", "relationships", "shared"):
             for path in (SRC / "ai_workroot" / package).rglob("*.py"):
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
                 for module in _imported_project_modules(tree):

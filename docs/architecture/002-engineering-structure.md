@@ -12,6 +12,7 @@ The active lightweight structure is:
 src/ai_workroot/
   cli/
   commands/
+  protocol/
   state/
   work/
   assets/
@@ -67,6 +68,7 @@ commands/show_status.py
 commands/build_context.py
 commands/run_doctor.py
 commands/bootstrap_dev.py
+commands/agent_exchange.py
 ```
 
 Rules:
@@ -75,6 +77,25 @@ Rules:
 - Express primary executable paths.
 - Keep SQL, rendering algorithms, release policy, and template mechanics in capability modules.
 - Be reusable from CLI, tests, future API/MCP/GUI adapters, and automation.
+
+### `protocol/`
+
+Agent-facing application control layer for Workroot Agent Protocol.
+
+Owns:
+
+- sync and commit orchestration.
+- work-signal normalization and focus resolution.
+- lease validation, commit idempotency, and response replay.
+- model-facing response construction.
+- projection routing into capability modules.
+
+Rules:
+
+- May call capability modules and managed state infrastructure.
+- Must not own Task, Handoff, Context, Retrieval, Relationship, Release, or Asset truth.
+- Must not expose state infrastructure details as ordinary model guidance.
+- Capability modules must not import `protocol/`.
 
 ### `state/`
 
@@ -185,6 +206,7 @@ cli
 
 commands
   -> state
+  -> protocol
   -> work
   -> assets
   -> relationships
