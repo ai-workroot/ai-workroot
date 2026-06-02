@@ -20,6 +20,7 @@ class ImportBoundariesTest(unittest.TestCase):
             "context",
             "diagnostics",
             "handoff",
+            "protocol",
             "relationships",
             "release",
             "retrieval",
@@ -78,6 +79,28 @@ class ImportBoundariesTest(unittest.TestCase):
         ]
 
         self.assertEqual(legacy_paths, [])
+
+    def test_active_python_source_uses_ascii_only(self) -> None:
+        violations: list[str] = []
+        for path in (SRC / "ai_workroot").rglob("*.py"):
+            for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                if any(ord(char) > 127 for char in line):
+                    violations.append(f"{path.relative_to(ROOT)}:{line_number}")
+
+        self.assertEqual(violations, [])
+
+    def test_protocol_focus_has_no_natural_language_marker_tables(self) -> None:
+        path = SRC / "ai_workroot" / "protocol" / "focus.py"
+        source = path.read_text(encoding="utf-8")
+        forbidden = (
+            "DURABLE_MARKERS",
+            "CONTINUATION_MARKERS",
+            "GUARDED_MARKERS",
+            "_contains_any",
+            "_has_start_boundary",
+        )
+
+        self.assertEqual([name for name in forbidden if name in source], [])
 
     def test_src_does_not_import_legacy_modules(self) -> None:
         violations: list[str] = []
@@ -145,10 +168,11 @@ class ImportBoundariesTest(unittest.TestCase):
             "agent_entry": set(),
             "assets": {"state"},
             "cli": {"commands"},
-            "commands": {"agent_entry", "context", "diagnostics", "state"},
-            "context": {"relationships", "release", "retrieval", "state"},
+            "commands": {"agent_entry", "context", "diagnostics", "protocol", "state"},
+            "context": {"protocol", "relationships", "release", "retrieval", "state"},
             "diagnostics": {"agent_entry", "state"},
             "handoff": {"state"},
+            "protocol": {"state"},
             "relationships": {"state"},
             "release": set(),
             "retrieval": {"state"},
@@ -167,6 +191,42 @@ class ImportBoundariesTest(unittest.TestCase):
 
         self.assertEqual(unexpected, [])
         self.assertEqual(_package_dependency_cycles(edges), [])
+
+    def test_domain_packages_do_not_import_protocol(self) -> None:
+        forbidden = ("ai_workroot.protocol",)
+        violations: list[str] = []
+        for package in ("work", "assets", "handoff"):
+            for path in (SRC / "ai_workroot" / package).rglob("*.py"):
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+                for module in _imported_project_modules(tree):
+                    if _module_matches_any(module, forbidden):
+                        violations.append(f"{path.relative_to(ROOT)} imports {module}")
+
+        self.assertEqual(violations, [])
+
+    def test_protocol_package_does_not_import_cli(self) -> None:
+        violations: list[str] = []
+        for path in (SRC / "ai_workroot" / "protocol").rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for module in _imported_project_modules(tree):
+                if _module_matches_any(module, ("ai_workroot.cli",)):
+                    violations.append(f"{path.relative_to(ROOT)} imports {module}")
+
+        self.assertEqual(violations, [])
+
+    def test_agent_exchange_command_does_not_import_sqlite(self) -> None:
+        path = SRC / "ai_workroot" / "commands" / "agent_exchange.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        violations: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "sqlite3":
+                        violations.append(f"{path.relative_to(ROOT)} imports sqlite3")
+            elif isinstance(node, ast.ImportFrom) and node.module == "sqlite3":
+                violations.append(f"{path.relative_to(ROOT)} imports from sqlite3")
+
+        self.assertEqual(violations, [])
 
     def test_shared_model_bucket_does_not_exist(self) -> None:
         self.assertFalse((SRC / "ai_workroot" / "shared" / "model.py").exists())

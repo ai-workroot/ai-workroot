@@ -18,6 +18,8 @@ class WorkrootAgentEntryTest(unittest.TestCase):
         self.assertIn("workroot context --agent codex --cwd .", block)
         self.assertIn("<!-- AI_WORKROOT_BEGIN -->", block)
         self.assertIn("<!-- AI_WORKROOT_END -->", block)
+        self.assertIn("Use Workroot guidance privately", block)
+        self.assertIn("keep helping the user", block)
         self.assertNotIn(str(Path.home()), block)
         self.assertNotIn(".ai-workroot/workroots", block)
         self.assertLess(len(block.encode("utf-8")), 2 * 1024)

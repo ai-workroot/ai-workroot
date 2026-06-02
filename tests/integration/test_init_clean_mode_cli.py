@@ -37,7 +37,7 @@ class InitCleanModeCliTest(unittest.TestCase):
             self.assertFalse((user_dir / "context").exists())
             self.assertFalse((user_dir / "runtime").exists())
             payload = json.loads(state_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload["version"], "0.9.530")
+            self.assertEqual(payload["version"], "0.9.531")
             self.assertEqual(payload["user_directory"], str(user_dir.resolve()))
 
     def test_package_clean_init_uses_package_cli_contract(self) -> None:

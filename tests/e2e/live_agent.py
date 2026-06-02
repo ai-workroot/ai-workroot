@@ -9,24 +9,29 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from tests.e2e.harness import REPO_ROOT, env_for, run_cli
-from tests.e2e.personas import PERSONAS
+from tests.e2e.harness import REPO_ROOT, env_for, run_cli, write_user_files
+from tests.e2e.personas import PERSONAS, Persona
 from tests.e2e.safety import ensure_not_real_repo_cwd_for_live_e2e, prepare_run_root
 
 
 REMOTE_LLM_OPT_IN_ENV = "AI_WORKROOT_E2E_ALLOW_REMOTE_LLM"
 CODEX_HOME_FILE_ALLOWLIST = ("auth.json", "config.toml", "AGENTS.md")
+REQUIRED_CONTEXT_COMMAND = "python3 -m ai_workroot context --agent codex --cwd . --query 'Clean Mode' --debug"
+LIVE_AGENT_PROMPT = (
+    "Live-agent E2E smoke. Do not modify files. First run exactly this command from cwd .: "
+    f"{REQUIRED_CONTEXT_COMMAND}. Do not inspect README.md directly. Then reply with exactly two short lines: "
+    "LIVE_AGENT_E2E_OK, then one sentence describing the visible Context Package metadata from that command output."
+)
 
 
 @dataclass(frozen=True)
-class LiveAgentResult:
-    run_root: Path
-    ai_workroot_home: Path
+class LiveAgentPersonaResult:
+    persona_slug: str
+    user_directory: Path
     transcript_dir: Path
     stdout_path: Path
     stderr_path: Path
     last_message_path: Path
-    summary_path: Path
     returncode: int
 
     @property
@@ -34,29 +39,99 @@ class LiveAgentResult:
         return self.returncode == 0 and self.last_message_path.is_file()
 
 
+@dataclass(frozen=True)
+class LiveAgentResult:
+    run_root: Path
+    ai_workroot_home: Path
+    summary_path: Path
+    persona_results: tuple[LiveAgentPersonaResult, ...]
+
+    @property
+    def returncode(self) -> int:
+        return 0 if self.passed else 1
+
+    @property
+    def passed(self) -> bool:
+        return bool(self.persona_results) and all(result.passed for result in self.persona_results)
+
+
+def expected_live_agent_persona_slugs() -> tuple[str, ...]:
+    return tuple(persona.slug for persona in PERSONAS)
+
+
 def run_codex_live_agent(*, run_root: Path, sandbox_base: Path | None = None) -> LiveAgentResult:
     if os.environ.get(REMOTE_LLM_OPT_IN_ENV) != "1":
         raise RuntimeError(f"live-agent E2E requires {REMOTE_LLM_OPT_IN_ENV}=1")
     run_root = prepare_run_root(run_root, sandbox_base=sandbox_base)
     ai_workroot_home = run_root / "ai-workroot-home"
-    user_directory = run_root / "user-dirs" / "persona-software-engineer"
-    user_directory.mkdir(parents=True, exist_ok=True)
-    for rel, content in PERSONAS[0].user_files.items():
-        path = user_directory / rel
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-
     env = env_for(ai_workroot_home)
+    codex = shutil.which("codex")
+    if not codex:
+        raise RuntimeError("codex CLI is not available")
+
+    persona_results = tuple(
+        _run_codex_live_agent_for_persona(
+            persona,
+            run_root=run_root,
+            ai_workroot_home=ai_workroot_home,
+            env=env,
+            codex=codex,
+        )
+        for persona in PERSONAS
+    )
+    summary_path = run_root / "reports" / "live-agent-summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(
+        json.dumps(
+            {
+                "returncode": 0 if all(result.passed for result in persona_results) else 1,
+                "aiWorkrootHome": str(ai_workroot_home),
+                "personaResults": [
+                    {
+                        "personaSlug": result.persona_slug,
+                        "cwd": str(result.user_directory),
+                        "returncode": result.returncode,
+                        "stdout": str(result.stdout_path),
+                        "stderr": str(result.stderr_path),
+                        "lastMessage": str(result.last_message_path),
+                    }
+                    for result in persona_results
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return LiveAgentResult(
+        run_root=run_root,
+        ai_workroot_home=ai_workroot_home,
+        summary_path=summary_path,
+        persona_results=persona_results,
+    )
+
+
+def _run_codex_live_agent_for_persona(
+    persona: Persona,
+    *,
+    run_root: Path,
+    ai_workroot_home: Path,
+    env: dict[str, str],
+    codex: str,
+) -> LiveAgentPersonaResult:
+    user_directory = run_root / "user-dirs" / persona.slug
+    write_user_files(user_directory, persona.user_files)
     init = run_cli(
         (
             "init",
             "--name",
-            PERSONAS[0].name,
+            persona.name,
             "--directory",
             str(user_directory),
             "--id",
-            PERSONAS[0].workroot_id,
-            "--no-native-agent-entry",
+            persona.workroot_id,
+            "--native-agent-entry" if persona.native_agent_entry else "--no-native-agent-entry",
         ),
         env=env,
         cwd=REPO_ROOT,
@@ -72,22 +147,14 @@ def run_codex_live_agent(*, run_root: Path, sandbox_base: Path | None = None) ->
         raise RuntimeError(context.stderr or context.stdout)
 
     ensure_not_real_repo_cwd_for_live_e2e(user_directory)
-    codex = shutil.which("codex")
-    if not codex:
-        raise RuntimeError("codex CLI is not available")
 
-    transcript_dir = run_root / "transcripts" / "live-agent"
+    transcript_dir = run_root / "transcripts" / "live-agent" / persona.slug
     transcript_dir.mkdir(parents=True, exist_ok=True)
     prompt_path = transcript_dir / "prompt.txt"
     stdout_path = transcript_dir / "codex-stdout.txt"
     stderr_path = transcript_dir / "codex-stderr.txt"
     last_message_path = transcript_dir / "codex-last-message.txt"
-    summary_path = run_root / "reports" / "live-agent-summary.json"
-    prompt = (
-        "Live-agent E2E smoke. Do not modify files. Inspect the local Workroot context for cwd . "
-        "and reply with exactly two short lines: LIVE_AGENT_E2E_OK, then one sentence describing "
-        "the visible Context Package metadata."
-    )
+    prompt = LIVE_AGENT_PROMPT
     prompt_path.write_text(prompt + "\n", encoding="utf-8")
 
     live_env = build_live_agent_environment(env, run_root=run_root)
@@ -97,11 +164,13 @@ def run_codex_live_agent(*, run_root: Path, sandbox_base: Path | None = None) ->
         "exec",
         "--cd",
         str(user_directory),
+        "--add-dir",
+        str(ai_workroot_home),
         "--skip-git-repo-check",
         "--ephemeral",
         "--ignore-rules",
         "--sandbox",
-        "read-only",
+        "workspace-write",
         "--output-last-message",
         str(last_message_path),
         prompt,
@@ -117,33 +186,13 @@ def run_codex_live_agent(*, run_root: Path, sandbox_base: Path | None = None) ->
     )
     stdout_path.write_text(completed.stdout, encoding="utf-8")
     stderr_path.write_text(completed.stderr, encoding="utf-8")
-    summary_path.parent.mkdir(parents=True, exist_ok=True)
-    summary_path.write_text(
-        json.dumps(
-            {
-                "command": list(command),
-                "cwd": str(user_directory),
-                "returncode": completed.returncode,
-                "stdout": str(stdout_path),
-                "stderr": str(stderr_path),
-                "lastMessage": str(last_message_path),
-                "aiWorkrootHome": str(ai_workroot_home),
-                "usedCodexHome": live_env.get("CODEX_HOME"),
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    return LiveAgentResult(
-        run_root=run_root,
-        ai_workroot_home=ai_workroot_home,
+    return LiveAgentPersonaResult(
+        persona_slug=persona.slug,
+        user_directory=user_directory,
         transcript_dir=transcript_dir,
         stdout_path=stdout_path,
         stderr_path=stderr_path,
         last_message_path=last_message_path,
-        summary_path=summary_path,
         returncode=completed.returncode,
     )
 

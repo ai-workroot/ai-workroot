@@ -9,7 +9,7 @@ import subprocess
 
 PRIVATE_PATTERNS = [
     re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['\"]?[^'\"\s]+"),
+    re.compile(r"(?im)(^|[,{])\s*['\"]?(api[_-]?key|secret|password|token)['\"]?\s*[:=]\s*['\"]?[^'\"\s,}]+"),
 ]
 GENERATED_SUFFIXES = {
     ".sqlite",

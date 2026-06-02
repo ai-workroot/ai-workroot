@@ -5,13 +5,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-TASK_STATUSES = {"active", "paused", "blocked", "closed", "released"}
+TASK_STATUSES = {"active", "paused", "blocked", "closed", "archived", "released"}
 TASK_TRANSITIONS = {
-    "active": {"paused", "blocked", "closed", "released"},
-    "paused": {"active", "closed", "released"},
+    "active": {"paused", "blocked", "closed", "archived", "released"},
+    "paused": {"active", "closed", "archived", "released"},
     "blocked": {"active", "paused", "closed", "released"},
-    "closed": {"released"},
+    "closed": {"archived", "released"},
+    "archived": {"released"},
     "released": set(),
+}
+
+TASK_ITEM_STATUSES = {"todo", "doing", "done", "blocked", "canceled"}
+TASK_ITEM_TRANSITIONS = {
+    "todo": {"doing", "done", "blocked", "canceled"},
+    "doing": {"todo", "done", "blocked", "canceled"},
+    "blocked": {"doing", "done", "canceled"},
+    "done": set(),
+    "canceled": set(),
 }
 
 
@@ -20,7 +30,7 @@ class Task:
     task_id: str
     title: str
     status: str = "active"
-    task_kind: str = "project"
+    task_kind: str = "task"
     process_level: str = "L1"
 
     def can_transition_to(self, status: str) -> bool:
@@ -34,7 +44,7 @@ class Task:
         self.status = "closed"
 
     def should_request_decomposition(self) -> bool:
-        return self.process_level == "L2" or self.task_kind == "project"
+        return self.process_level in {"L2", "L3"}
 
 
 @dataclass(frozen=True)
@@ -58,6 +68,24 @@ class WorkCheckpoint:
     checkpoint_id: str
     task_id: str
     current_status: str
+
+
+@dataclass(frozen=True)
+class TaskItem:
+    item_id: str
+    task_id: str
+    title: str
+    status: str = "todo"
+    item_order: int = 0
+    run_id: str = ""
+    result_summary: str = ""
+
+    def can_transition_to(self, status: str) -> bool:
+        if status not in TASK_ITEM_STATUSES:
+            return False
+        if status == self.status:
+            return True
+        return status in TASK_ITEM_TRANSITIONS.get(self.status, set())
 
 
 @dataclass(frozen=True)

@@ -16,10 +16,12 @@ class CoreModelsTest(unittest.TestCase):
         task = Task(task_id="task_1", title="Ship package skeleton", status="active")
 
         self.assertTrue(task.can_transition_to("closed"))
+        self.assertTrue(task.can_transition_to("archived"))
         task.close()
 
         self.assertEqual(task.status, "closed")
         self.assertFalse(task.can_transition_to("active"))
+        self.assertTrue(task.can_transition_to("archived"))
 
     def test_asset_publish_records_surface_and_target(self) -> None:
         asset = Asset(asset_id="asset_1", workroot_id="wr_demo", asset_type="spec", title="Spec")

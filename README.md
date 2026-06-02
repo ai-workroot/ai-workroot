@@ -134,7 +134,7 @@ The goal is to help a person continue without losing the freedom to change.
 
 ## Current Architecture
 
-AI Workroot is currently in the 0.9.530 Clean Workroot architecture reset.
+AI Workroot is currently in the 0.9.531 Agent Protocol and Task Continuity line, built on the 0.9.530 Clean Workroot architecture reset.
 
 Clean Workroot means the user-selected directory is treated as user asset space. AI Workroot does not create managed runtime folders, indexes, logs, control files, or context stores inside that directory by default.
 
@@ -146,6 +146,7 @@ The active source implementation is organized as:
 src/ai_workroot/
   cli/
   commands/
+  protocol/
   state/
   work/
   assets/
@@ -174,6 +175,8 @@ For the full current architecture, see:
 
 - [Workroot System Design](docs/workroot-system-design.md)
 - [Architecture Map](docs/architecture-map.md)
+- [0.9.531 Workroot Agent Protocol Bridge Design](docs/superpowers/specs/2026-06-01-workroot-agent-protocol-bridge-design.md)
+- [0.9.531 Release Notes](docs/releases/0.9.531.md)
 - [0.9.530 Release Notes](docs/releases/0.9.530.md)
 
 ## Start Here

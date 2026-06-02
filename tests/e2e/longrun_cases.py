@@ -20,6 +20,24 @@ def _runner_roots() -> tuple[Path, Path] | None:
 
 
 class LongrunE2ETest(unittest.TestCase):
+    def test_longrun_keeps_process_fixtures_out_of_user_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox_base = Path(tmp) / "ai-workroot-e2e-sandboxes"
+            result = run_longrun(
+                run_root=new_default_run_root(base=sandbox_base),
+                sandbox_base=sandbox_base,
+                level=3,
+                tasks_per_persona=1,
+            )
+
+            self.assertTrue(result.passed, result.failures_path.read_text(encoding="utf-8"))
+            leaked = [
+                str(persona.user_directory / "longrun")
+                for persona in result.persona_results
+                if (persona.user_directory / "longrun").exists()
+            ]
+            self.assertEqual([], leaked)
+
     def test_level3_longrun_runs_reusable_cases_and_writes_context_audit(self) -> None:
         roots = _runner_roots()
         if roots:

@@ -11,6 +11,10 @@ import time
 from pathlib import Path
 import uuid
 
+from ai_workroot.context.control import workroot_guidance_text
+from ai_workroot.protocol.controller import startup_context
+from ai_workroot.protocol.model import PROTOCOL_VERSION
+from ai_workroot.protocol.packet import render_private_packet_markdown
 from ai_workroot.release.evaluation import evaluate_release_targets
 from ai_workroot.release.filter import (
     FtsReleaseFilterReport,
@@ -42,11 +46,13 @@ from ai_workroot.state.environment import (
 )
 from ai_workroot.state.jsonl import append_jsonl
 from ai_workroot.state.registry import find_workroot_by_cwd
+from ai_workroot.state.runtime_views import context_rendered_preview, write_context_runtime_view
 
 
 DEFAULT_TARGET_TOKENS = 1200
 DEFAULT_HARD_TOKEN_LIMIT = 2400
 TOKEN_USAGE_PLACEHOLDER = "__AI_WORKROOT_TOKEN_USAGE__"
+CONTEXT_RUNTIME_RETENTION_LIMIT = 100
 
 
 @dataclass(frozen=True)
@@ -63,6 +69,12 @@ class ContextRequest:
 
 @dataclass(frozen=True)
 class ContinuityContext:
+    focus: str = ""
+    confidence: str = ""
+    why: str = ""
+    task_brief: str = ""
+    current_state: str = ""
+    next_action: str = ""
     active_task_id: str = ""
     active_task_title: str = ""
     active_task_status: str = ""
@@ -78,6 +90,7 @@ class ContinuityContext:
 
     def trace_payload(self) -> dict[str, str]:
         return {
+            "focus": self.focus,
             "activeTaskId": self.active_task_id,
             "checkpointId": self.checkpoint_id,
             "handoffId": self.handoff_id,
@@ -119,6 +132,7 @@ class ContextRuntime:
 @dataclass(frozen=True)
 class LoadedContext:
     continuity: ContinuityContext
+    workroot_guidance: str = ""
 
 
 @dataclass(frozen=True)
@@ -157,7 +171,9 @@ def build_context_package(
     ai_workroot_home: Path | str | None = None,
 ) -> str:
     runtime = _resolve_context_runtime(request, ai_workroot_home)
-    loaded = LoadedContext(continuity=ContinuityContext())
+    loaded = LoadedContext(
+        continuity=ContinuityContext(), workroot_guidance=workroot_guidance_text(agent=request.agent)
+    )
     retrieved = RetrievedContext(candidates=[], fts_matches=[], fts_error=None)
     governed = GovernedContext(
         candidates=[],
@@ -205,7 +221,7 @@ def _resolve_context_runtime(request: ContextRequest, ai_workroot_home: Path | s
 
 
 def _load_context_state(conn: sqlite3.Connection, runtime: ContextRuntime) -> LoadedContext:
-    return LoadedContext(continuity=_load_continuity_context(conn, runtime.record["workrootId"]))
+    return _load_startup_context_state(runtime)
 
 
 def _prepare_recall_hints(conn: sqlite3.Connection, runtime: ContextRuntime) -> None:
@@ -388,6 +404,21 @@ def _record_context_result(
                 mode_plan=runtime.mode_plan,
                 trim_steps=rendered.trim_steps,
             )
+    _write_context_runtime_view_best_effort(
+        state_directory=Path(runtime.record["stateDirectory"]),
+        rendered=rendered.text,
+        trace={
+            "workrootId": runtime.record["workrootId"],
+            "agent": runtime.request.agent,
+            "mode": runtime.request.mode,
+            "query": runtime.request.query,
+            "selectedCandidateIds": [candidate.candidate_id for candidate in selected.candidates],
+            "continuity": loaded.continuity.trace_payload(),
+            "modePlan": runtime.mode_plan.trace_payload(),
+            "trimSteps": rendered.trim_steps,
+            "tokenUsage": estimate_tokens(rendered.text),
+        },
+    )
     _write_context_diagnostic_log(
         record=runtime.record,
         request=runtime.request,
@@ -426,6 +457,7 @@ def _render_context_text(
         fts_error=governed.fts_error,
         started=runtime.started,
         trim_steps=trim_steps,
+        workroot_guidance=loaded.workroot_guidance,
     )
 
 
@@ -450,6 +482,7 @@ def _render_compact_debug_context_text(
         fts_error=governed.fts_error,
         started=runtime.started,
         trim_steps=trim_steps,
+        workroot_guidance=loaded.workroot_guidance,
     )
 
 
@@ -722,64 +755,74 @@ def _fallback_user_asset_candidates(user_directory: Path) -> list[CandidateMatch
     return candidates[:10]
 
 
-def _load_continuity_context(conn: sqlite3.Connection, workroot_id: str) -> ContinuityContext:
-    task = _fetch_one_safely(
-        conn,
-        """
-        SELECT task_id, title, status, task_kind, process_level
-        FROM tasks
-        WHERE workroot_id = ? AND COALESCE(status, 'active') = 'active'
-        ORDER BY rowid DESC
-        LIMIT 1
-        """,
-        (workroot_id,),
+def _load_startup_context_state(runtime: ContextRuntime) -> LoadedContext:
+    response = startup_context(
+        {
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": f"req-context-{uuid.uuid4().hex}",
+            "agent": {"name": runtime.request.agent, "transport": "cli-context"},
+            "cwd": str(runtime.request.cwd),
+            "reason": "startup",
+            "query": runtime.request.query,
+            "known_state": {},
+            "work_signal": _startup_work_signal(runtime.request),
+        },
+        ai_workroot_home=Path(runtime.record["stateDirectory"]).parents[1],
     )
-    checkpoint = None
-    if task:
-        checkpoint = _fetch_one_safely(
-            conn,
-            """
-            SELECT checkpoint_id, current_status
-            FROM work_checkpoints
-            WHERE workroot_id = ? AND task_id = ?
-            ORDER BY rowid DESC
-            LIMIT 1
-            """,
-            (workroot_id, str(task[0])),
-        )
-    handoff = _fetch_one_safely(
-        conn,
-        """
-        SELECT handoff_id, title
-        FROM handoffs
-        WHERE workroot_id = ?
-        ORDER BY rowid DESC
-        LIMIT 1
-        """,
-        (workroot_id,),
+    return LoadedContext(
+        continuity=_continuity_from_startup_response(response),
+        workroot_guidance=_startup_guidance_from_response(response, agent=runtime.request.agent),
     )
+
+
+def _startup_work_signal(request: ContextRequest) -> dict[str, object]:
+    return {
+        "phase": "orienting",
+        "work_kind": "",
+        "intended_action": "inspect",
+        "focus": request.query,
+        "concerns": [],
+    }
+
+
+def _continuity_from_startup_response(response: dict[str, object]) -> ContinuityContext:
+    view = response.get("workroot_view") if isinstance(response.get("workroot_view"), dict) else {}
+    contract = response.get("workroot_contract") if isinstance(response.get("workroot_contract"), dict) else {}
+    state_refs = contract.get("state_refs") if isinstance(contract.get("state_refs"), dict) else {}
+    refs = view.get("refs") if isinstance(view.get("refs"), list) else []
+    task_ref_data = _first_ref(refs, "task")
+    checkpoint_ref_data = _first_ref(refs, "checkpoint")
+    handoff_ref_data = _first_ref(refs, "handoff")
+    task_ref = str(state_refs.get("task_ref") or "") if view.get("focus") == "continuation" else ""
+    run_ref = str(state_refs.get("run_ref") or "") if task_ref else ""
     return ContinuityContext(
-        active_task_id=str(task[0] or "") if task else "",
-        active_task_title=str(task[1] or "") if task else "",
-        active_task_status=str(task[2] or "") if task else "",
-        active_task_kind=str(task[3] or "") if task else "",
-        active_task_process_level=str(task[4] or "") if task else "",
-        checkpoint_id=str(checkpoint[0] or "") if checkpoint else "",
-        checkpoint_status=str(checkpoint[1] or "") if checkpoint else "",
-        handoff_id=str(handoff[0] or "") if handoff else "",
-        handoff_title=str(handoff[1] or "") if handoff else "",
+        focus=str(view.get("focus") or ""),
+        confidence=str(view.get("confidence") or ""),
+        why=str(view.get("why") or ""),
+        task_brief=str(view.get("task_brief") or ""),
+        current_state=str(view.get("current_state") or ""),
+        next_action=str(view.get("next_action") or ""),
+        active_task_id=task_ref,
+        active_task_title=str(task_ref_data.get("summary") or view.get("task_brief") or ""),
+        active_task_status=str(task_ref_data.get("status") or ("active" if task_ref else "")),
+        active_task_kind=str(task_ref_data.get("task_kind") or ("task" if task_ref else "")),
+        active_task_process_level=str(task_ref_data.get("process_level") or ""),
+        checkpoint_id=str(checkpoint_ref_data.get("id") or run_ref),
+        checkpoint_status=str(checkpoint_ref_data.get("summary") or view.get("current_state") or ""),
+        handoff_id=str(handoff_ref_data.get("id") or ""),
+        handoff_title=str(handoff_ref_data.get("summary") or view.get("next_action") or ""),
     )
 
 
-def _fetch_one_safely(
-    conn: sqlite3.Connection,
-    sql: str,
-    params: tuple[object, ...],
-) -> tuple[object, ...] | None:
-    try:
-        return conn.execute(sql, params).fetchone()
-    except sqlite3.OperationalError:
-        return None
+def _first_ref(refs: list[object], ref_type: str) -> dict[str, object]:
+    for ref in refs:
+        if isinstance(ref, dict) and ref.get("type") == ref_type:
+            return ref
+    return {}
+
+
+def _startup_guidance_from_response(response: dict[str, object], *, agent: str) -> str:
+    return render_private_packet_markdown(response, adapter="cli", agent=agent).rstrip() + "\n"
 
 
 # Rendering.
@@ -799,6 +842,7 @@ def _render_package(
     fts_error: str | None,
     started: float,
     trim_steps: list[str],
+    workroot_guidance: str,
 ) -> str:
     body_for_tokens = _package_body_for_tokens(
         record=record,
@@ -813,6 +857,7 @@ def _render_package(
         continuity=continuity,
         mode_plan=mode_plan,
         trim_steps=trim_steps,
+        workroot_guidance=workroot_guidance,
     )
     token_usage = estimate_tokens(body_for_tokens)
     latency_ms = int((time.perf_counter() - started) * 1000)
@@ -828,6 +873,17 @@ def _render_package(
     ]
     if request.query:
         lines.append(f"Query: {request.query}")
+    lines.extend(["", workroot_guidance.rstrip(), "", "## Task Context"])
+    if continuity.focus:
+        lines.extend(["", "## Workroot View", f"- Focus: {continuity.focus}"])
+        if continuity.confidence:
+            lines.append(f"- Confidence: {continuity.confidence}")
+        if continuity.task_brief:
+            lines.append(f"- Task brief: {continuity.task_brief}")
+        if continuity.current_state:
+            lines.append(f"- Current state: {continuity.current_state}")
+        if continuity.next_action:
+            lines.append(f"- Next useful action: {continuity.next_action}")
     lines.extend(["", "## Workroot", f"- {record['name']} ({record['workrootId']})"])
     if continuity.active_task_id:
         lines.extend(
@@ -865,12 +921,12 @@ def _render_package(
             [
                 "",
                 "## Debug Trace",
+                f"tokenUsage: estimated={token_usage} target={request.target_tokens} hard={request.hard_token_limit}",
+                f"budgetSource: {request.budget_source}",
+                f"timing: totalMs={latency_ms}",
                 "candidateSources: context-candidates, indexed-chunks, relationship-network",
                 f"filters: safety=default droppedSafetyPolicies={','.join(sorted({'never-auto', 'needs-confirmation', 'sensitive'}))}",
                 "scoring: importance + candidate-fts-match + file-fts-match + relationship-edge",
-                f"timing: totalMs={latency_ms}",
-                f"tokenUsage: estimated={token_usage} target={request.target_tokens} hard={request.hard_token_limit}",
-                f"budgetSource: {request.budget_source}",
                 (
                     f"modePlan: mode={mode_plan.mode} behavior={mode_plan.behavior} "
                     f"candidateLimit={mode_plan.candidate_limit} hintLimit={mode_plan.hint_limit} "
@@ -930,6 +986,7 @@ def _render_compact_debug_package(
     fts_error: str | None,
     started: float,
     trim_steps: list[str],
+    workroot_guidance: str,
 ) -> str:
     latency_ms = int((time.perf_counter() - started) * 1000)
     selected_titles = "; ".join(candidate.title for candidate in selected[:3]) or "none"
@@ -945,6 +1002,9 @@ def _render_compact_debug_package(
     ]
     if request.query:
         lines.append(f"Query: {request.query}")
+    lines.extend(["", workroot_guidance.rstrip(), "", "## Task Context"])
+    if continuity.focus:
+        lines.extend(["", "## Workroot View", f"- Focus: {continuity.focus}"])
     if continuity.active_task_id:
         lines.extend(["", "## Current Task", f"- {continuity.active_task_title}"])
     lines.extend(
@@ -954,12 +1014,12 @@ def _render_compact_debug_package(
             f"- {selected_titles}",
             "",
             "## Debug Trace",
+            f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
+            f"budgetSource: {request.budget_source}",
+            f"timing: totalMs={latency_ms}",
             "candidateSources: context-candidates, indexed-chunks, relationship-network",
             f"filters: safety=default droppedSafetyPolicies={','.join(sorted({'never-auto', 'needs-confirmation', 'sensitive'}))}",
             "scoring: importance + candidate-fts-match + file-fts-match + relationship-edge",
-            f"timing: totalMs={latency_ms}",
-            f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
-            f"budgetSource: {request.budget_source}",
             (
                 f"modePlan: mode={mode_plan.mode} behavior={mode_plan.behavior} "
                 f"candidateLimit={mode_plan.candidate_limit} hintLimit={mode_plan.hint_limit} "
@@ -1010,13 +1070,13 @@ def _minimal_debug_package(
         f"LatencyMs: {latency_ms}",
         f"TokenUsage: {TOKEN_USAGE_PLACEHOLDER}/{request.hard_token_limit}",
         "## Debug Trace",
+        f"trimSteps: {', '.join(trim_steps)}",
+        f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
+        f"budgetSource: {request.budget_source}",
+        f"timing: totalMs={latency_ms}",
         "candidateSources: context-candidates,indexed-chunks,relationship-network",
         "filters: safety=default",
         "scoring: compact-debug-hard-trim",
-        f"timing: totalMs={latency_ms}",
-        f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
-        f"budgetSource: {request.budget_source}",
-        f"trimSteps: {', '.join(trim_steps)}",
     ]
     return _finalize_rendered_token_usage("\n".join(lines) + "\n")
 
@@ -1100,6 +1160,7 @@ def _package_body_for_tokens(
     continuity: ContinuityContext,
     mode_plan: ModePlan,
     trim_steps: list[str],
+    workroot_guidance: str,
 ) -> str:
     parts = [
         record.get("name", ""),
@@ -1107,6 +1168,12 @@ def _package_body_for_tokens(
         request.agent,
         request.mode,
         request.query,
+        workroot_guidance,
+        continuity.focus,
+        continuity.confidence,
+        continuity.task_brief,
+        continuity.current_state,
+        continuity.next_action,
         continuity.active_task_title,
         continuity.active_task_status,
         continuity.active_task_kind,
@@ -1151,12 +1218,14 @@ def _persist_context_runtime_state(
 ) -> None:
     package_id = f"ctxpkg_{uuid.uuid4().hex}"
     trace_id = f"ctxtrace_{uuid.uuid4().hex}"
+    created_at = utc_now()
+    rendered_preview, rendered_preview_metadata = context_rendered_preview(rendered)
     conn.execute(
         """
-        INSERT INTO context_packages (package_id, workroot_id, mode, rendered)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO context_packages (package_id, workroot_id, mode, rendered, created_at)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (package_id, workroot_id, request.mode, rendered),
+        (package_id, workroot_id, request.mode, rendered_preview, created_at),
     )
     debug_payload = {
         "packageId": package_id,
@@ -1174,6 +1243,7 @@ def _persist_context_runtime_state(
         "modePlan": mode_plan.trace_payload(),
         "trimSteps": trim_steps,
         "tokenUsage": estimate_tokens(rendered),
+        "renderedPreview": rendered_preview_metadata,
     }
     conn.execute(
         """
@@ -1215,7 +1285,58 @@ def _persist_context_runtime_state(
             """,
             (f"trim_{uuid.uuid4().hex}", trace_id, "rendered-package", step),
         )
+    _prune_context_runtime_state(conn, workroot_id=workroot_id, keep_latest=CONTEXT_RUNTIME_RETENTION_LIMIT)
     conn.commit()
+
+
+def _prune_context_runtime_state(conn: sqlite3.Connection, *, workroot_id: str, keep_latest: int) -> None:
+    if keep_latest < 1:
+        keep_latest = 1
+    old_package_ids = [
+        str(row[0])
+        for row in conn.execute(
+            """
+            SELECT package_id
+            FROM context_packages
+            WHERE workroot_id = ?
+            ORDER BY rowid DESC
+            LIMIT -1 OFFSET ?
+            """,
+            (workroot_id, keep_latest),
+        ).fetchall()
+    ]
+    if not old_package_ids:
+        return
+
+    old_trace_ids = [
+        str(row[0])
+        for row in conn.execute(
+            f"""
+            SELECT trace_id
+            FROM context_traces
+            WHERE workroot_id = ? AND package_id IN ({_sql_placeholders(old_package_ids)})
+            """,
+            (workroot_id, *old_package_ids),
+        ).fetchall()
+    ]
+    if old_trace_ids:
+        _delete_rows_by_ids(conn, "candidate_selections", "trace_id", old_trace_ids)
+        _delete_rows_by_ids(conn, "budget_trim_decisions", "trace_id", old_trace_ids)
+        _delete_rows_by_ids(conn, "context_traces", "trace_id", old_trace_ids)
+    _delete_rows_by_ids(conn, "context_packages", "package_id", old_package_ids)
+
+
+def _delete_rows_by_ids(conn: sqlite3.Connection, table: str, column: str, values: list[str]) -> None:
+    if not values:
+        return
+    conn.execute(
+        f"DELETE FROM {table} WHERE {column} IN ({_sql_placeholders(values)})",
+        tuple(values),
+    )
+
+
+def _sql_placeholders(values: list[str]) -> str:
+    return ", ".join("?" for _ in values)
 
 
 # Diagnostic logging.
@@ -1278,6 +1399,18 @@ def _write_context_diagnostic_log(
         retention_days=int(getattr(logging_config, "retention_days", 7)),
         max_entries=int(getattr(logging_config, "max_entries_per_workroot", 200)),
     )
+
+
+def _write_context_runtime_view_best_effort(
+    *,
+    state_directory: Path,
+    rendered: str,
+    trace: dict[str, object],
+) -> None:
+    try:
+        write_context_runtime_view(state_directory=state_directory, rendered=rendered, trace=trace)
+    except Exception:
+        return
 
 
 def _prune_context_diagnostic_log(log_path: Path, *, retention_days: int, max_entries: int) -> None:

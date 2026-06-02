@@ -67,7 +67,7 @@ class BootstrapDevReplacementTest(unittest.TestCase):
                 '  "project": "ai-workroot",\n'
                 '  "bootstrapDevSupported": true,\n'
                 '  "architecture": "clean-workroot",\n'
-                '  "version": "0.9.530"\n'
+                '  "version": "0.9.531"\n'
                 "}\n"
             ),
             encoding="utf-8",

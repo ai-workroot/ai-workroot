@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -61,6 +62,95 @@ class CleanCliWorkflowSmokeTest(unittest.TestCase):
             self.assertIn("candidateSources", debug.stdout)
             self.assertIn("timing", debug.stdout)
             self.assertIn("tokenUsage", debug.stdout)
+
+            agent_sync = run_workroot_cli(
+                env,
+                "agent",
+                "sync",
+                "--agent",
+                "codex",
+                "--cwd",
+                str(user_dir),
+                "--reason",
+                "before_work",
+                "--query",
+                "Clean Mode",
+                "--work-signal",
+                '{"phase":"planning","work_kind":"task","intended_action":"plan","focus":"Clean Mode"}',
+            )
+            self.assertEqual(agent_sync.returncode, 0, agent_sync.stderr)
+            sync_response = json.loads(agent_sync.stdout)
+            self.assertTrue(sync_response["agent_may_continue"])
+            self.assertEqual(sync_response["workroot_contract"]["next_exchange"]["action"], "commit")
+            self.assertIn("Workroot Guidance", sync_response["workroot_guidance"])
+
+            intent = run_workroot_cli(
+                env,
+                "agent",
+                "commit",
+                "--shape",
+                "start-work",
+                "--lease",
+                sync_response["workroot_contract"]["commit_contract"]["lease_id"],
+                "--cwd",
+                str(user_dir),
+                "--title",
+                "Clean Mode CLI shorthand",
+                "--summary",
+                "Track Clean Mode through shorthand commit.",
+            )
+            self.assertEqual(intent.returncode, 0, intent.stderr)
+            intent_response = json.loads(intent.stdout)
+            self.assertTrue(intent_response["ok"])
+            self.assertEqual(intent_response["result"]["status"], "applied")
+            self.assertTrue(intent_response["workroot_contract"]["state_refs"]["task_ref"].startswith("task-evt-auto-"))
+            self.assertTrue(intent_response["workroot_contract"]["state_refs"]["run_ref"].startswith("run-evt-auto-"))
+
+            progress = run_workroot_cli(
+                env,
+                "agent",
+                "commit",
+                "--shape",
+                "checkpoint",
+                "--lease",
+                intent_response["workroot_contract"]["commit_contract"]["lease_id"],
+                "--cwd",
+                str(user_dir),
+                "--summary",
+                "Shorthand progress was projected.",
+                "--done",
+                "Commit intent through shorthand",
+            )
+            self.assertEqual(progress.returncode, 0, progress.stderr)
+            progress_response = json.loads(progress.stdout)
+            self.assertTrue(progress_response["ok"])
+            sqlite_path = home / f"workroots/{workroot_id}/cache/workroot.sqlite"
+            with sqlite3.connect(sqlite_path) as conn:
+                effect_types = {
+                    row[0] for row in conn.execute("SELECT effect_type FROM protocol_event_effects").fetchall()
+                }
+            self.assertIn("task_summary_created", effect_types)
+            self.assertIn("task_item_created", effect_types)
+
+            handoff = run_workroot_cli(
+                env,
+                "agent",
+                "commit",
+                "--shape",
+                "continuation",
+                "--lease",
+                progress_response["workroot_contract"]["commit_contract"]["lease_id"],
+                "--cwd",
+                str(user_dir),
+                "--state",
+                "Shorthand loop is preserved.",
+                "--next",
+                "Review shorthand command output.",
+            )
+            self.assertEqual(handoff.returncode, 0, handoff.stderr)
+            handoff_response = json.loads(handoff.stdout)
+            self.assertTrue(handoff_response["ok"])
+            self.assertEqual(handoff_response["workroot_contract"]["next_exchange"]["action"], "none")
 
             doctor = run_workroot_cli(env, "doctor", "--cwd", str(user_dir))
             self.assertEqual(doctor.returncode, 0, doctor.stderr)

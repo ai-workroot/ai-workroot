@@ -174,7 +174,6 @@ def _run_persona_longrun(
     failures: list[str] = []
     user_directory.mkdir(parents=True, exist_ok=True)
     write_user_files(user_directory, persona.user_files)
-    _write_longrun_user_files(user_directory, persona, scenarios)
     init = run_cli(
         (
             "init",
@@ -607,16 +606,6 @@ def _validate_longrun_sqlite(persona: Persona, sqlite_path: Path, *, task_count:
             if count < minimum:
                 failures.append(f"{table} has {count} rows, expected at least {minimum}")
     return failures
-
-
-def _write_longrun_user_files(user_directory: Path, persona: Persona, scenarios: tuple[TaskScenario, ...]) -> None:
-    for index, scenario in enumerate(scenarios, start=1):
-        path = user_directory / "longrun" / f"{index:02d}-{scenario.scenario_id}.md"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            f"# {scenario.title}\n\nPersona: {persona.name}\n\n{scenario.body}\n\nQuery: {scenario.query}\n",
-            encoding="utf-8",
-        )
 
 
 def _write_longrun_managed_surface(

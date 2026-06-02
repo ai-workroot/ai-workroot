@@ -36,7 +36,7 @@ PER_WORKROOT_DIRS = (
     "cache",
     "logs",
 )
-ENVIRONMENT_VERSION = "0.9.530"
+ENVIRONMENT_VERSION = "0.9.531"
 DEFAULT_ENVIRONMENT_ID = "env_local_default"
 
 
@@ -447,7 +447,7 @@ def register_workroot_unlocked(home: Path, workroot_id: str, name: str, user_dir
             "name": name,
             "user_directory": str(user_directory),
             "state_directory": str(state_directory),
-            "version": "0.9.530",
+            "version": ENVIRONMENT_VERSION,
         },
     )
     append_jsonl(
@@ -456,7 +456,7 @@ def register_workroot_unlocked(home: Path, workroot_id: str, name: str, user_dir
             "workroot_id": workroot_id,
             "name": name,
             "state_directory": str(state_directory),
-            "version": "0.9.530",
+            "version": ENVIRONMENT_VERSION,
         },
     )
     append_jsonl(

@@ -8,9 +8,11 @@ from pathlib import Path
 from ai_workroot.work.operations import (
     create_checkpoint,
     create_task,
+    create_task_item,
     record_agent_run,
     record_invalidation,
     record_work_action,
+    update_task_item,
 )
 import ai_workroot.work.operations as work_operations
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
@@ -32,7 +34,7 @@ class RuntimeWorkTest(unittest.TestCase):
             workroot_id="wr_demo",
             task_id="task-architecture",
             title="Architecture reset",
-            task_kind="project",
+            task_kind="task",
             process_level="L2",
         )
 
@@ -45,7 +47,7 @@ class RuntimeWorkTest(unittest.TestCase):
         ).fetchone()
         self.assertEqual(task.task_id, "task-architecture")
         self.assertEqual(task.process_level, "L2")
-        self.assertEqual(row, ("task-architecture", "wr_demo", "Architecture reset", "active", "project", "L2"))
+        self.assertEqual(row, ("task-architecture", "wr_demo", "Architecture reset", "active", "task", "L2"))
         invalidation = conn.execute(
             """
             SELECT index_id, reason
@@ -57,6 +59,91 @@ class RuntimeWorkTest(unittest.TestCase):
 
     def test_work_operations_do_not_own_handoff_authoring(self) -> None:
         self.assertFalse(hasattr(work_operations, "create_handoff"))
+
+    def test_create_and_update_task_item(self) -> None:
+        conn = self.open_db()
+        create_task(conn, workroot_id="wr_demo", task_id="task-runtime", title="Runtime parity")
+
+        item = create_task_item(
+            conn,
+            workroot_id="wr_demo",
+            task_id="task-runtime",
+            item_id="item-1",
+            title="Implement TaskItem schema",
+            run_id="run-1",
+            status="todo",
+            item_order=10,
+        )
+        updated = update_task_item(
+            conn,
+            workroot_id="wr_demo",
+            task_id="task-runtime",
+            item_id="item-1",
+            status="done",
+            result_summary="TaskItem schema is active.",
+        )
+
+        row = conn.execute(
+            """
+            SELECT title, status, item_order, result_summary, completed_at
+            FROM task_items
+            WHERE item_id = 'item-1'
+            """
+        ).fetchone()
+        self.assertEqual(item.status, "todo")
+        self.assertEqual(updated.status, "done")
+        self.assertEqual(row[:4], ("Implement TaskItem schema", "done", 10, "TaskItem schema is active."))
+        self.assertIsNotNone(row[4])
+
+    def test_task_item_terminal_status_cannot_reopen(self) -> None:
+        conn = self.open_db()
+        create_task(conn, workroot_id="wr_demo", task_id="task-runtime", title="Runtime parity")
+        create_task_item(
+            conn,
+            workroot_id="wr_demo",
+            task_id="task-runtime",
+            item_id="item-1",
+            title="Implement TaskItem schema",
+            status="done",
+        )
+
+        with self.assertRaises(ValueError):
+            update_task_item(
+                conn,
+                workroot_id="wr_demo",
+                task_id="task-runtime",
+                item_id="item-1",
+                status="doing",
+            )
+
+        row = conn.execute("SELECT status FROM task_items WHERE item_id = 'item-1'").fetchone()
+        self.assertEqual(row, ("done",))
+
+    def test_task_item_done_update_preserves_completed_at(self) -> None:
+        conn = self.open_db()
+        create_task(conn, workroot_id="wr_demo", task_id="task-runtime", title="Runtime parity")
+        create_task_item(
+            conn,
+            workroot_id="wr_demo",
+            task_id="task-runtime",
+            item_id="item-1",
+            title="Implement TaskItem schema",
+            status="done",
+        )
+        conn.execute("UPDATE task_items SET completed_at = '2026-01-01T00:00:00Z' WHERE item_id = 'item-1'")
+        conn.commit()
+
+        update_task_item(
+            conn,
+            workroot_id="wr_demo",
+            task_id="task-runtime",
+            item_id="item-1",
+            status="done",
+            result_summary="Preserved completion instant.",
+        )
+
+        row = conn.execute("SELECT result_summary, completed_at FROM task_items WHERE item_id = 'item-1'").fetchone()
+        self.assertEqual(row, ("Preserved completion instant.", "2026-01-01T00:00:00Z"))
 
     def test_record_run_action_checkpoint_and_invalidation(self) -> None:
         conn = self.open_db()
