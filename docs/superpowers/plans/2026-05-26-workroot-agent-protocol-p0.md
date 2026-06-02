@@ -19,35 +19,35 @@
 
 ## File Map
 
-- Create: `src/ai_workroot/protocol/__init__.py`  
+- Create: `src/ai_workroot/protocol/__init__.py`
   Public protocol package marker.
-- Create: `src/ai_workroot/protocol/errors.py`  
+- Create: `src/ai_workroot/protocol/errors.py`
   Error codes and error response helpers.
-- Create: `src/ai_workroot/protocol/model.py`  
+- Create: `src/ai_workroot/protocol/model.py`
   Sync/commit request and response dataclasses plus validation.
-- Create: `src/ai_workroot/protocol/events.py`  
+- Create: `src/ai_workroot/protocol/events.py`
   Event envelope validation and canonical request hashing helpers.
-- Create: `src/ai_workroot/protocol/directives.py`  
+- Create: `src/ai_workroot/protocol/directives.py`
   Directive builders and directive enum enforcement.
-- Create: `src/ai_workroot/protocol/lease.py`  
+- Create: `src/ai_workroot/protocol/lease.py`
   Exchange lease creation, loading, validation, and state version helpers.
-- Create: `src/ai_workroot/protocol/controller.py`  
+- Create: `src/ai_workroot/protocol/controller.py`
   `sync()` and `commit()` orchestration.
-- Create: `src/ai_workroot/protocol/projections.py`  
+- Create: `src/ai_workroot/protocol/projections.py`
   P0 projections for `intent`, `progress`, `handoff`, and `state`.
-- Create: `src/ai_workroot/commands/agent_exchange.py`  
+- Create: `src/ai_workroot/commands/agent_exchange.py`
   CLI command adapter to protocol controller.
-- Create: `src/ai_workroot/context/continuity.py`  
+- Create: `src/ai_workroot/context/continuity.py`
   Minimal continuity package loader for summary and handoff.
-- Modify: `src/ai_workroot/cli/main.py`  
+- Modify: `src/ai_workroot/cli/main.py`
   Add `agent exchange`, `agent sync`, and `agent commit`.
-- Modify: `src/ai_workroot/state/sqlite.py`  
+- Modify: `src/ai_workroot/state/sqlite.py`
   Add 0.9.531 protocol schema and required table validation.
-- Modify: `src/ai_workroot/work/model.py`  
+- Modify: `src/ai_workroot/work/model.py`
   Update Task/TaskRun model names and fields for P0.
-- Modify: `src/ai_workroot/work/operations.py`  
+- Modify: `src/ai_workroot/work/operations.py`
   Add transaction-friendly helpers or avoid using auto-committing helpers from protocol projections.
-- Modify: `pyproject.toml`  
+- Modify: `pyproject.toml`
   Bump package version to `0.9.531`.
 - Create: `tests/unit/test_protocol_models.py`
 - Create: `tests/unit/test_protocol_lease.py`

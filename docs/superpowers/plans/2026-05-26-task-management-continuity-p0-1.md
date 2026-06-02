@@ -12,19 +12,19 @@
 
 ## File Map
 
-- Modify: `src/ai_workroot/protocol/errors.py`  
+- Modify: `src/ai_workroot/protocol/errors.py`
   Add reusable structured protocol error response helper.
-- Modify: `src/ai_workroot/protocol/controller.py`  
+- Modify: `src/ai_workroot/protocol/controller.py`
   Return structured protocol errors from sync/commit validation and support P0.1 projections.
-- Modify: `src/ai_workroot/protocol/projections.py`  
+- Modify: `src/ai_workroot/protocol/projections.py`
   Support temporary intent, TaskItem progress projections, promote/archive state transitions.
-- Modify: `src/ai_workroot/context/continuity.py`  
+- Modify: `src/ai_workroot/context/continuity.py`
   Include open and recent TaskItems in sync continuity context.
-- Modify: `src/ai_workroot/state/sqlite.py`  
+- Modify: `src/ai_workroot/state/sqlite.py`
   Add `task_items` table and schema verification.
-- Modify: `src/ai_workroot/work/model.py`  
+- Modify: `src/ai_workroot/work/model.py`
   Add `TaskItem` model and status constants.
-- Modify: `src/ai_workroot/work/operations.py`  
+- Modify: `src/ai_workroot/work/operations.py`
   Add transaction-friendly TaskItem helpers for non-protocol callers while keeping protocol direct SQL.
 - Modify: `tests/unit/test_protocol_models.py`
 - Modify: `tests/unit/test_protocol_schema.py`
