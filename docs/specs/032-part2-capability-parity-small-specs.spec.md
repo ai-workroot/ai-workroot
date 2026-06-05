@@ -192,21 +192,21 @@ importance=<hint.priority>
 Active package additions:
 
 ```text
-src/ai_workroot/retrieval/providers/context_recall_hint_provider.py
-src/ai_workroot/retrieval/global_indexes.py
-src/ai_workroot/work/operations.py
-src/ai_workroot/assets/operations.py
-src/ai_workroot/release/operations.py
-src/ai_workroot/relationships/operations.py
+src/ai_workroot/capabilities/retrieval/providers/context_recall_hint_provider.py
+src/ai_workroot/capabilities/retrieval/global_indexes.py
+src/ai_workroot/capabilities/work/operations.py
+src/ai_workroot/capabilities/assets/operations.py
+src/ai_workroot/capabilities/release/operations.py
+src/ai_workroot/capabilities/relationships/operations.py
 ```
 
 Changed active package files:
 
 ```text
 src/ai_workroot/state/sqlite.py
-src/ai_workroot/context/builder.py
-src/ai_workroot/release/filter.py
-src/ai_workroot/retrieval/providers/relationship_provider.py
+src/ai_workroot/capabilities/context/builder.py
+src/ai_workroot/capabilities/release/filter.py
+src/ai_workroot/capabilities/retrieval/providers/relationship_provider.py
 ```
 
 Tests:
@@ -349,47 +349,47 @@ T1: Capability parity gates and baseline
 
 T2: ContextRecallHint schema and provider
 - Change: Add SQLite tables, FTS, index, migration marker, and provider functions.
-- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/retrieval/providers/context_recall_hint_provider.py`, `tests/integration/test_environment_storage.py`, `tests/unit/test_context_recall_hints.py`.
+- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/capabilities/retrieval/providers/context_recall_hint_provider.py`, `tests/integration/test_environment_storage.py`, `tests/unit/test_context_recall_hints.py`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.integration.test_environment_storage tests.unit.test_context_recall_hints -v`.
 
 T3: ContextRecallHint materialization in Context Control
 - Change: Materialize relevant hints before candidate query/selection.
-- Files likely affected: `src/ai_workroot/context/builder.py`, split Context Control integration tests under `tests/integration/`.
+- Files likely affected: `src/ai_workroot/capabilities/context/builder.py`, split Context Control integration tests under `tests/integration/`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.integration.test_context_retrieval_selection.ContextRetrievalSelectionTest.test_context_recall_hint_affects_active_context_selection -v`.
 
 T4: Release-aware ContextRecallHint resolution
 - Change: Resolve hint candidates to hint and canonical targets; apply protective release state.
-- Files likely affected: `src/ai_workroot/release/filter.py`, `tests/unit/test_release_target_resolver.py`, split Context Control integration tests under `tests/integration/`.
+- Files likely affected: `src/ai_workroot/capabilities/release/filter.py`, `tests/unit/test_release_target_resolver.py`, split Context Control integration tests under `tests/integration/`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.unit.test_release_target_resolver tests.integration.test_context_retrieval_selection tests.integration.test_context_budget_trace tests.integration.test_context_release_filtering -v`.
 
 T5: Context trace parity for hint-derived candidates
 - Change: Record selected and dropped hint-derived candidate evidence.
-- Files likely affected: `src/ai_workroot/context/builder.py`, split Context Control integration tests under `tests/integration/`.
+- Files likely affected: `src/ai_workroot/capabilities/context/builder.py`, split Context Control integration tests under `tests/integration/`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.integration.test_context_retrieval_selection tests.integration.test_context_budget_trace tests.integration.test_context_release_filtering -v`.
 
 T6: Minimal active Work runtime
 - Change: Add package-owned helpers for tasks, agent runs, work actions, checkpoints, handoffs, and invalidations.
-- Files likely affected: `src/ai_workroot/work/operations.py`, `tests/unit/test_work_operations.py`.
+- Files likely affected: `src/ai_workroot/capabilities/work/operations.py`, `tests/unit/test_work_operations.py`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.unit.test_runtime_work -v`.
 
 T7: Minimal active Asset runtime
 - Change: Add package-owned helpers for internal/result/decision/knowledge assets.
-- Files likely affected: `src/ai_workroot/assets/operations.py`, `tests/unit/test_assets_operations.py`.
+- Files likely affected: `src/ai_workroot/capabilities/assets/operations.py`, `tests/unit/test_assets_operations.py`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.unit.test_runtime_assets -v`.
 
 T8: Minimal active Release authoring runtime
 - Change: Add package-owned helpers for release records, tombstones, redactions, deletion records, and release-state lookup.
-- Files likely affected: `src/ai_workroot/release/operations.py`, `tests/unit/test_release_operations.py`.
+- Files likely affected: `src/ai_workroot/capabilities/release/operations.py`, `tests/unit/test_release_operations.py`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.unit.test_runtime_release -v`.
 
 T9: Minimal active Relationship authoring runtime
 - Change: Add package-owned helpers for relationship nodes, edges, evidence, and query.
-- Files likely affected: `src/ai_workroot/relationships/operations.py`, `tests/unit/test_relationship_operations.py`.
+- Files likely affected: `src/ai_workroot/capabilities/relationships/operations.py`, `tests/unit/test_relationship_operations.py`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.unit.test_runtime_relationships -v`.
 
 T10: Minimal Global Workroot Index visibility
 - Change: Add package-owned global index refresh/query helpers.
-- Files likely affected: `src/ai_workroot/retrieval/global_indexes.py`, `tests/unit/test_global_indexes.py`.
+- Files likely affected: `src/ai_workroot/capabilities/retrieval/global_indexes.py`, `tests/unit/test_global_indexes.py`.
 - Verification: `PYTHONPATH=src python3 -m unittest tests.unit.test_global_indexes -v`.
 
 T11: Script migration parity audit and wrapper hardening

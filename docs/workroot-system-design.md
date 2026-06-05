@@ -81,40 +81,47 @@ The active source structure is:
 
 ```text
 src/ai_workroot/
-  cli/
+  entrypoints/
+    cli/
+    native_agent/
+      templates/
   commands/
   protocol/
+  capabilities/
+    composition/
+    work/
+    assets/
+    relationships/
+    retrieval/
+    context/
+    release/
+    handoff/
+    system_health/
   state/
-  work/
-  assets/
-  relationships/
-  retrieval/
-  context/
-  release/
-  handoff/
-  agent_entry/
-  diagnostics/
   shared/
-  templates/
 ```
+
+Key source paths are `entrypoints/`, `commands/`, `protocol/`, `capabilities/`, `state/`, `shared/`,
+`capabilities/work/`, `capabilities/assets/`, `capabilities/relationships/`, `capabilities/retrieval/`,
+`capabilities/context/`, `capabilities/release/`, `capabilities/handoff/`, `capabilities/system_health/`, and
+`entrypoints/native_agent/`.
 
 Responsibilities:
 
-- `cli`: thin command entry points.
+- `entrypoints`: thin external adapters such as CLI and Native Agent Entry.
 - `commands`: reusable application-level command entrypoints.
 - `protocol`: Agent-facing application control for sync, commit, focus resolution, leases, idempotency, and projection routing.
 - `state`: managed state layout, environment config, registry, SQLite, JSONL, migrations, and locks.
-- `work`: durable work facts and time events.
-- `assets`: asset metadata, lifecycle, and publication operations.
-- `relationships`: canonical Relationship Network truth and operations.
-- `retrieval`: indexing, FTS, candidate pools, recall hints, global indexes, and retrieval providers.
-- `context`: context package building, selection, rendering, tracing, and diagnostic logging.
-- `release`: Release Control models, operations, target resolution, and release filtering.
-- `handoff`: derived transfer packages for the next agent, tool, session, human, or future self.
-- `agent_entry`: Native Agent Entry templates and managed block handling.
-- `diagnostics`: doctor, release surface validation, health models, and reports.
+- `capabilities/work`: durable work facts and time events.
+- `capabilities/assets`: asset metadata, lifecycle, and publication operations.
+- `capabilities/relationships`: canonical Relationship Network truth and operations.
+- `capabilities/retrieval`: indexing, FTS, candidate pools, recall hints, global indexes, and retrieval providers.
+- `capabilities/context`: context package building, selection, rendering, tracing, and diagnostic logging.
+- `capabilities/release`: Release Control models, operations, target resolution, and release filtering.
+- `capabilities/handoff`: derived transfer packages for the next agent, tool, session, human, or future self.
+- `capabilities/system_health`: doctor, release surface validation, health models, and reports.
+- `entrypoints/native_agent`: Native Agent Entry templates and managed block handling.
 - `shared`: small cross-capability primitives and standard-library-only contracts.
-- `templates`: packaged templates.
 
 Old layer-first source package names are removed from the active source tree and must not be restored.
 

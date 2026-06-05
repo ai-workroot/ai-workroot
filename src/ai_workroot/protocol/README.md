@@ -5,7 +5,7 @@
 It sits below command adapters and above capability modules:
 
 ```text
-commands/ -> protocol/ -> work/, handoff/, context/, assets/, relationships/, release/, retrieval/, state/
+commands/ -> protocol/ -> capabilities/composition/ -> capabilities/*, state/
 ```
 
 ## What Belongs Here
@@ -23,7 +23,6 @@ Runtime implementation:
 - `lease.py`: lease minting, validation, and state-version checks.
 - `response.py`: model-facing response construction.
 - `recovery.py`: non-blocking recovery responses.
-- `projections.py`: protocol event projection routing into capability facts.
 - `packet.py`: private packet rendering for model-visible exchange guidance.
 
 ## Rules
@@ -31,15 +30,12 @@ Runtime implementation:
 Allowed:
 
 - `protocol -> state`
-- `protocol -> work`
-- `protocol -> handoff`
-- `protocol -> context` for continuity reads and startup context presentation
-- `protocol -> assets`, `release`, `relationships`, or `retrieval` when a protocol event needs those capability outputs
+- `protocol -> capabilities/composition` for protocol event projection
 
 Forbidden:
 
 - Capability modules importing `protocol/`.
-- `protocol/` importing `cli/`.
+- `protocol/` importing `entrypoints/`.
 - Protocol request or response models leaking into lower capability state machines.
 - SQLite paths, runtime internals, and state-version details being exposed as model-facing guidance.
 

@@ -3,13 +3,13 @@ from __future__ import annotations
 import sqlite3
 import unittest
 
-from ai_workroot.release.model import ReleaseTargetRef
-from ai_workroot.release.evaluation import evaluate_release_targets
-from ai_workroot.relationships.model import RelationshipSignal
-from ai_workroot.relationships.operations import create_relationship_edge, create_relationship_node
-from ai_workroot.retrieval.providers.candidate_provider import CandidateMatch, upsert_context_candidate
-from ai_workroot.release.filter import CandidateReleaseTargetResolver
-from ai_workroot.retrieval.providers.sqlite_fts import index_file_chunk, search_fts
+from ai_workroot.capabilities.release.model import ReleaseTargetRef
+from ai_workroot.capabilities.release.evaluation import evaluate_release_targets
+from ai_workroot.capabilities.relationships.model import RelationshipSignal
+from ai_workroot.capabilities.relationships.operations import create_relationship_edge, create_relationship_node
+from ai_workroot.capabilities.retrieval.providers.candidate_provider import CandidateMatch, upsert_context_candidate
+from ai_workroot.capabilities.release.filter import CandidateReleaseTargetResolver
+from ai_workroot.capabilities.retrieval.providers.sqlite_fts import index_file_chunk, search_fts
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 

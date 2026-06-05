@@ -108,9 +108,9 @@ class CurrentDocsContractTest(unittest.TestCase):
             "docs/architecture-map.md": (ROOT / "docs/architecture-map.md").read_text(encoding="utf-8"),
         }
 
-        self.assertIn("handoff/", docs["README.md"])
+        self.assertIn("capabilities/handoff/", docs["README.md"])
         self.assertIn("Handoff", docs["README.md"])
-        self.assertIn("handoff/", docs["docs/architecture/000-overview.md"])
+        self.assertIn("capabilities/handoff/", docs["docs/architecture/000-overview.md"])
         self.assertIn("8. Handoff", docs["docs/architecture/000-overview.md"])
         self.assertIn("Handoff", docs["docs/architecture-map.md"])
         self.assertIn("derived transfer", docs["docs/architecture-map.md"])
@@ -126,26 +126,82 @@ class CurrentDocsContractTest(unittest.TestCase):
         )
         required_packages = (
             "src/ai_workroot/",
+            "entrypoints/",
             "commands/",
             "protocol/",
+            "capabilities/",
             "state/",
-            "work/",
-            "assets/",
-            "relationships/",
-            "retrieval/",
-            "context/",
-            "release/",
-            "handoff/",
-            "agent_entry/",
-            "diagnostics/",
             "shared/",
-            "templates/",
+            "capabilities/work/",
+            "capabilities/assets/",
+            "capabilities/relationships/",
+            "capabilities/retrieval/",
+            "capabilities/context/",
+            "capabilities/release/",
+            "capabilities/handoff/",
+            "capabilities/system_health/",
+            "entrypoints/native_agent/",
         )
         for rel in docs:
             text = (ROOT / rel).read_text(encoding="utf-8")
             with self.subTest(rel=rel):
                 for package in required_packages:
                     self.assertIn(package, text)
+
+    def test_current_docs_do_not_present_legacy_source_layout_paths(self) -> None:
+        forbidden = (
+            "src/ai_workroot/agent_entry",
+            "src/ai_workroot/assets",
+            "src/ai_workroot/cli",
+            "src/ai_workroot/context",
+            "src/ai_workroot/diagnostics",
+            "src/ai_workroot/handoff",
+            "src/ai_workroot/relationships",
+            "src/ai_workroot/release",
+            "src/ai_workroot/retrieval",
+            "src/ai_workroot/templates/native_agent_entry",
+            "src/ai_workroot/templates/native-agent-entry",
+            "src/ai_workroot/work",
+            "ai_workroot.agent_entry",
+            "ai_workroot.assets",
+            "ai_workroot.cli",
+            "ai_workroot.context",
+            "ai_workroot.diagnostics",
+            "ai_workroot.handoff",
+            "ai_workroot.relationships",
+            "ai_workroot.release",
+            "ai_workroot.retrieval",
+            "ai_workroot.templates.native_agent_entry",
+            "ai_workroot.work",
+            "`agent_entry/",
+            "`templates/native_agent_entry",
+            "`templates/native-agent-entry",
+        )
+        current_layout_doc_prefixes = (
+            "README.md",
+            "ROADMAP.md",
+            "START_HERE_FOR_HUMANS.md",
+            "docs/architecture",
+            "docs/architecture.md",
+            "docs/architecture-map.md",
+            "docs/kernel-implementation-specification.md",
+            "docs/specs",
+            "docs/superpowers/specs",
+            "docs/validation",
+            "docs/workroot-system-design.md",
+        )
+        violations: list[str] = []
+        for path in current_doc_files():
+            rel = path.relative_to(ROOT).as_posix()
+            if not rel.startswith(current_layout_doc_prefixes):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                for phrase in forbidden:
+                    if phrase in line:
+                        violations.append(f"{rel}:{lineno}:{phrase}:{line.strip()}")
+
+        self.assertEqual(violations, [])
 
     def test_current_public_architecture_docs_include_protocol_runtime_layer(self) -> None:
         docs = (

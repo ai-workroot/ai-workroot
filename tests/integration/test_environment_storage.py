@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.state.environment import initialize_environment, register_workroot
+from ai_workroot.state.environment import initialize_environment, register_workroot, unregister_workroot
 from ai_workroot.state.jsonl import read_jsonl
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
@@ -54,6 +54,44 @@ class EnvironmentStorageTest(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 register_workroot(home, workroot_id="wr_other", name="Other", user_directory=user_dir)
+
+    def test_unregister_workroot_removes_target_registration_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "ai-workroot-home"
+            first_dir = Path(tmp) / "first"
+            second_dir = Path(tmp) / "second"
+            first_dir.mkdir()
+            second_dir.mkdir()
+            initialize_environment(home)
+            register_workroot(home, workroot_id="wr_first", name="First", user_directory=first_dir)
+            register_workroot(home, workroot_id="wr_second", name="Second", user_directory=second_dir)
+
+            unregister_workroot(home, "wr_first", first_dir)
+
+            workroots = read_jsonl(home / "registry/workroots.jsonl")
+            bindings = read_jsonl(home / "registry/directory-bindings.jsonl")
+            self.assertEqual([record["workroot_id"] for record in workroots], ["wr_second"])
+            self.assertEqual([record["workroot_id"] for record in bindings], ["wr_second"])
+            self.assertFalse((home / "workroots/wr_first").exists())
+            self.assertTrue((home / "workroots/wr_second/workroot.json").is_file())
+
+    def test_unregister_workroot_ignores_mismatched_user_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "ai-workroot-home"
+            first_dir = Path(tmp) / "first"
+            other_dir = Path(tmp) / "other"
+            first_dir.mkdir()
+            other_dir.mkdir()
+            initialize_environment(home)
+            register_workroot(home, workroot_id="wr_first", name="First", user_directory=first_dir)
+
+            unregister_workroot(home, "wr_first", other_dir)
+
+            workroots = read_jsonl(home / "registry/workroots.jsonl")
+            bindings = read_jsonl(home / "registry/directory-bindings.jsonl")
+            self.assertEqual([record["workroot_id"] for record in workroots], ["wr_first"])
+            self.assertEqual([record["workroot_id"] for record in bindings], ["wr_first"])
+            self.assertTrue((home / "workroots/wr_first/workroot.json").is_file())
 
     def test_initialize_workroot_sqlite_creates_0530_canonical_tables(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

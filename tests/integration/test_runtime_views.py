@@ -188,7 +188,7 @@ class RuntimeViewsTest(unittest.TestCase):
                 "work_signal": {"work_kind": "continuation", "intended_action": "preserve"},
             }
         )
-        with patch("ai_workroot.protocol.projections.now_utc", return_value="2026-05-28T00:03:00Z"):
+        with patch("ai_workroot.capabilities.composition.projections.now_utc", return_value="2026-05-28T00:03:00Z"):
             commit(
                 self.commit_request(
                     self.lease_id(return_to_a),

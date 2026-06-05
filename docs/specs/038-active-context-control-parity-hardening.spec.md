@@ -31,7 +31,7 @@ The active package Context Control path renders useful local context from Contex
 
 ### Included
 
-- Active `src/ai_workroot/context/builder.py`.
+- Active `src/ai_workroot/capabilities/context/builder.py`.
 - Active SQLite tables for tasks, checkpoints, handoffs, candidates, traces, and release filters.
 - Context mode budget and selection behavior.
 - Tests proving active path parity.
@@ -46,9 +46,9 @@ The active package Context Control path renders useful local context from Contex
 
 - `032-part2-capability-parity-small-specs.spec.md`
 - `037-release-derived-index-safety-hardening.spec.md`
-- `src/ai_workroot/context/builder.py`
-- `src/ai_workroot/work/operations.py`
-- `src/ai_workroot/retrieval/providers/context_recall_hint_provider.py`
+- `src/ai_workroot/capabilities/context/builder.py`
+- `src/ai_workroot/capabilities/work/operations.py`
+- `src/ai_workroot/capabilities/retrieval/providers/context_recall_hint_provider.py`
 
 ## Requirements
 
@@ -111,7 +111,7 @@ No new table is required for this Spec.
 Likely changed files:
 
 ```text
-src/ai_workroot/context/builder.py
+src/ai_workroot/capabilities/context/builder.py
 split Context Control integration tests under tests/integration/
 tests/e2e/longrun.py
 docs/specs/010-context-control.spec.md
@@ -214,8 +214,8 @@ T1: Add active continuity inclusion tests
 - Verification: Test fails before implementation.
 
 T2: Implement continuity loading and rendering
-- Change: Add small helpers in `src/ai_workroot/context/builder.py`.
-- Files likely affected: `src/ai_workroot/context/builder.py`
+- Change: Add small helpers in `src/ai_workroot/capabilities/context/builder.py`.
+- Files likely affected: `src/ai_workroot/capabilities/context/builder.py`
 - Verification: Continuity test passes.
 
 T3: Add mode behavior tests
@@ -225,12 +225,12 @@ T3: Add mode behavior tests
 
 T4: Implement mode plans
 - Change: Add bounded mode-specific candidate, FTS, hint, and relationship limits.
-- Files likely affected: `src/ai_workroot/context/builder.py`
+- Files likely affected: `src/ai_workroot/capabilities/context/builder.py`
 - Verification: Mode tests pass.
 
 T5: Enrich trace payload
 - Change: Persist continuity, mode plan, fallback, and selected source metadata.
-- Files likely affected: `src/ai_workroot/context/builder.py`
+- Files likely affected: `src/ai_workroot/capabilities/context/builder.py`
 - Verification: Trace assertions pass.
 
 ## Risks

@@ -102,13 +102,13 @@ Legacy `mind`, `knowledge`, `decision`, and `artifact` rows map to `Asset.asset_
 ### File Layout
 
 ```text
-src/ai_workroot/work/operations.py
-src/ai_workroot/handoff/operations.py
-src/ai_workroot/assets/operations.py
-src/ai_workroot/release/operations.py
+src/ai_workroot/capabilities/work/operations.py
+src/ai_workroot/capabilities/handoff/operations.py
+src/ai_workroot/capabilities/assets/operations.py
+src/ai_workroot/capabilities/release/operations.py
 src/ai_workroot/state/sqlite.py
-src/ai_workroot/work/model.py
-src/ai_workroot/assets/model.py
+src/ai_workroot/capabilities/work/model.py
+src/ai_workroot/capabilities/assets/model.py
 ```
 
 No Work/Asset runtime state is written into the user directory by default.
@@ -188,22 +188,22 @@ T1: Add storage repositories for Work records
 
 T2: Add Work runtime service
 - Change: Implement package runtime operations equivalent to legacy task/run/action basics.
-- Files likely affected: `src/ai_workroot/work/operations.py`.
+- Files likely affected: `src/ai_workroot/capabilities/work/operations.py`.
 - Verification: package Work integration tests.
 
 T3: Add Asset runtime service
 - Change: Implement asset create/update/publication metadata and legacy mapping.
-- Files likely affected: `src/ai_workroot/assets/operations.py`.
+- Files likely affected: `src/ai_workroot/capabilities/assets/operations.py`.
 - Verification: asset integration tests.
 
 T4: Preserve batch rollback
 - Change: Port transaction journal/rollback behavior from legacy client.
-- Files likely affected: `src/ai_workroot/work/operations.py`, `src/ai_workroot/state/sqlite.py`.
+- Files likely affected: `src/ai_workroot/capabilities/work/operations.py`, `src/ai_workroot/state/sqlite.py`.
 - Verification: failure rollback tests.
 
 T5: Verify capability parity after legacy removal
 - Change: Ensure Work/Asset runtime tests cover capabilities formerly represented by Public Seed scripts.
-- Files likely affected: `src/ai_workroot/work/operations.py`, `src/ai_workroot/assets/operations.py`, `tests/unit/`, `tests/integration/`.
+- Files likely affected: `src/ai_workroot/capabilities/work/operations.py`, `src/ai_workroot/capabilities/assets/operations.py`, `tests/unit/`, `tests/integration/`.
 - Verification: full unittest suite.
 
 ## Risks

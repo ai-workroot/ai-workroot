@@ -11,15 +11,15 @@ Define capability model files and lightweight implementation style.
 
 ```text
 state/model.py
-work/model.py
-assets/model.py
-release/model.py
-handoff/model.py
-relationships/model.py
-retrieval/model.py
-context/model.py
-agent_entry/model.py
-diagnostics/model.py
+capabilities/work/model.py
+capabilities/assets/model.py
+capabilities/release/model.py
+capabilities/handoff/model.py
+capabilities/relationships/model.py
+capabilities/retrieval/model.py
+capabilities/context/model.py
+capabilities/system_health/model.py
+entrypoints/native_agent/model.py
 shared/extensions.py
 ```
 
@@ -69,7 +69,7 @@ Prefer:
 - capability-local policies for pure rules;
 - command entrypoints for workflows;
 - shared contracts for abstract external capabilities;
-- state/retrieval/agent_entry for implementation ownership.
+- state/retrieval/native agent entrypoints for implementation ownership.
 
 ## Acceptance
 

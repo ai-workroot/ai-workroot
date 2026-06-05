@@ -71,7 +71,7 @@ class ReleaseGates0529Test(unittest.TestCase):
             encoding="utf-8"
         )
         checklist = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
-        context_source = (ROOT / "src/ai_workroot/context/builder.py").read_text(encoding="utf-8")
+        context_source = (ROOT / "src/ai_workroot/capabilities/context/builder.py").read_text(encoding="utf-8")
 
         self.assertIn("runtime-hints.json", spec)
         self.assertIn("Deep Mode requires explicit request", checklist)

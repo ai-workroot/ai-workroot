@@ -125,8 +125,8 @@ CREATE TABLE IF NOT EXISTS time_events (
 ### File Layout
 
 ```text
-src/ai_workroot/work/time.py
-src/ai_workroot/retrieval/global_indexes.py
+src/ai_workroot/capabilities/work/time.py
+src/ai_workroot/capabilities/retrieval/global_indexes.py
 src/ai_workroot/state/sqlite.py
 tests/unit/test_work_time.py
 tests/unit/test_global_indexes.py
@@ -222,12 +222,12 @@ T1: Add TimeEvent schema
 
 T2: Add TimeEvent runtime
 - Change: Add `record_time_event` and `query_time_events`.
-- Files likely affected: `src/ai_workroot/work/time.py`, `tests/unit/test_work_time.py`.
+- Files likely affected: `src/ai_workroot/capabilities/work/time.py`, `tests/unit/test_work_time.py`.
 - Verification: targeted runtime time tests.
 
 T3: Add Global Task/Asset/Time Index projections
 - Change: Add refresh/query helpers and JSONL outputs.
-- Files likely affected: `src/ai_workroot/retrieval/global_indexes.py`, `tests/unit/test_global_indexes.py`.
+- Files likely affected: `src/ai_workroot/capabilities/retrieval/global_indexes.py`, `tests/unit/test_global_indexes.py`.
 - Verification: targeted global index tests.
 
 T4: Add migration priorities

@@ -7,11 +7,13 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import shutil
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ai_workroot.state.model import WorkrootEnvironment
-from ai_workroot.state.jsonl import append_jsonl, read_jsonl, write_json
+from ai_workroot.state.jsonl import append_jsonl, read_jsonl, write_json, write_jsonl
+from ai_workroot.state.layout import workroot_state_dir
 from ai_workroot.state.locks import file_lock
 
 
@@ -418,6 +420,61 @@ def register_workroot(home: Path, workroot_id: str, name: str, user_directory: P
         registration = register_workroot_unlocked(home, workroot_id, name, user_directory)
 
     return registration
+
+
+def unregister_workroot(home: Path, workroot_id: str, user_directory: Path) -> None:
+    home = home.expanduser().resolve()
+    user_directory = user_directory.expanduser().resolve()
+    initialize_environment(home)
+    lock_path = home / "registry/.registry.lock"
+
+    with file_lock(lock_path):
+        unregister_workroot_unlocked(home, workroot_id, user_directory)
+
+
+def unregister_workroot_unlocked(home: Path, workroot_id: str, user_directory: Path) -> None:
+    home = home.expanduser().resolve()
+    user_directory = user_directory.expanduser().resolve()
+    workroots_path = home / "registry/workroots.jsonl"
+    bindings_path = home / "registry/directory-bindings.jsonl"
+    workroots = read_jsonl(workroots_path)
+    bindings = read_jsonl(bindings_path)
+    state_directory = workroot_state_dir(home, workroot_id).resolve()
+    binding_matches = any(
+        record.get("workroot_id") == workroot_id and record.get("user_directory") == str(user_directory)
+        for record in bindings
+    )
+
+    remaining_workroots = [
+        record
+        for record in workroots
+        if not _workroot_registry_record_matches(record, workroot_id, state_directory, binding_matches=binding_matches)
+    ]
+    remaining_bindings = [
+        record
+        for record in bindings
+        if not (record.get("workroot_id") == workroot_id and record.get("user_directory") == str(user_directory))
+    ]
+
+    write_jsonl(workroots_path, remaining_workroots)
+    write_jsonl(bindings_path, remaining_bindings)
+    if binding_matches and state_directory.exists():
+        shutil.rmtree(state_directory)
+    refresh_environment_registry_summary(home)
+
+
+def _workroot_registry_record_matches(
+    record: dict[str, Any],
+    workroot_id: str,
+    state_directory: Path,
+    *,
+    binding_matches: bool,
+) -> bool:
+    return (
+        binding_matches
+        and record.get("workroot_id") == workroot_id
+        and Path(str(record.get("state_directory") or "")).expanduser().resolve() == state_directory
+    )
 
 
 def register_workroot_unlocked(home: Path, workroot_id: str, name: str, user_directory: Path) -> WorkrootRegistration:

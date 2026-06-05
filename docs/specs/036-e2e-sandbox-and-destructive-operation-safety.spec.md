@@ -422,7 +422,7 @@ T5: Add live-agent preflight gate
 
 T6: Add release validation check
 - Change: Ensure release validation rejects direct destructive operations in E2E harness code.
-- Files likely affected: `src/ai_workroot/diagnostics/doctor.py` or release validation scripts
+- Files likely affected: `src/ai_workroot/capabilities/system_health/doctor.py` or release validation scripts
 - Verification: `doctor --release` reports E2E safety checks.
 
 ## Risks

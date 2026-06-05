@@ -19,10 +19,11 @@ from ai_workroot.commands.agent_exchange import (
 )
 from ai_workroot.commands.bootstrap_dev import bootstrap_dev
 from ai_workroot.commands.build_context import build_context
-from ai_workroot.commands.init_workroot import initialize_workroot
+from ai_workroot.commands.init_workroot import initialize_workroot, rollback_initialized_workroot
 from ai_workroot.commands.list_workroots import list_workroots
 from ai_workroot.commands.run_doctor import run_doctor, run_release_doctor
 from ai_workroot.commands.show_status import find_workroot_by_cwd
+from ai_workroot.entrypoints.native_agent.native import sync_native_agent_entry
 
 
 PRIMARY_COMMANDS = ("init", "list", "status", "context", "doctor", "bootstrap-dev", "agent")
@@ -172,18 +173,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "init":
+        result = None
         try:
             result = initialize_workroot(
                 name=args.name,
                 directory=Path(args.directory),
                 workroot_id=args.workroot_id,
-                native_agent_entry=args.native_agent_entry,
             )
-        except ValueError as exc:
+            if args.native_agent_entry:
+                try:
+                    _sync_native_agent_entries(Path(args.directory))
+                except (OSError, ValueError) as entry_exc:
+                    try:
+                        rollback_initialized_workroot(result)
+                    except (OSError, ValueError) as cleanup_exc:
+                        parser.exit(
+                            1,
+                            (
+                                f"{entry_exc}\n"
+                                "warning: cleanup after Native Agent Entry failure also failed: "
+                                f"{cleanup_exc}\n"
+                            ),
+                        )
+                    raise
+        except (OSError, ValueError) as exc:
             parser.exit(1, f"{exc}\n")
         for warning in result.warnings:
             print(warning, file=__import__("sys").stderr)
-        print(result.message())
+        if args.native_agent_entry:
+            print(f"initialized {result.registration.workroot_id} agent-ready")
+        else:
+            print(result.message())
         return 0
 
     if args.command == "list":
@@ -216,7 +236,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 hard_token_limit=args.hard_token_limit,
                 debug=args.debug,
             )
-        except ValueError as exc:
+        except (OSError, ValueError) as exc:
             parser.exit(1, f"{exc}\n")
         print(package, end="")
         return 0
@@ -232,7 +252,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "bootstrap-dev":
         try:
             result = bootstrap_dev(Path(args.cwd), dry_run=args.dry_run)
-        except ValueError as exc:
+            if not args.dry_run:
+                _sync_native_agent_entries(Path(result.user_directory))
+        except (OSError, ValueError) as exc:
             parser.exit(1, f"{exc}\n")
         print(result.message())
         return 0
@@ -314,6 +336,31 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parser.print_help()
     return 0
+
+
+def _sync_native_agent_entries(directory: Path) -> None:
+    paths = (directory / "AGENTS.md", directory / "CLAUDE.md")
+    snapshots = {path: path.read_text(encoding="utf-8") if path.exists() else None for path in paths}
+    try:
+        sync_native_agent_entry(directory / "AGENTS.md", "codex")
+        sync_native_agent_entry(directory / "CLAUDE.md", "claude")
+    except (OSError, ValueError) as entry_exc:
+        try:
+            _restore_native_agent_entry_snapshots(snapshots)
+        except (OSError, ValueError) as restore_exc:
+            raise ValueError(
+                f"{entry_exc}\nwarning: cleanup after Native Agent Entry partial write also failed: {restore_exc}"
+            ) from entry_exc
+        raise
+
+
+def _restore_native_agent_entry_snapshots(snapshots: dict[Path, str | None]) -> None:
+    for path, content in snapshots.items():
+        if content is None:
+            if path.exists():
+                path.unlink()
+        else:
+            path.write_text(content, encoding="utf-8")
 
 
 def _json_object_arg(raw: str, label: str) -> dict[str, object]:

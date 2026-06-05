@@ -149,14 +149,14 @@ No broad foreign-key migration is required.
 Likely changed files:
 
 ```text
-src/ai_workroot/diagnostics/release_validation.py
-src/ai_workroot/release/operations.py
+src/ai_workroot/capabilities/system_health/release_validation.py
+src/ai_workroot/capabilities/release/operations.py
 src/ai_workroot/state/sqlite.py
-src/ai_workroot/release/filter.py
-src/ai_workroot/retrieval/providers/relationship_provider.py
-src/ai_workroot/relationships/operations.py
-src/ai_workroot/relationships/model.py
-src/ai_workroot/cli/main.py
+src/ai_workroot/capabilities/release/filter.py
+src/ai_workroot/capabilities/retrieval/providers/relationship_provider.py
+src/ai_workroot/capabilities/relationships/operations.py
+src/ai_workroot/capabilities/relationships/model.py
+src/ai_workroot/entrypoints/cli/main.py
 tests/unit/test_release_operations.py
 tests/unit/test_diagnostics_doctor.py
 tests/unit/test_release_target_resolver.py
@@ -347,12 +347,12 @@ Rollback is a normal Git revert before external users rely on the new columns. I
 
 T1: Release validation fast path
 - Change: Replace recursive release surface scanning with Git file list scanning.
-- Files likely affected: `src/ai_workroot/diagnostics/release_validation.py`, `tests/smoke/test_clean_release_validator.py`, split release-gate contract tests under `tests/contracts/`.
+- Files likely affected: `src/ai_workroot/capabilities/system_health/release_validation.py`, `tests/smoke/test_clean_release_validator.py`, split release-gate contract tests under `tests/contracts/`.
 - Verification: release validation tests, `doctor --release`, `validate-release.sh`.
 
 T2: Direct ContextRecallHint release safety
 - Change: Sanitize and detect direct `context_recall_hint` targets.
-- Files likely affected: `src/ai_workroot/release/operations.py`, `src/ai_workroot/state/sqlite.py`, release safety tests.
+- Files likely affected: `src/ai_workroot/capabilities/release/operations.py`, `src/ai_workroot/state/sqlite.py`, release safety tests.
 - Verification: direct hint redaction/deletion tests and doctor leak tests.
 
 T3: E2E harness safety semantics
@@ -362,12 +362,12 @@ T3: E2E harness safety semantics
 
 T4: Relationship canonical target mapping
 - Change: Add optional relationship node canonical target fields and resolver support.
-- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/relationships/operations.py`, `src/ai_workroot/retrieval/providers/relationship_provider.py`, `src/ai_workroot/release/filter.py`.
+- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/capabilities/relationships/operations.py`, `src/ai_workroot/capabilities/retrieval/providers/relationship_provider.py`, `src/ai_workroot/capabilities/release/filter.py`.
 - Verification: relationship runtime and release resolver tests.
 
 T5: Docs and small quality closure
 - Change: Archive active-looking execution plans, clean local paths and old canonical scripts, improve legacy help, clean obvious SQLite ResourceWarnings.
-- Files likely affected: `docs/history/0.9.530/plans/`, `docs/specs/`, `docs/release-checklist.md`, `src/ai_workroot/cli/main.py`, tests.
+- Files likely affected: `docs/history/0.9.530/plans/`, `docs/specs/`, `docs/release-checklist.md`, `src/ai_workroot/entrypoints/cli/main.py`, tests.
 - Verification: docs hygiene tests, CLI discovery tests, full unittest discovery.
 
 ## Risks

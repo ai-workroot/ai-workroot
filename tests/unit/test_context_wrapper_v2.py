@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from ai_workroot.commands.build_context import build_context
-from ai_workroot.context.control import workroot_guidance_text
+from ai_workroot.capabilities.context.control import workroot_guidance_text
 from ai_workroot.state.environment import initialize_environment, register_workroot
 from ai_workroot.state.layout import workroot_sqlite_path
 from ai_workroot.state.sqlite import initialize_workroot_sqlite

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.retrieval.providers.context_recall_hint_provider import (
+from ai_workroot.capabilities.retrieval.providers.context_recall_hint_provider import (
     ContextRecallHint,
     query_context_recall_hints,
     upsert_context_recall_hint,
@@ -68,7 +68,7 @@ class ContextRecallHintsTest(unittest.TestCase):
         self.assertEqual(fts_row[0], "hint-clean-mode")
 
     def test_context_recall_hint_is_core_retrieval_model(self) -> None:
-        from ai_workroot.retrieval.model import ContextRecallHint as CoreContextRecallHint
+        from ai_workroot.capabilities.retrieval.model import ContextRecallHint as CoreContextRecallHint
 
         self.assertIs(ContextRecallHint, CoreContextRecallHint)
 

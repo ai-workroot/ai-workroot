@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from ai_workroot.diagnostics.release_validation import validate_release_surface
+from ai_workroot.capabilities.system_health.release_validation import validate_release_surface
 
 
 class ReleaseSurfaceContractTest(unittest.TestCase):
@@ -70,7 +70,7 @@ class ReleaseSurfaceContractTest(unittest.TestCase):
             errors: list[str] = []
 
             with patch(
-                "ai_workroot.diagnostics.release_validation.is_git_ignored",
+                "ai_workroot.capabilities.system_health.release_validation.is_git_ignored",
                 side_effect=AssertionError("per-path check-ignore used"),
             ):
                 validate_release_surface(root, errors)

@@ -6,11 +6,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.retrieval.providers.candidate_provider import upsert_context_candidate
-from ai_workroot.retrieval.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
-from ai_workroot.context.builder import ContextRequest, build_context_package, estimate_tokens
+from ai_workroot.capabilities.retrieval.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.capabilities.retrieval.providers.context_recall_hint_provider import (
+    ContextRecallHint,
+    upsert_context_recall_hint,
+)
+from ai_workroot.capabilities.context.builder import ContextRequest, build_context_package, estimate_tokens
+from ai_workroot.commands.build_context import build_context
 from ai_workroot.commands.init_workroot import initialize_workroot
-from ai_workroot.work.operations import create_task
+from ai_workroot.capabilities.work.operations import create_task
 
 from tests.integration.context_helpers import parse_token_usage
 
@@ -21,7 +25,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -88,7 +92,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
 
             package = build_context_package(
@@ -109,7 +113,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -142,7 +146,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -190,7 +194,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -238,7 +242,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -308,10 +312,12 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
 
-            package = build_context_package(
-                ContextRequest(agent="codex", cwd=user_dir, query="continue work"),
+            package = build_context(
+                agent="codex",
+                cwd=user_dir,
+                query="continue work",
                 ai_workroot_home=home,
             )
 
@@ -328,7 +334,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -373,7 +379,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             config_path = home / "config.json"
             config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -436,7 +442,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             config_path = home / "config.json"
             config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -468,7 +474,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             config_path = home / "config.json"
             config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -493,13 +499,13 @@ class ContextBudgetTraceTest(unittest.TestCase):
             self.assertEqual([row["query"] for row in rows], ["second", "third"])
 
     def test_final_rendered_package_respects_hard_token_limit_after_trim_marker(self) -> None:
-        from ai_workroot.context.builder import estimate_tokens
+        from ai_workroot.capabilities.context.builder import estimate_tokens
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -531,7 +537,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
             self.assertLessEqual(estimate_tokens(package), 60)
 
     def test_debug_trace_survives_hard_token_trim(self) -> None:
-        from ai_workroot.context.builder import estimate_tokens
+        from ai_workroot.capabilities.context.builder import estimate_tokens
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -540,7 +546,6 @@ class ContextBudgetTraceTest(unittest.TestCase):
             init = initialize_workroot(
                 name="E2E Software Engineer",
                 directory=user_dir,
-                native_agent_entry=False,
                 ai_workroot_home=home,
                 workroot_id="wr_e2e_software_engineer_test",
             )

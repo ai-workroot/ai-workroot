@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import sqlite3
 from typing import Iterable
 
-from ai_workroot.release.model import ReleaseTargetRef
+from ai_workroot.capabilities.release.model import ReleaseTargetRef
 
 
 STRICT_LEVELS = {"deleted", "redacted", "safety-sensitive"}

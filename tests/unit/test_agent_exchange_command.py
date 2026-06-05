@@ -16,7 +16,7 @@ from ai_workroot.commands.agent_exchange import (
     run_exchange_request,
     run_sync_request,
 )
-from ai_workroot.cli.main import _json_object_arg, _sync_work_signal, main
+from ai_workroot.entrypoints.cli.main import _json_object_arg, _sync_work_signal, main
 
 
 class AgentExchangeCommandTest(unittest.TestCase):
@@ -474,7 +474,7 @@ class AgentExchangeCommandTest(unittest.TestCase):
         )
 
     def test_sync_cli_accepts_persistence_hint_for_agent_tolerance(self) -> None:
-        with patch("ai_workroot.cli.main.run_sync_request", return_value={"ok": True}) as sync:
+        with patch("ai_workroot.entrypoints.cli.main.run_sync_request", return_value={"ok": True}) as sync:
             output = StringIO()
             with redirect_stdout(output):
                 rc = main(
@@ -498,7 +498,7 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(sync.call_args.kwargs["work_signal"]["phase"], "switching")
 
     def test_sync_cli_accepts_split_work_signal_flags_for_agent_tolerance(self) -> None:
-        with patch("ai_workroot.cli.main.run_sync_request", return_value={"ok": True}) as sync:
+        with patch("ai_workroot.entrypoints.cli.main.run_sync_request", return_value={"ok": True}) as sync:
             output = StringIO()
             with redirect_stdout(output):
                 rc = main(
@@ -537,7 +537,7 @@ class AgentExchangeCommandTest(unittest.TestCase):
         )
 
     def test_sync_cli_accepts_signal_alias_for_work_signal(self) -> None:
-        with patch("ai_workroot.cli.main.run_sync_request", return_value={"ok": True}) as sync:
+        with patch("ai_workroot.entrypoints.cli.main.run_sync_request", return_value={"ok": True}) as sync:
             output = StringIO()
             with redirect_stdout(output):
                 rc = main(
@@ -561,7 +561,7 @@ class AgentExchangeCommandTest(unittest.TestCase):
         )
 
     def test_sync_cli_accepts_trailing_key_value_work_signal_parts_for_agent_tolerance(self) -> None:
-        with patch("ai_workroot.cli.main.run_sync_request", return_value={"ok": True}) as sync:
+        with patch("ai_workroot.entrypoints.cli.main.run_sync_request", return_value={"ok": True}) as sync:
             output = StringIO()
             with redirect_stdout(output):
                 rc = main(

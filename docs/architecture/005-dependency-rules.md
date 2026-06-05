@@ -3,15 +3,15 @@
 ## Layer overview
 
 ```text
-cli -> commands
+entrypoints -> commands
 
 commands -> state
 commands -> protocol
-commands -> work/assets/relationships/retrieval/context/release/handoff/agent_entry/diagnostics
+commands -> capabilities
 commands -> shared
 
 protocol -> state
-protocol -> work/assets/relationships/retrieval/context/release/handoff
+protocol -> capabilities/composition
 
 capability modules -> shared
 capability modules -> state when persistence is needed
@@ -22,16 +22,16 @@ shared/contracts -> standard library only
 
 Old layer-first packages are not active source packages. Do not restore them as compatibility layers.
 
-## CLI
+## Entry Points
 
-`cli/` is the terminal adapter.
+`entrypoints/` contains external adapters such as CLI and Native Agent Entry.
 
 Rules:
 
-1. CLI parses arguments.
-2. CLI calls `commands`.
-3. CLI formats terminal output and exit codes.
-4. CLI must not import state, storage, retrieval, indexing, runtime internals, or capability implementation details directly.
+1. Entry points parse external input or render native Agent entry files.
+2. Entry points call `commands`.
+3. Entry points format adapter-specific output and exit codes.
+4. Entry points must not import state, storage, retrieval, indexing, runtime internals, or capability implementation details directly.
 
 ## Commands
 
@@ -50,7 +50,7 @@ Rules:
 Rules:
 
 1. Protocol implements sync, commit, focus resolution, lease validation, idempotency, response guidance, recovery, and projection routing.
-2. Protocol may call capability modules and `state/`.
+2. Protocol may call `capabilities/composition` and `state/`.
 3. Protocol must not import `cli/`.
 4. Protocol does not own Task, Handoff, Asset, Relationship, Release, Retrieval, or Context facts.
 
@@ -59,15 +59,15 @@ Rules:
 Capability modules own local models and operations:
 
 ```text
-work/
-assets/
-relationships/
-retrieval/
-context/
-release/
-handoff/
-agent_entry/
-diagnostics/
+capabilities/composition/
+capabilities/work/
+capabilities/assets/
+capabilities/relationships/
+capabilities/retrieval/
+capabilities/context/
+capabilities/release/
+capabilities/handoff/
+capabilities/system_health/
 ```
 
 Rules:
@@ -77,7 +77,7 @@ Rules:
 3. Context consumes retrieval output but does not own durable work facts.
 4. Release filters and sanitizes protected content but does not own retrieval indexes.
 5. Handoff owns derived transfer packages, not durable Work truth.
-6. Agent Entry generates entry files but is not an agent runtime.
+6. System Health owns doctor and release validation checks.
 7. Capability modules must not import `protocol/`.
 
 ## State
@@ -88,7 +88,7 @@ Rules:
 
 1. State may define SQLite schema and runtime paths.
 2. State must not implement Agent Protocol policy.
-3. State must not import `protocol/`, `commands/`, or `cli/`.
+3. State must not import `protocol/`, `commands/`, or `entrypoints/`.
 
 ## Shared
 

@@ -11,13 +11,13 @@ class DependencyPolicyContractTest(unittest.TestCase):
         p0_files = [
             "src/ai_workroot/commands/bootstrap_dev.py",
             "src/ai_workroot/commands/init_workroot.py",
-            "src/ai_workroot/context/builder.py",
-            "src/ai_workroot/diagnostics/doctor.py",
+            "src/ai_workroot/capabilities/context/builder.py",
+            "src/ai_workroot/capabilities/system_health/doctor.py",
             "src/ai_workroot/state/layout.py",
             "src/ai_workroot/state/environment.py",
             "src/ai_workroot/state/sqlite.py",
-            "src/ai_workroot/retrieval/providers/sqlite_fts.py",
-            "src/ai_workroot/cli/main.py",
+            "src/ai_workroot/capabilities/retrieval/providers/sqlite_fts.py",
+            "src/ai_workroot/entrypoints/cli/main.py",
         ]
         forbidden_import_roots = {"openai", "requests", "httpx", "chromadb", "faiss"}
         forbidden_calls = {"Embedding", "embeddings"}

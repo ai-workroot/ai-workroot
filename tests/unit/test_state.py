@@ -34,11 +34,14 @@ class WorkrootStateTest(unittest.TestCase):
                 name="Demo",
                 directory=user_dir,
                 workroot_id="wr_demo",
-                native_agent_entry=False,
                 ai_workroot_home=home,
             )
             db_path = Path(result.registration.state_directory) / "cache/workroot.sqlite"
 
+            self.assertEqual(result.message(), "initialized wr_demo registered")
+            self.assertFalse(hasattr(result, "native_agent_entry"))
+            self.assertFalse((user_dir / "AGENTS.md").exists())
+            self.assertFalse((user_dir / "CLAUDE.md").exists())
             self.assertTrue(db_path.is_file())
             self.assertFalse((user_dir / ".workroot").exists())
             self.assertFalse((user_dir / ".ai-workroot").exists())

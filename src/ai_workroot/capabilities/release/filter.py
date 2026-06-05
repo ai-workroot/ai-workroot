@@ -6,8 +6,8 @@ from dataclasses import dataclass
 import sqlite3
 from typing import Iterable
 
-from ai_workroot.release.evaluation import evaluate_release_targets
-from ai_workroot.release.model import ReleaseTargetRef
+from ai_workroot.capabilities.release.evaluation import evaluate_release_targets
+from ai_workroot.capabilities.release.model import ReleaseTargetRef
 
 
 CANONICAL_SOURCE_TYPES = {

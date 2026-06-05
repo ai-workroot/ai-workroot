@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 from typing import Any
 
-from ai_workroot.agent_entry.native import sync_native_agent_entry
 from ai_workroot.state.environment import WorkrootRegistration, initialize_environment, register_workroot_unlocked
 from ai_workroot.state.jsonl import read_jsonl
 from ai_workroot.state.layout import resolve_ai_workroot_home
@@ -142,8 +141,6 @@ def _ensure_bootstrap_side_effects(repo: Path, state_directory: Path) -> None:
     for rel in ("drafts", "reviews", "patches", "context-packages"):
         (repo / LOCAL_DIR / rel).mkdir(parents=True, exist_ok=True)
     _ensure_gitignore_entries(repo / ".gitignore", ("/AGENTS.md", "/CLAUDE.md", f"/{LOCAL_DIR}/"))
-    sync_native_agent_entry(repo / "AGENTS.md", "codex")
-    sync_native_agent_entry(repo / "CLAUDE.md", "claude")
 
 
 def _ensure_gitignore_entries(path: Path, entries: tuple[str, ...]) -> None:

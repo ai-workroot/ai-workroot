@@ -14,36 +14,65 @@ SRC = ROOT / "src"
 class ImportBoundariesTest(unittest.TestCase):
     def test_required_package_directories_exist(self) -> None:
         required = [
-            "agent_entry",
-            "assets",
+            "capabilities",
             "commands",
-            "context",
-            "diagnostics",
-            "handoff",
+            "entrypoints",
             "protocol",
-            "relationships",
-            "release",
-            "retrieval",
             "shared",
             "state",
-            "cli",
-            "templates",
-            "work",
         ]
 
         for name in required:
             with self.subTest(name=name):
                 self.assertTrue((SRC / "ai_workroot" / name / "__init__.py").is_file())
 
+    def test_required_capability_package_directories_exist(self) -> None:
+        required = [
+            "assets",
+            "composition",
+            "context",
+            "handoff",
+            "relationships",
+            "release",
+            "retrieval",
+            "system_health",
+            "work",
+        ]
+
+        for name in required:
+            with self.subTest(name=name):
+                self.assertTrue((SRC / "ai_workroot" / "capabilities" / name / "__init__.py").is_file())
+
+    def test_required_entrypoint_package_directories_exist(self) -> None:
+        required = [
+            "cli",
+            "native_agent",
+        ]
+
+        for name in required:
+            with self.subTest(name=name):
+                self.assertTrue((SRC / "ai_workroot" / "entrypoints" / name / "__init__.py").is_file())
+
     def test_legacy_compatibility_package_directories_do_not_exist(self) -> None:
         forbidden = [
             "agent",
+            "agent_entry",
+            "assets",
+            "cli",
             "contracts",
             "core",
+            "context",
+            "diagnostics",
+            "handoff",
             "indexing",
+            "relationships",
+            "release",
             "resources",
+            "retrieval",
             "runtime",
             "storage",
+            "templates",
+            "work",
         ]
 
         for name in forbidden:
@@ -141,12 +170,23 @@ class ImportBoundariesTest(unittest.TestCase):
     def test_src_does_not_import_legacy_architecture_namespaces(self) -> None:
         forbidden = (
             "ai_workroot.agent",
+            "ai_workroot.agent_entry",
+            "ai_workroot.assets",
+            "ai_workroot.cli",
             "ai_workroot.contracts",
             "ai_workroot.core",
+            "ai_workroot.context",
+            "ai_workroot.diagnostics",
+            "ai_workroot.handoff",
             "ai_workroot.indexing",
+            "ai_workroot.relationships",
+            "ai_workroot.release",
             "ai_workroot.resources",
+            "ai_workroot.retrieval",
             "ai_workroot.runtime",
             "ai_workroot.storage",
+            "ai_workroot.templates",
+            "ai_workroot.work",
         )
         violations: list[str] = []
 
@@ -165,42 +205,19 @@ class ImportBoundariesTest(unittest.TestCase):
 
     def test_package_dependency_graph_is_acyclic_and_declared(self) -> None:
         allowed_edges = {
-            "agent_entry": set(),
-            "assets": {"state"},
-            "cli": {"commands"},
             "commands": {
-                "agent_entry",
-                "assets",
-                "context",
-                "diagnostics",
-                "handoff",
+                "capabilities",
                 "protocol",
-                "relationships",
-                "release",
-                "retrieval",
                 "state",
-                "work",
             },
-            "context": {"protocol", "relationships", "release", "retrieval", "state"},
-            "diagnostics": {"agent_entry", "state"},
-            "handoff": {"state"},
+            "capabilities": {"state", "shared"},
+            "entrypoints": {"commands"},
             "protocol": {
-                "assets",
-                "context",
-                "handoff",
-                "relationships",
-                "release",
-                "retrieval",
+                "capabilities",
                 "state",
-                "work",
             },
-            "relationships": {"state"},
-            "release": set(),
-            "retrieval": {"state"},
             "shared": set(),
-            "state": set(),
-            "templates": set(),
-            "work": {"state"},
+            "state": {"shared"},
         }
         edges = _package_dependency_edges()
         unexpected = sorted(
@@ -252,8 +269,12 @@ class ImportBoundariesTest(unittest.TestCase):
     def test_capability_packages_do_not_import_protocol(self) -> None:
         forbidden = ("ai_workroot.protocol",)
         violations: list[str] = []
-        for package in ("work", "assets", "handoff", "state", "release", "retrieval", "relationships", "shared"):
-            for path in (SRC / "ai_workroot" / package).rglob("*.py"):
+        for package_path in (
+            SRC / "ai_workroot" / "capabilities",
+            SRC / "ai_workroot" / "state",
+            SRC / "ai_workroot" / "shared",
+        ):
+            for path in package_path.rglob("*.py"):
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
                 for module in _imported_project_modules(tree):
                     if _module_matches_any(module, forbidden):
@@ -266,7 +287,20 @@ class ImportBoundariesTest(unittest.TestCase):
         for path in (SRC / "ai_workroot" / "protocol").rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for module in _imported_project_modules(tree):
-                if _module_matches_any(module, ("ai_workroot.cli",)):
+                if _module_matches_any(module, ("ai_workroot.entrypoints",)):
+                    violations.append(f"{path.relative_to(ROOT)} imports {module}")
+
+        self.assertEqual(violations, [])
+
+    def test_protocol_imports_only_composition_capability(self) -> None:
+        violations: list[str] = []
+        allowed = ("ai_workroot.capabilities.composition",)
+        for path in (SRC / "ai_workroot" / "protocol").rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for module in _imported_project_modules(tree):
+                if _module_matches_any(module, ("ai_workroot.capabilities",)) and not _module_matches_any(
+                    module, allowed
+                ):
                     violations.append(f"{path.relative_to(ROOT)} imports {module}")
 
         self.assertEqual(violations, [])
@@ -289,7 +323,7 @@ class ImportBoundariesTest(unittest.TestCase):
         self.assertFalse((SRC / "ai_workroot" / "shared" / "model.py").exists())
 
     def test_retrieval_does_not_own_release_filtering(self) -> None:
-        retrieval_dir = SRC / "ai_workroot" / "retrieval"
+        retrieval_dir = SRC / "ai_workroot" / "capabilities" / "retrieval"
         self.assertFalse((retrieval_dir / "providers" / "release_provider.py").exists())
         forbidden_symbols = (
             "ReleaseFilterReport",
@@ -309,19 +343,19 @@ class ImportBoundariesTest(unittest.TestCase):
                     violations.append(f"{path.relative_to(ROOT)} defines or references {symbol}")
             tree = ast.parse(text, filename=str(path))
             for module in _imported_project_modules(tree):
-                if _module_matches_any(module, ("ai_workroot.release",)):
+                if _module_matches_any(module, ("ai_workroot.capabilities.release",)):
                     violations.append(f"{path.relative_to(ROOT)} imports {module}")
 
         self.assertEqual(violations, [])
 
     def test_retrieval_does_not_expose_unfiltered_context_recall_hint_materializers(self) -> None:
-        from ai_workroot.retrieval.providers import context_recall_hint_provider
+        from ai_workroot.capabilities.retrieval.providers import context_recall_hint_provider
 
         self.assertFalse(hasattr(context_recall_hint_provider, "materialize_context_recall_hint"))
         self.assertFalse(hasattr(context_recall_hint_provider, "materialize_context_recall_hints"))
 
     def test_context_builder_uses_explicit_assembly_pipeline(self) -> None:
-        builder_path = SRC / "ai_workroot" / "context" / "builder.py"
+        builder_path = SRC / "ai_workroot" / "capabilities" / "context" / "builder.py"
         tree = ast.parse(builder_path.read_text(encoding="utf-8"), filename=str(builder_path))
         class_names = {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
         expected_stage_models = {
@@ -361,12 +395,12 @@ class ImportBoundariesTest(unittest.TestCase):
         self.assertLessEqual(build_context_package.end_lineno - build_context_package.lineno + 1, 90)
 
     def test_cli_does_not_import_storage_or_indexing_directly(self) -> None:
-        cli_dir = SRC / "ai_workroot" / "cli"
+        cli_dir = SRC / "ai_workroot" / "entrypoints" / "cli"
         forbidden = (
             "ai_workroot.storage",
             "ai_workroot.indexing",
             "ai_workroot.state",
-            "ai_workroot.retrieval",
+            "ai_workroot.capabilities.retrieval",
             "ai_workroot.runtime",
         )
 

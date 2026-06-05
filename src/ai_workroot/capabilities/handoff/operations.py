@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from ai_workroot.handoff.model import HandoffPackage
+from ai_workroot.capabilities.handoff.model import HandoffPackage
 from ai_workroot.state.sqlite import record_index_invalidation
 
 

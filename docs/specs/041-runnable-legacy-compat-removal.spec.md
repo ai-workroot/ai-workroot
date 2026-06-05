@@ -178,15 +178,15 @@ Clean Workroot runtime behavior continues through:
 
 - `ai_workroot.commands.init_workroot`
 - `ai_workroot.state.registry`
-- `ai_workroot.context.builder`
-- `ai_workroot.diagnostics.doctor`
+- `ai_workroot.capabilities.context.builder`
+- `ai_workroot.capabilities.system_health.doctor`
 - `ai_workroot.commands.bootstrap_dev`
-- `ai_workroot.work.operations`
-- `ai_workroot.assets.operations`
-- `ai_workroot.release.operations`
-- `ai_workroot.relationships.operations`
+- `ai_workroot.capabilities.work.operations`
+- `ai_workroot.capabilities.assets.operations`
+- `ai_workroot.capabilities.release.operations`
+- `ai_workroot.capabilities.relationships.operations`
 - `ai_workroot.state.sqlite`
-- `ai_workroot.retrieval.providers.*`
+- `ai_workroot.capabilities.retrieval.providers.*`
 
 No runtime fallback to legacy code is allowed.
 
@@ -304,7 +304,7 @@ T2: Add failing boundary tests
 
 T3: Remove active CLI legacy dispatch
 - Change: Delete hidden `legacy` parser and dispatcher.
-- Files likely affected: `src/ai_workroot/cli/main.py`.
+- Files likely affected: `src/ai_workroot/entrypoints/cli/main.py`.
 - Verification: `python -m ai_workroot legacy --help` exits non-zero.
 
 T4: Archive package legacy modules

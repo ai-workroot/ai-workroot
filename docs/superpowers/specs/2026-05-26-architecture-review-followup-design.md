@@ -18,14 +18,14 @@ Close the remaining 0.9.530 architecture review gaps without expanding product s
 Added:
 
 ```text
-src/ai_workroot/handoff/
-src/ai_workroot/release/filter.py
+src/ai_workroot/capabilities/handoff/
+src/ai_workroot/capabilities/release/filter.py
 ```
 
 Removed:
 
 ```text
-src/ai_workroot/retrieval/providers/release_provider.py
+src/ai_workroot/capabilities/retrieval/providers/release_provider.py
 src/ai_workroot/shared/model.py
 ```
 
@@ -34,7 +34,7 @@ src/ai_workroot/shared/model.py
 - `handoff/` may use `state` persistence helpers. It does not own tasks, work actions, checkpoints, or invalidations.
 - `work/` no longer exposes `create_handoff()`.
 - `release/filter.py` owns release target resolution and filtering for context candidates, FTS matches, and relationship signals.
-- `retrieval/` must not import `ai_workroot.release` or define release filter classes/functions.
+- `retrieval/` must not import `ai_workroot.capabilities.release` or define release filter classes/functions.
 - `context/` coordinates retrieval outputs, relationship signals, and release filters. It may import `release.filter`.
 - `shared/` must not contain domain model buckets. Capability-specific value objects stay with the owning capability.
 
@@ -58,8 +58,8 @@ Future split seams are marked in the file:
 The follow-up is accepted when:
 
 - `workroot doctor --release --cwd <path>` respects `<path>`.
-- Handoff authoring lives under `ai_workroot.handoff.operations`.
-- Release filtering lives under `ai_workroot.release.filter`.
+- Handoff authoring lives under `ai_workroot.capabilities.handoff.operations`.
+- Release filtering lives under `ai_workroot.capabilities.release.filter`.
 - Retrieval has no package edge to Release Control.
 - `shared/model.py` is absent from active source.
 - Package dependency graph remains acyclic.

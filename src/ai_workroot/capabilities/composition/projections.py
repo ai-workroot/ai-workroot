@@ -10,8 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from ai_workroot.protocol.errors import ProtocolError
-from ai_workroot.protocol.lease import bump_state_version, now_utc
+from ai_workroot.state.versions import bump_state_version, now_utc
 
 
 TASK_LEASE_EVENTS = ["progress", "handoff", "state", "asset", "decision"]
@@ -51,6 +50,13 @@ class ProjectionResult:
     required_before_stop: list[str]
 
 
+class ProjectionError(ValueError):
+    def __init__(self, code: str, message: str = "", details: Optional[dict[str, Any]] = None) -> None:
+        super().__init__(message or code)
+        self.code = code
+        self.details = details or {}
+
+
 def apply_projection(
     conn: sqlite3.Connection,
     *,
@@ -72,7 +78,7 @@ def apply_projection(
         return project_asset(conn, workroot_id=workroot_id, lease=lease, event=event, user_directory=user_directory)
     if kind == "decision":
         return project_decision(conn, workroot_id=workroot_id, lease=lease, event=event)
-    raise ProtocolError("event_not_allowed", f"projection not implemented for event kind: {kind}")
+    raise ProjectionError("event_not_allowed", f"projection not implemented for event kind: {kind}")
 
 
 def project_intent(
@@ -98,7 +104,7 @@ def project_intent(
             required_before_stop=[],
         )
     if persistence not in {"normal", "temporary"}:
-        raise ProtocolError("event_not_allowed", f"persistence is not implemented in P0: {persistence}")
+        raise ProjectionError("event_not_allowed", f"persistence is not implemented in P0: {persistence}")
 
     task_hint = _dict_value(payload, "task_hint")
     event_id = str(event["event_id"])
@@ -418,11 +424,11 @@ def project_state(
 ) -> ProjectionResult:
     payload = event["payload"]
     if payload.get("target_type") != "task":
-        raise ProtocolError("event_not_allowed", "P0 state projection only supports task targets")
+        raise ProjectionError("event_not_allowed", "P0 state projection only supports task targets")
     task_id = _required_text(payload, "target_id")
     lease_task_id = _text_or_none(lease.get("task_id"))
     if lease_task_id and lease_task_id != task_id:
-        raise ProtocolError("state_conflict", "state event targets a different task than the lease")
+        raise ProjectionError("state_conflict", "state event targets a different task than the lease")
 
     if _has_task_metadata_transition(payload):
         return _project_task_metadata_state(
@@ -445,16 +451,16 @@ def project_state(
         (workroot_id, task_id),
     ).fetchone()
     if row is None:
-        raise ProtocolError("projection_failed", f"task not found: {task_id}")
+        raise ProjectionError("projection_failed", f"task not found: {task_id}")
     current_status = str(row[0])
     if current_status != from_status:
-        raise ProtocolError(
+        raise ProjectionError(
             "invalid_state_transition",
             f"current task status is {current_status}, not {from_status}",
             {"current_status": current_status},
         )
     if to_status not in TASK_TRANSITIONS.get(from_status, set()):
-        raise ProtocolError("invalid_state_transition", f"cannot transition task from {from_status} to {to_status}")
+        raise ProjectionError("invalid_state_transition", f"cannot transition task from {from_status} to {to_status}")
 
     now = now_utc()
     closed_at = now if to_status == "closed" else None
@@ -512,7 +518,7 @@ def project_asset(
     path = _required_text(payload, "path")
     normalized_path = _normalize_relative_path(path)
     if not normalized_path:
-        raise ProtocolError("projection_failed", "invalid asset path")
+        raise ProjectionError("projection_failed", "invalid asset path")
     asset_id = (
         _text_or_none(payload.get("asset_id"))
         or _path_asset_id(workroot_id, normalized_path)
@@ -676,7 +682,7 @@ def _project_task_metadata_state(
         (workroot_id, task_id),
     ).fetchone()
     if row is None:
-        raise ProtocolError("projection_failed", f"task not found: {task_id}")
+        raise ProjectionError("projection_failed", f"task not found: {task_id}")
 
     role = _validate_choice(_text_or_none(payload.get("to_role")) or str(row[0]), TASK_ROLES, "to_role")
     process_level = _validate_choice(
@@ -786,9 +792,9 @@ def _task_run_from_payload_or_lease(payload: dict[str, Any], lease: dict[str, An
     task_id = _text_or_none(payload.get("task_id")) or _text_or_none(lease.get("task_id"))
     run_id = _text_or_none(payload.get("run_id")) or _text_or_none(lease.get("run_id"))
     if not task_id:
-        raise ProtocolError("projection_failed", "missing task_id")
+        raise ProjectionError("projection_failed", "missing task_id")
     if not run_id:
-        raise ProtocolError("projection_failed", "missing run_id")
+        raise ProjectionError("projection_failed", "missing run_id")
     return task_id, run_id
 
 
@@ -798,9 +804,9 @@ def _optional_task_run_from_payload_or_lease(
     task_id = _text_or_none(payload.get("task_id")) or _text_or_none(lease.get("task_id"))
     run_id = _text_or_none(payload.get("run_id")) or _text_or_none(lease.get("run_id"))
     if task_id and not run_id:
-        raise ProtocolError("projection_failed", "missing run_id")
+        raise ProjectionError("projection_failed", "missing run_id")
     if run_id and not task_id:
-        raise ProtocolError("projection_failed", "missing task_id")
+        raise ProjectionError("projection_failed", "missing task_id")
     return task_id, run_id
 
 
@@ -808,9 +814,9 @@ def _require_matching_lease(lease: dict[str, Any], *, task_id: str, run_id: str)
     lease_task_id = _text_or_none(lease.get("task_id"))
     lease_run_id = _text_or_none(lease.get("run_id"))
     if lease_task_id and lease_task_id != task_id:
-        raise ProtocolError("state_conflict", "event task_id does not match lease task_id")
+        raise ProjectionError("state_conflict", "event task_id does not match lease task_id")
     if lease_run_id and lease_run_id != run_id:
-        raise ProtocolError("state_conflict", "event run_id does not match lease run_id")
+        raise ProjectionError("state_conflict", "event run_id does not match lease run_id")
 
 
 def _require_run(conn: sqlite3.Connection, workroot_id: str, task_id: str, run_id: str) -> None:
@@ -824,7 +830,7 @@ def _require_run(conn: sqlite3.Connection, workroot_id: str, task_id: str, run_i
         (workroot_id, task_id, run_id),
     ).fetchone()
     if row is None:
-        raise ProtocolError("projection_failed", f"task run not found: {run_id}")
+        raise ProjectionError("projection_failed", f"task run not found: {run_id}")
 
 
 def _task_exists(conn: sqlite3.Connection, workroot_id: str, task_id: str) -> bool:
@@ -1063,7 +1069,7 @@ def _project_task_items(
             continue
         try:
             status = _task_item_status(item.get("status"), default=str(row[1]))
-        except ProtocolError as exc:
+        except ProjectionError as exc:
             if exc.code == "projection_failed":
                 continue
             raise
@@ -1353,7 +1359,7 @@ def _list_of_dicts(value: Any) -> list[dict[str, Any]]:
 def _task_item_status(value: Any, *, default: str) -> str:
     status = _text_or_none(value) or default
     if status not in TASK_ITEM_STATUSES:
-        raise ProtocolError("projection_failed", f"invalid task item status: {status}")
+        raise ProjectionError("projection_failed", f"invalid task item status: {status}")
     return status
 
 
@@ -1361,7 +1367,7 @@ def _require_task_item_transition(from_status: str, to_status: str) -> None:
     if from_status == to_status:
         return
     if to_status not in TASK_ITEM_TRANSITIONS.get(from_status, set()):
-        raise ProtocolError(
+        raise ProjectionError(
             "invalid_state_transition",
             f"cannot transition task item from {from_status} to {to_status}",
             {"current_status": from_status, "requested_status": to_status},
@@ -1377,7 +1383,7 @@ def _has_task_metadata_transition(payload: dict[str, Any]) -> bool:
 
 def _validate_choice(value: str, allowed: set[str], field_name: str) -> str:
     if value not in allowed:
-        raise ProtocolError("projection_failed", f"invalid {field_name}: {value}")
+        raise ProjectionError("projection_failed", f"invalid {field_name}: {value}")
     return value
 
 
@@ -1401,7 +1407,7 @@ def _json_object(value: Any) -> dict[str, Any]:
 def _required_text(data: dict[str, Any], key: str) -> str:
     value = _text_or_none(data.get(key))
     if not value:
-        raise ProtocolError("projection_failed", f"missing {key}")
+        raise ProjectionError("projection_failed", f"missing {key}")
     return value
 
 

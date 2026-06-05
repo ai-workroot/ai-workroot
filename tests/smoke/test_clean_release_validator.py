@@ -69,19 +69,19 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             repo.mkdir()
             for rel in (
                 "src/ai_workroot/commands",
-                "src/ai_workroot/handoff",
+                "src/ai_workroot/capabilities/handoff",
                 "src/ai_workroot/state",
-                "src/ai_workroot/retrieval/providers",
-                "src/ai_workroot/templates/native_agent_entry",
+                "src/ai_workroot/capabilities/retrieval/providers",
+                "src/ai_workroot/entrypoints/native_agent/templates",
                 "tests/negative",
                 "install/unix",
             ):
                 (repo / rel).mkdir(parents=True, exist_ok=True)
             for rel in (
-                "src/ai_workroot/context/builder.py",
-                "src/ai_workroot/release/filter.py",
-                "src/ai_workroot/release/operations.py",
-                "src/ai_workroot/agent_entry/native.py",
+                "src/ai_workroot/capabilities/context/builder.py",
+                "src/ai_workroot/capabilities/release/filter.py",
+                "src/ai_workroot/capabilities/release/operations.py",
+                "src/ai_workroot/entrypoints/native_agent/native.py",
                 "tests/negative/test_release_protection_context.py",
                 "tests/negative/test_release_protection_targets.py",
                 "tests/negative/test_release_protection_relationships.py",
@@ -89,7 +89,9 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             ):
                 (repo / rel).parent.mkdir(parents=True, exist_ok=True)
                 (repo / rel).write_text("", encoding="utf-8")
-            (repo / "src/ai_workroot/templates/native_agent_entry/AGENTS.md.template").write_text("", encoding="utf-8")
+            (repo / "src/ai_workroot/entrypoints/native_agent/templates/AGENTS.md.template").write_text(
+                "", encoding="utf-8"
+            )
             (repo / "AGENTS.md").write_text("tracked seed entry\n", encoding="utf-8")
             subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
             subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
@@ -112,19 +114,19 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             repo.mkdir()
             for rel in (
                 "src/ai_workroot/commands",
-                "src/ai_workroot/handoff",
+                "src/ai_workroot/capabilities/handoff",
                 "src/ai_workroot/state",
-                "src/ai_workroot/retrieval/providers",
-                "src/ai_workroot/templates/native_agent_entry",
+                "src/ai_workroot/capabilities/retrieval/providers",
+                "src/ai_workroot/entrypoints/native_agent/templates",
                 "tests/negative",
                 "install/unix",
             ):
                 (repo / rel).mkdir(parents=True, exist_ok=True)
             for rel in (
-                "src/ai_workroot/context/builder.py",
-                "src/ai_workroot/release/filter.py",
-                "src/ai_workroot/release/operations.py",
-                "src/ai_workroot/agent_entry/native.py",
+                "src/ai_workroot/capabilities/context/builder.py",
+                "src/ai_workroot/capabilities/release/filter.py",
+                "src/ai_workroot/capabilities/release/operations.py",
+                "src/ai_workroot/entrypoints/native_agent/native.py",
                 "tests/negative/test_release_protection_context.py",
                 "tests/negative/test_release_protection_targets.py",
                 "tests/negative/test_release_protection_relationships.py",
@@ -133,7 +135,9 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             ):
                 (repo / rel).parent.mkdir(parents=True, exist_ok=True)
                 (repo / rel).write_text("", encoding="utf-8")
-            (repo / "src/ai_workroot/templates/native_agent_entry/AGENTS.md.template").write_text("", encoding="utf-8")
+            (repo / "src/ai_workroot/entrypoints/native_agent/templates/AGENTS.md.template").write_text(
+                "", encoding="utf-8"
+            )
             subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
 
             result = subprocess.run(
@@ -154,8 +158,8 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             repo = Path(tmp) / "repo"
             output = Path(tmp) / "review.zip"
             subprocess.run(["git", "init", str(repo)], check=True, capture_output=True)
-            (repo / "src/ai_workroot/context").mkdir(parents=True)
-            (repo / "src/ai_workroot/context/builder.py").write_text("# tracked\n", encoding="utf-8")
+            (repo / "src/ai_workroot/capabilities/context").mkdir(parents=True)
+            (repo / "src/ai_workroot/capabilities/context/builder.py").write_text("# tracked\n", encoding="utf-8")
             (repo / ".gitignore").write_text(".idea/\n.ai-workroot-local/\n/AGENTS.md\n/CLAUDE.md\n", encoding="utf-8")
             (repo / "scripts/dev").mkdir(parents=True)
             (repo / "scripts/dev/export-review-zip.sh").write_text(
@@ -193,7 +197,7 @@ class CleanReleaseValidatorSmokeTest(unittest.TestCase):
             self.assertTrue(output.is_file())
             with zipfile.ZipFile(output) as archive:
                 names = set(archive.namelist())
-            self.assertIn("src/ai_workroot/context/builder.py", names)
+            self.assertIn("src/ai_workroot/capabilities/context/builder.py", names)
             self.assertNotIn(".ai-workroot-local/local.txt", names)
             self.assertNotIn(".idea/workspace.xml", names)
             self.assertNotIn("AGENTS.md", names)

@@ -2,15 +2,16 @@
 
 ## Purpose
 
-AI Workroot 0.9.531 adds the Agent Protocol and Task Continuity foundation without changing the clean package layout into heavyweight layer directories. This document defines how to read the current source tree.
+AI Workroot 0.9.531 adds the Agent Protocol and Task Continuity foundation with lightweight physical layer directories. This document defines how to read the current source tree.
 
-The source layout is a flat capability-owned architecture:
+The source layout is a lightweight layered, capability-owned architecture:
 
 ```text
 Entry / Client Layer
-  cli/
-  agent_entry/
-  templates/
+  entrypoints/
+    cli/
+    native_agent/
+      templates/
 
 Command / Use-case Adapter Layer
   commands/
@@ -19,14 +20,16 @@ Protocol Runtime Layer
   protocol/
 
 Capability Layer
-  work/
-  handoff/
-  context/
-  retrieval/
-  release/
-  relationships/
-  assets/
-  diagnostics/
+  capabilities/
+    composition/
+    work/
+    handoff/
+    context/
+    retrieval/
+    release/
+    relationships/
+    assets/
+    system_health/
 
 State / Infrastructure Layer
   state/
@@ -41,7 +44,7 @@ The layout is intentionally not a DDD package tree. DDD remains useful for strat
 
 ### Entry / Client Layer
 
-`cli/`, `agent_entry/`, and `templates/` expose Workroot to users, agents, and future transport adapters.
+`entrypoints/` exposes Workroot to users, agents, and future transport adapters.
 
 Rules:
 
@@ -71,7 +74,7 @@ It owns:
 - Commit idempotency and response replay.
 - Recorded/projected/accepted result semantics.
 - Non-blocking recovery responses.
-- Projection routing into capability modules.
+- Projection routing into capability composition.
 - Model-facing response construction.
 
 It does not own:
@@ -87,16 +90,20 @@ Capability modules own their own local models, operations, readers, policies, an
 
 Examples:
 
-- `work/` owns Task, TaskRun, TaskItem, work lifecycle, and time events.
-- `handoff/` owns handoff package creation and lookup.
-- `context/` owns context package building, budget handling, filtering, rendering, and diagnostics.
-- `retrieval/` owns candidate lookup, recall hints, FTS, and global read indexes.
-- `release/` owns tombstone, redaction, deletion, release filtering, and release target resolution.
-- `relationships/` owns Relationship Network truth.
-- `assets/` owns asset identity, metadata, lifecycle, and publication metadata.
-- `diagnostics/` owns doctor and release validation checks.
+- `capabilities/composition/` owns cross-capability projection orchestration.
+- `capabilities/work/` owns Task, TaskRun, TaskItem, work lifecycle, and time events.
+- `capabilities/handoff/` owns handoff package creation and lookup.
+- `capabilities/context/` owns context package building, budget handling, filtering, rendering, and diagnostics.
+- `capabilities/retrieval/` owns candidate lookup, recall hints, FTS, and global read indexes.
+- `capabilities/release/` owns tombstone, redaction, deletion, release filtering, and release target resolution.
+- `capabilities/relationships/` owns Relationship Network truth.
+- `capabilities/assets/` owns asset identity, metadata, lifecycle, and publication metadata.
+- `capabilities/system_health/` owns doctor and release validation checks.
 
 Capability modules must not depend on `protocol/`. The Agent Protocol is an application control layer above them.
+
+`capabilities/composition/projections.py` is intentionally a single cross-capability projection file for now. If it becomes too large,
+split by use-case semantics rather than adding mechanical `projections.py` files to every capability.
 
 ### State / Infrastructure Layer
 
@@ -154,11 +161,11 @@ Do not split `protocol_spec/` and `protocol_runtime/` into separate top-level pa
 Allowed primary direction:
 
 ```text
-cli -> commands
+entrypoints -> commands
 commands -> protocol
 commands -> capability modules
 commands -> state
-protocol -> capability modules
+protocol -> capabilities/composition
 protocol -> state
 capability modules -> state
 shared/contracts -> standard library only
@@ -178,7 +185,7 @@ shared -> protocol
 shared -> capability modules
 ```
 
-`context -> protocol` is a controlled transitional dependency in 0.9.531 for startup context presentation. The long-term direction is for protocol and context strategy to become more orthogonal when layered context recall is implemented.
+`context -> protocol` is not allowed. Protocol startup guidance is built above context and injected into context rendering.
 
 ## Current 0.9.531 Position
 

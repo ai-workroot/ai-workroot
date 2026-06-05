@@ -32,32 +32,40 @@ The active source layout is lightweight, not heavy DDD:
 
 ```text
 src/ai_workroot/
-  cli/
+  entrypoints/
+    cli/
+    native_agent/
+      templates/
   commands/
   protocol/
+  capabilities/
+    composition/
+    work/
+    assets/
+    relationships/
+    retrieval/
+    context/
+    release/
+    handoff/
+    system_health/
   state/
-  work/
-  assets/
-  relationships/
-  retrieval/
-  context/
-  release/
-  handoff/
-  agent_entry/
-  diagnostics/
   shared/
-  templates/
 ```
+
+Key source paths are `entrypoints/`, `commands/`, `protocol/`, `capabilities/`, `state/`, `shared/`,
+`capabilities/work/`, `capabilities/assets/`, `capabilities/relationships/`, `capabilities/retrieval/`,
+`capabilities/context/`, `capabilities/release/`, `capabilities/handoff/`, `capabilities/system_health/`, and
+`entrypoints/native_agent/`.
 
 DDD is used only for strategic modeling. Implementation is command-first and capability-owned:
 
-- `cli`: thin terminal adapter.
+- `entrypoints`: thin external adapters such as CLI and Native Agent Entry.
 - `commands`: application command entrypoints.
 - `protocol`: Agent-facing application control for sync, commit, focus resolution, leases, idempotency, response guidance, and projection routing.
 - `state`: managed state, registry, SQLite, JSONL, locking, and migrations.
-- `work`, `assets`, `relationships`, `retrieval`, `context`, `release`, `handoff`, `agent_entry`, and `diagnostics`: capability-owned models and operations.
+- `capabilities/work`, `capabilities/assets`, `capabilities/relationships`, `capabilities/retrieval`, `capabilities/context`, `capabilities/release`, `capabilities/handoff`, and `capabilities/system_health`: capability-owned models and operations.
+- `entrypoints/native_agent`: Native Agent Entry templates and managed block handling.
 - `shared`: reserved extensions and standard-library-only contracts.
-- `templates`: packaged templates.
 
 Old layer-first packages are not part of the active source tree.
 

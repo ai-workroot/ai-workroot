@@ -5,8 +5,11 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import redirect_stderr
+import io
+from unittest.mock import patch
 
-from ai_workroot.agent_entry.native import (
+from ai_workroot.entrypoints.native_agent.native import (
     MANAGED_BLOCK_BEGIN,
     MANAGED_BLOCK_END,
     render_native_agent_entry,
@@ -90,8 +93,8 @@ class BootstrapDevReplacementTest(unittest.TestCase):
             self.assertIn("/AGENTS.md", (repo / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("/CLAUDE.md", (repo / ".gitignore").read_text(encoding="utf-8"))
             self.assertIn("/.ai-workroot-local/", (repo / ".gitignore").read_text(encoding="utf-8"))
-            self.assertIn("workroot context --agent codex --cwd .", (repo / "AGENTS.md").read_text(encoding="utf-8"))
-            self.assertIn("workroot context --agent claude --cwd .", (repo / "CLAUDE.md").read_text(encoding="utf-8"))
+            self.assertFalse((repo / "AGENTS.md").exists())
+            self.assertFalse((repo / "CLAUDE.md").exists())
 
     def test_bootstrap_dev_is_idempotent_for_same_marker_repo(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -128,6 +131,28 @@ class BootstrapDevReplacementTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("bootstrap-dev initialized wr_ai_workroot", result.stdout)
+            self.assertTrue((home / "workroots/wr_ai_workroot/cache/workroot.sqlite").is_file())
+
+    def test_bootstrap_dev_native_entry_write_failure_returns_clean_cli_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            home = Path(tmp) / "home"
+            self.make_minimal_repo(repo)
+
+            with patch(
+                "ai_workroot.entrypoints.cli.main._sync_native_agent_entries",
+                side_effect=OSError("entry write failed"),
+            ):
+                from ai_workroot.entrypoints.cli.main import main
+
+                with patch.dict(os.environ, {"AI_WORKROOT_HOME": str(home)}):
+                    stderr = io.StringIO()
+                    with redirect_stderr(stderr):
+                        with self.assertRaises(SystemExit) as raised:
+                            main(["bootstrap-dev", "--cwd", str(repo)])
+
+            self.assertEqual(raised.exception.code, 1)
+            self.assertEqual(stderr.getvalue(), "entry write failed\n")
             self.assertTrue((home / "workroots/wr_ai_workroot/cache/workroot.sqlite").is_file())
 
 

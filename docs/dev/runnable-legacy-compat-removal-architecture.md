@@ -2,11 +2,14 @@
 
 ## Status
 
-Draft for implementation on `feat/remove-runnable-legacy-compat`.
+Implemented closure document. This note is retained because release contracts still
+verify that runnable Public Seed compatibility remains removed from active AI
+Workroot paths.
 
 ## Purpose
 
-Remove the runnable Public Seed compatibility layer from active AI Workroot paths while preserving historical code as non-runnable archive material for review. This branch does not bump the project version, create a tag, or create a release.
+Remove the runnable Public Seed compatibility layer from active AI Workroot paths
+while preserving historical code as non-runnable archive material for review.
 
 The target boundary is:
 
@@ -26,22 +29,18 @@ Any command, script, module, or default test path that keeps old Public Seed beh
 Historical archive:
 Non-runnable material under `docs/history/` retained for review and migration reasoning. Archived code uses `.py.txt` so it is not importable, compiled, packaged, or treated as active source.
 
-## Current State
+## Closure State
 
-The active package still contains a hidden legacy command dispatch:
+The active package no longer contains hidden legacy command dispatch. The former
+compatibility chain through CLI, runtime, storage, and indexing legacy modules is
+closed and retained only as historical archive material:
 
 ```text
-src/ai_workroot/cli/main.py
-  -> ai_workroot.cli.legacy_seed
-    -> ai_workroot.runtime.legacy_context
-    -> ai_workroot.runtime.legacy_doctor
-    -> ai_workroot.runtime.legacy_seed.*
-    -> ai_workroot.storage.legacy_sqlite
-    -> ai_workroot.indexing.legacy_candidates
-    -> ai_workroot.indexing.legacy_fts
+docs/history/public-seed/code-archive/**/*.py.txt
 ```
 
-The `scripts/` tree still exposes compatibility wrappers and quarantined-but-runnable Public Seed entry points:
+The `scripts/` tree no longer exposes compatibility wrappers or
+quarantined-but-runnable Public Seed entry points:
 
 ```text
 scripts/compat/
@@ -49,7 +48,7 @@ scripts/legacy/public_seed/
 scripts/dev/new_task_smoke.py
 ```
 
-Tests and release docs still validate compatibility availability. That was correct during the 0.9.530 transition, but conflicts with the new target.
+Tests and release docs validate the absence of those paths.
 
 ## Target State
 
@@ -59,14 +58,23 @@ Allowed active package structure:
 
 ```text
 src/ai_workroot/
-  agent/
-  cli/
-  contracts/
-  core/
-  indexing/
-  resources/
-  runtime/
-  storage/
+  entrypoints/
+    cli/
+    native_agent/
+  commands/
+  protocol/
+  capabilities/
+    composition/
+    work/
+    assets/
+    relationships/
+    retrieval/
+    context/
+    release/
+    handoff/
+    system_health/
+  state/
+  shared/
 ```
 
 Disallowed active package content:
@@ -86,6 +94,7 @@ status
 context
 doctor
 bootstrap-dev
+agent
 ```
 
 `workroot legacy ...` is removed, not hidden.
@@ -144,13 +153,13 @@ Removing runnable compatibility must not remove current product capability. Each
 
 | Legacy capability | Active owner | Status |
 | --- | --- | --- |
-| Task registry | `ai_workroot.runtime.work`, `tasks` table | Preserved |
-| Run registry | `agent_runs` table and runtime work APIs | Preserved |
-| Action registry | `work_actions` table and runtime work APIs | Preserved |
-| Artifact registry | `ai_workroot.runtime.assets`, `assets` tables | Preserved |
+| Task registry | `ai_workroot.capabilities.work`, `tasks` table | Preserved |
+| Run registry | `task_runs` table and protocol projection APIs | Preserved |
+| Action registry | `protocol_events`, task items, and projected work facts | Preserved |
+| Artifact registry | `ai_workroot.capabilities.assets`, `assets` tables | Preserved |
 | Decision records | Asset records with decision/result types | Preserved |
 | Retrieval card registry | ContextRecallHint and retrieval/index providers | Preserved/renamed |
-| Checkpoint registry | `work_checkpoints` and runtime work APIs | Preserved |
+| Checkpoint registry | Task run progress, handoff, and projected state | Preserved |
 | Invalidation registry | Release Control and invalidation records | Preserved |
 | Mind registry | Assets, ContextRecallHint, Relationship Network | Preserved as active concepts; old name retired |
 | Link registry | Relationship Network | Preserved/renamed |
@@ -158,10 +167,10 @@ Removing runnable compatibility must not remove current product capability. Each
 | Session summarize / continue | Handoff and Context Control state | Preserved/deferred UX |
 | Context policy | Context Control runtime hints and budgets | Preserved |
 | Forgetting / tombstone / redaction / deletion | Release Control | Preserved |
-| Storage policy | WorkrootEnvironment, SQLite, JSONL registries | Preserved |
-| Permission/privacy/globalization/extension policies | Active docs, core models, extension registry | Preserved |
-| Global index/cache | `indexing/global_indexes.py`, environment layout | Preserved |
-| Agent startup/interface | Native Agent Entry templates and Agent Interface | Preserved |
+| Storage policy | `ai_workroot.state`, SQLite, JSONL logs, and runtime views | Preserved |
+| Permission/privacy/globalization/extension policies | Active docs, protocol contracts, and shared contracts | Preserved |
+| Global index/cache | `ai_workroot.capabilities.retrieval.global_indexes`, environment layout | Preserved |
+| Agent startup/interface | `ai_workroot.entrypoints.native_agent`, templates, and Agent Protocol | Preserved |
 | Retrieval interface | Retrieval contracts and providers | Preserved |
 | MCP/export/import | Not active in current release | Deferred |
 | Legacy Public Seed CLI | No active owner | Retired |

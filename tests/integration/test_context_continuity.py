@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.context.builder import ContextRequest, build_context_package
+from ai_workroot.commands.build_context import build_context
 from ai_workroot.commands.init_workroot import initialize_workroot
-from ai_workroot.handoff.operations import create_handoff
-from ai_workroot.work.operations import create_checkpoint, create_task
+from ai_workroot.capabilities.handoff.operations import create_handoff
+from ai_workroot.capabilities.work.operations import create_checkpoint, create_task
 
 
 class ContextContinuityTest(unittest.TestCase):
@@ -18,7 +18,7 @@ class ContextContinuityTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -44,8 +44,11 @@ class ContextContinuityTest(unittest.TestCase):
                     title="Next: verify Context Control parity.",
                 )
 
-            package = build_context_package(
-                ContextRequest(agent="codex", cwd=user_dir, query="parity", debug=True),
+            package = build_context(
+                agent="codex",
+                cwd=user_dir,
+                query="parity",
+                debug=True,
                 ai_workroot_home=home,
             )
 

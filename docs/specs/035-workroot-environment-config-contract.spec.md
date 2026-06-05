@@ -50,7 +50,7 @@ P1
 ## Dependencies
 
 - `src/ai_workroot/state/environment.py`
-- `src/ai_workroot/diagnostics/doctor.py`
+- `src/ai_workroot/capabilities/system_health/doctor.py`
 - `src/ai_workroot/state/jsonl.py`
 
 ## Requirements
@@ -275,7 +275,7 @@ T2: Refresh registry counts
 
 T3: Record doctor status
 - Change: Update config summary after doctor runs.
-- Files likely affected: `src/ai_workroot/diagnostics/doctor.py`
+- Files likely affected: `src/ai_workroot/capabilities/system_health/doctor.py`
 - Verification: doctor summary smoke.
 
 T4: Add Context Control defaults
@@ -285,12 +285,12 @@ T4: Add Context Control defaults
 
 T5: Use global Context Control budgets
 - Change: Resolve context token budgets from CLI flags, then config, then code defaults.
-- Files likely affected: `src/ai_workroot/cli/main.py`, `src/ai_workroot/context/builder.py`
+- Files likely affected: `src/ai_workroot/entrypoints/cli/main.py`, `src/ai_workroot/capabilities/context/builder.py`
 - Verification: context CLI smoke.
 
 T6: Add opt-in diagnostic logging
 - Change: Write bounded context request summaries to per-Workroot managed logs when enabled.
-- Files likely affected: `src/ai_workroot/context/builder.py`
+- Files likely affected: `src/ai_workroot/capabilities/context/builder.py`
 - Verification: context budget trace integration tests.
 
 ## Risks

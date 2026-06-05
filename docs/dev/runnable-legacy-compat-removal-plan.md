@@ -12,7 +12,7 @@
 
 ## File Responsibility Map
 
-- `src/ai_workroot/cli/main.py`: current Clean Workroot CLI only.
+- `src/ai_workroot/entrypoints/cli/main.py`: current Clean Workroot CLI only.
 - `docs/history/public-seed/code-archive/`: non-runnable archive of removed legacy source.
 - `scripts/dev/validate-release.sh`: active release validation, no legacy validators.
 - `tests/unit/test_import_boundaries.py`: package import and source boundary checks.
@@ -65,7 +65,7 @@ Expected before implementation: FAIL because legacy modules and CLI still exist.
 ### Task 3: Remove active CLI legacy dispatch
 
 **Files:**
-- Modify: `src/ai_workroot/cli/main.py`
+- Modify: `src/ai_workroot/entrypoints/cli/main.py`
 - Modify: `tests/smoke/test_cli_discovery.py`
 
 - [x] **Step 1: Delete hidden legacy parser and dispatcher**
@@ -84,7 +84,7 @@ Expected: PASS.
 **Files:**
 - Create: `docs/history/public-seed/code-archive/MANIFEST.md`
 - Create: `docs/history/public-seed/code-archive/**/*.py.txt`
-- Delete: `src/ai_workroot/cli/legacy_seed.py`
+- Delete: `src/ai_workroot/entrypoints/cli/legacy_seed.py`
 - Delete: `src/ai_workroot/runtime/legacy_context.py`
 - Delete: `src/ai_workroot/runtime/legacy_doctor.py`
 - Delete: `src/ai_workroot/runtime/legacy_seed/*`

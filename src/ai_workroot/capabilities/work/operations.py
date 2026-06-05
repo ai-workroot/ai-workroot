@@ -6,7 +6,7 @@ import sqlite3
 import time
 
 from ai_workroot.state.sqlite import record_index_invalidation
-from ai_workroot.work.model import (
+from ai_workroot.capabilities.work.model import (
     TASK_ITEM_STATUSES,
     AgentRun,
     InvalidationRecord,

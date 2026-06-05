@@ -21,12 +21,12 @@ Migrate product logic from `scripts/` into `src/ai_workroot/` without losing cap
 |---|---|
 | workroot paths/state | state/model + state/environment + state/layout |
 | sqlite schema | state/sqlite |
-| context guide | context/model + context/builder + retrieval providers |
-| candidates/FTS | retrieval/providers + state/sqlite |
-| bootstrap | commands/bootstrap_dev + agent_entry/native |
-| agent entry | agent_entry/native + templates/native_agent_entry |
-| doctor | diagnostics/model + diagnostics/doctor |
-| CLI | cli/ + commands/ |
+| context guide | capabilities/context/model + capabilities/context/builder + capabilities/retrieval providers |
+| candidates/FTS | capabilities/retrieval/providers + state/sqlite |
+| bootstrap | commands/bootstrap_dev + entrypoints/native_agent/native |
+| agent entry | entrypoints/native_agent/native + entrypoints/native_agent/templates |
+| doctor | capabilities/system_health/model + capabilities/system_health/doctor |
+| CLI | entrypoints/cli + commands/ |
 | install | install/ |
 
 ## Formatting requirement

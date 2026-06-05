@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.work.operations import (
+from ai_workroot.capabilities.work.operations import (
     create_checkpoint,
     create_task,
     create_task_item,
@@ -14,7 +14,7 @@ from ai_workroot.work.operations import (
     record_work_action,
     update_task_item,
 )
-import ai_workroot.work.operations as work_operations
+import ai_workroot.capabilities.work.operations as work_operations
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 

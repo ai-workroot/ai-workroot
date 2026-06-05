@@ -5,8 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.protocol.lease import bump_state_version, create_lease, validate_lease
+from ai_workroot.protocol.lease import create_lease, validate_lease
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
+from ai_workroot.state.versions import bump_state_version
 
 
 class ProtocolLeaseTest(unittest.TestCase):

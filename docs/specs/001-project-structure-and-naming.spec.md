@@ -12,21 +12,24 @@ Reset the source tree from Public Seed to Clean Workroot architecture and establ
 Create or migrate toward:
 
 ```text
-src/ai_workroot/cli/
+src/ai_workroot/entrypoints/
+src/ai_workroot/entrypoints/cli/
+src/ai_workroot/entrypoints/native_agent/
+src/ai_workroot/entrypoints/native_agent/templates/
 src/ai_workroot/commands/
 src/ai_workroot/protocol/
+src/ai_workroot/capabilities/
+src/ai_workroot/capabilities/composition/
+src/ai_workroot/capabilities/work/
+src/ai_workroot/capabilities/assets/
+src/ai_workroot/capabilities/relationships/
+src/ai_workroot/capabilities/retrieval/
+src/ai_workroot/capabilities/context/
+src/ai_workroot/capabilities/release/
+src/ai_workroot/capabilities/handoff/
+src/ai_workroot/capabilities/system_health/
 src/ai_workroot/state/
-src/ai_workroot/work/
-src/ai_workroot/assets/
-src/ai_workroot/relationships/
-src/ai_workroot/retrieval/
-src/ai_workroot/context/
-src/ai_workroot/release/
-src/ai_workroot/handoff/
-src/ai_workroot/agent_entry/
-src/ai_workroot/diagnostics/
 src/ai_workroot/shared/
-src/ai_workroot/templates/
 install/unix/install.sh
 install/windows/install.ps1
 scripts/dev/
@@ -97,7 +100,7 @@ The repo may contain templates:
 ```text
 templates/native-agent-entry/AGENTS.md.template
 templates/native-agent-entry/CLAUDE.md.template
-src/ai_workroot/templates/native_agent_entry/...
+src/ai_workroot/entrypoints/native_agent/templates/...
 ```
 
 The repo must not track generated root:

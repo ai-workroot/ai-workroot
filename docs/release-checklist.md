@@ -122,7 +122,7 @@ The final status should contain only intentional release changes.
 - Context Package includes mode, confidence, latency, token usage, fallback status, and low-confidence reasons when applicable.
 - Codex, Claude, and default agent token budgets are represented and bounded.
 - `AGENTS.md` and `CLAUDE.md` remain short launcher files and do not embed full Context Packages.
-- Follow-up: continue splitting `src/ai_workroot/context/builder.py` budget, token, render, and trace logic into smaller focused package modules.
+- Follow-up: continue splitting `src/ai_workroot/capabilities/context/builder.py` budget, token, render, and trace logic into smaller focused package modules.
 - Debug trace records resolution, mode, confidence, challengers, selected and dropped candidates, FTS matches, token budget, and timing.
 - P0 retrieval does not require a vector database or remote embedding provider.
 - `bootstrap-dev` creates no commits, tags, releases, or pushes automatically.

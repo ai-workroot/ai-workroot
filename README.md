@@ -144,24 +144,32 @@ The active source implementation is organized as:
 
 ```text
 src/ai_workroot/
-  cli/
+  entrypoints/
+    cli/
+    native_agent/
+      templates/
   commands/
   protocol/
+  capabilities/
+    composition/
+    work/
+    assets/
+    relationships/
+    retrieval/
+    context/
+    release/
+    handoff/
+    system_health/
   state/
-  work/
-  assets/
-  relationships/
-  retrieval/
-  context/
-  release/
-  handoff/
-  agent_entry/
-  diagnostics/
   shared/
-  templates/
 ```
 
-The source rule is: docs are domain-language-first; code is command-first, capability-owned, and shared-minimal. The old layer-first package names are not part of the active source tree.
+Key source paths are `entrypoints/`, `commands/`, `protocol/`, `capabilities/`, `state/`, `shared/`,
+`capabilities/work/`, `capabilities/assets/`, `capabilities/relationships/`, `capabilities/retrieval/`,
+`capabilities/context/`, `capabilities/release/`, `capabilities/handoff/`, `capabilities/system_health/`, and
+`entrypoints/native_agent/`.
+
+The source rule is: docs are domain-language-first; code is entrypoint-adapted, command-first, capability-owned, and shared-minimal. The old layer-first package names and old top-level capability packages are not part of the active source tree.
 
 Root `AGENTS.md`, root `CLAUDE.md`, `space/`, and `.workroot/` are not active tracked architecture. Native Agent Entry files may be generated locally only with explicit authorization, and bootstrap-dev keeps local staging under ignored `.ai-workroot-local/`.
 

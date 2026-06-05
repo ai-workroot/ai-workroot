@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.handoff.model import HandoffPackage
-from ai_workroot.handoff.operations import create_handoff
+from ai_workroot.capabilities.handoff.model import HandoffPackage
+from ai_workroot.capabilities.handoff.operations import create_handoff
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 

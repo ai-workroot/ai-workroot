@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 import shutil
 
-from ai_workroot.assets.model import Asset, AssetPublication, AssetSurface
+from ai_workroot.capabilities.assets.model import Asset, AssetPublication, AssetSurface
 from ai_workroot.state.sqlite import record_index_invalidation
 
 

@@ -11,12 +11,9 @@ import time
 from pathlib import Path
 import uuid
 
-from ai_workroot.context.control import workroot_guidance_text
-from ai_workroot.protocol.controller import startup_context
-from ai_workroot.protocol.model import PROTOCOL_VERSION
-from ai_workroot.protocol.packet import render_private_packet_markdown
-from ai_workroot.release.evaluation import evaluate_release_targets
-from ai_workroot.release.filter import (
+from ai_workroot.capabilities.context.control import workroot_guidance_text
+from ai_workroot.capabilities.release.evaluation import evaluate_release_targets
+from ai_workroot.capabilities.release.filter import (
     FtsReleaseFilterReport,
     RelationshipReleaseFilterReport,
     ReleaseFilterReport,
@@ -24,19 +21,19 @@ from ai_workroot.release.filter import (
     filter_relationship_signals_for_release,
     load_release_filter_report,
 )
-from ai_workroot.release.model import ReleaseTargetRef
-from ai_workroot.relationships.model import RelationshipSignal
-from ai_workroot.relationships.operations import relationship_signals_for_source_refs
-from ai_workroot.retrieval.model import ContextRecallHint
-from ai_workroot.retrieval.providers.candidate_provider import (
+from ai_workroot.capabilities.release.model import ReleaseTargetRef
+from ai_workroot.capabilities.relationships.model import RelationshipSignal
+from ai_workroot.capabilities.relationships.operations import relationship_signals_for_source_refs
+from ai_workroot.capabilities.retrieval.model import ContextRecallHint
+from ai_workroot.capabilities.retrieval.providers.candidate_provider import (
     CandidateMatch,
     query_context_candidates,
     upsert_context_candidate,
 )
-from ai_workroot.retrieval.providers.context_recall_hint_provider import (
+from ai_workroot.capabilities.retrieval.providers.context_recall_hint_provider import (
     query_context_recall_hints,
 )
-from ai_workroot.retrieval.providers.sqlite_fts import FtsMatch, search_fts
+from ai_workroot.capabilities.retrieval.providers.sqlite_fts import FtsMatch, search_fts
 from ai_workroot.state.environment import (
     ContextControlConfig,
     environment_now,
@@ -65,6 +62,8 @@ class ContextRequest:
     hard_token_limit: int | None = None
     debug: bool = False
     budget_source: str = "default"
+    startup_response: dict[str, object] | None = None
+    startup_guidance: str = ""
 
 
 @dataclass(frozen=True)
@@ -504,6 +503,8 @@ def _resolve_context_request_budget(request: ContextRequest, config: ContextCont
         hard_token_limit=hard_token_limit,
         debug=request.debug,
         budget_source=budget_source,
+        startup_response=request.startup_response,
+        startup_guidance=request.startup_guidance,
     )
 
 
@@ -756,22 +757,11 @@ def _fallback_user_asset_candidates(user_directory: Path) -> list[CandidateMatch
 
 
 def _load_startup_context_state(runtime: ContextRuntime) -> LoadedContext:
-    response = startup_context(
-        {
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": f"req-context-{uuid.uuid4().hex}",
-            "agent": {"name": runtime.request.agent, "transport": "cli-context"},
-            "cwd": str(runtime.request.cwd),
-            "reason": "startup",
-            "query": runtime.request.query,
-            "known_state": {},
-            "work_signal": _startup_work_signal(runtime.request),
-        },
-        ai_workroot_home=Path(runtime.record["stateDirectory"]).parents[1],
-    )
+    response = runtime.request.startup_response or {}
+    guidance = runtime.request.startup_guidance or workroot_guidance_text(agent=runtime.request.agent)
     return LoadedContext(
         continuity=_continuity_from_startup_response(response),
-        workroot_guidance=_startup_guidance_from_response(response, agent=runtime.request.agent),
+        workroot_guidance=guidance.rstrip() + "\n",
     )
 
 
@@ -819,10 +809,6 @@ def _first_ref(refs: list[object], ref_type: str) -> dict[str, object]:
         if isinstance(ref, dict) and ref.get("type") == ref_type:
             return ref
     return {}
-
-
-def _startup_guidance_from_response(response: dict[str, object], *, agent: str) -> str:
-    return render_private_packet_markdown(response, adapter="cli", agent=agent).rstrip() + "\n"
 
 
 # Rendering.

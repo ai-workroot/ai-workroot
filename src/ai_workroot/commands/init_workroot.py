@@ -7,8 +7,7 @@ from pathlib import Path
 import re
 import secrets
 
-from ai_workroot.agent_entry.native import sync_native_agent_entry
-from ai_workroot.state.environment import WorkrootRegistration, register_workroot
+from ai_workroot.state.environment import WorkrootRegistration, register_workroot, unregister_workroot
 from ai_workroot.state.jsonl import read_jsonl
 from ai_workroot.state.layout import ensure_workroot_id, resolve_ai_workroot_home, validate_user_directory
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
@@ -17,12 +16,10 @@ from ai_workroot.state.sqlite import initialize_workroot_sqlite
 @dataclass(frozen=True)
 class InitResult:
     registration: WorkrootRegistration
-    native_agent_entry: bool
     warnings: tuple[str, ...] = ()
 
     def message(self) -> str:
-        suffix = " agent-ready" if self.native_agent_entry else " registered"
-        return f"initialized {self.registration.workroot_id}{suffix}"
+        return f"initialized {self.registration.workroot_id} registered"
 
 
 def initialize_workroot(
@@ -30,7 +27,6 @@ def initialize_workroot(
     name: str,
     directory: Path | str,
     workroot_id: str | None = None,
-    native_agent_entry: bool = False,
     ai_workroot_home: Path | str | None = None,
 ) -> InitResult:
     home = resolve_ai_workroot_home(ai_workroot_home)
@@ -43,11 +39,20 @@ def initialize_workroot(
     registration = register_workroot(home, resolved_id, name, user_directory)
     initialize_workroot_sqlite(Path(registration.state_directory) / "cache/workroot.sqlite")
 
-    if native_agent_entry:
-        sync_native_agent_entry(user_directory / "AGENTS.md", "codex")
-        sync_native_agent_entry(user_directory / "CLAUDE.md", "claude")
+    return InitResult(registration=registration, warnings=warnings)
 
-    return InitResult(registration=registration, native_agent_entry=native_agent_entry, warnings=warnings)
+
+def rollback_initialized_workroot(
+    result: InitResult,
+    *,
+    ai_workroot_home: Path | str | None = None,
+) -> None:
+    home = resolve_ai_workroot_home(ai_workroot_home)
+    unregister_workroot(
+        home,
+        workroot_id=result.registration.workroot_id,
+        user_directory=Path(result.registration.user_directory),
+    )
 
 
 def _generate_workroot_id(name: str) -> str:

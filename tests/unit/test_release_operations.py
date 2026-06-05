@@ -5,11 +5,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.release.model import ReleaseTargetRef
-from ai_workroot.retrieval.providers.candidate_provider import upsert_context_candidate
-from ai_workroot.retrieval.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
-from ai_workroot.retrieval.providers.sqlite_fts import index_file_chunk
-from ai_workroot.release.operations import (
+from ai_workroot.capabilities.release.model import ReleaseTargetRef
+from ai_workroot.capabilities.retrieval.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.capabilities.retrieval.providers.context_recall_hint_provider import (
+    ContextRecallHint,
+    upsert_context_recall_hint,
+)
+from ai_workroot.capabilities.retrieval.providers.sqlite_fts import index_file_chunk
+from ai_workroot.capabilities.release.operations import (
     create_deletion_record,
     create_redaction,
     create_release_record,

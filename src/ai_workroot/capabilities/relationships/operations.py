@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from ai_workroot.relationships.model import (
+from ai_workroot.capabilities.relationships.model import (
     RelationshipEdge,
     RelationshipEvidence,
     RelationshipNode,

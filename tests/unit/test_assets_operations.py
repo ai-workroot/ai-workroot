@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import ai_workroot.assets.operations as asset_operations
-from ai_workroot.assets.operations import (
+import ai_workroot.capabilities.assets.operations as asset_operations
+from ai_workroot.capabilities.assets.operations import (
     create_internal_asset,
     mark_asset_missing,
     publish_asset_to_surface,

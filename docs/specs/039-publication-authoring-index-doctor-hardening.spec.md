@@ -123,13 +123,13 @@ No broad foreign-key migration is required.
 Likely changed files:
 
 ```text
-src/ai_workroot/assets/operations.py
-src/ai_workroot/work/operations.py
-src/ai_workroot/release/operations.py
-src/ai_workroot/relationships/operations.py
-src/ai_workroot/retrieval/global_indexes.py
+src/ai_workroot/capabilities/assets/operations.py
+src/ai_workroot/capabilities/work/operations.py
+src/ai_workroot/capabilities/release/operations.py
+src/ai_workroot/capabilities/relationships/operations.py
+src/ai_workroot/capabilities/retrieval/global_indexes.py
 src/ai_workroot/state/sqlite.py
-src/ai_workroot/diagnostics/doctor.py
+src/ai_workroot/capabilities/system_health/doctor.py
 scripts/dev/export-review-zip.sh
 scripts/dev/validate-release.sh
 docs/dev/0.9.530/active-authoring-surfaces.md
@@ -251,7 +251,7 @@ No required schema migration beyond using existing tables. Rollback is a normal 
 
 T1: Asset publication semantic split
 - Change: Add tests and API for metadata-only vs file-writing publication.
-- Files likely affected: `src/ai_workroot/assets/operations.py`, `tests/unit/test_assets_operations.py`
+- Files likely affected: `src/ai_workroot/capabilities/assets/operations.py`, `tests/unit/test_assets_operations.py`
 - Verification: Asset tests pass.
 
 T2: Active authoring surface documentation
@@ -266,7 +266,7 @@ T3: Index invalidation on active writes
 
 T4: Doctor integrity checks
 - Change: Add logic integrity queries and tests.
-- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/diagnostics/doctor.py`
+- Files likely affected: `src/ai_workroot/state/sqlite.py`, `src/ai_workroot/capabilities/system_health/doctor.py`
 - Verification: Doctor smoke tests pass.
 
 T5: Clean export helper

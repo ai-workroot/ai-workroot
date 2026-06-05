@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.relationships.operations import (
+from ai_workroot.capabilities.relationships.operations import (
     attach_relationship_evidence,
     create_relationship_edge,
     create_relationship_node,

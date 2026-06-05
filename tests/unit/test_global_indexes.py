@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.retrieval.global_indexes import (
+from ai_workroot.capabilities.retrieval.global_indexes import (
     query_global_index_health,
     query_global_asset_index,
     query_global_task_index,
@@ -16,10 +16,10 @@ from ai_workroot.retrieval.global_indexes import (
     refresh_global_time_index,
     refresh_global_workroot_index,
 )
-from ai_workroot.assets.operations import create_internal_asset
+from ai_workroot.capabilities.assets.operations import create_internal_asset
 from ai_workroot.state.environment import initialize_environment, register_workroot
-from ai_workroot.work.time import record_time_event
-from ai_workroot.work.operations import create_task
+from ai_workroot.capabilities.work.time import record_time_event
+from ai_workroot.capabilities.work.operations import create_task
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 

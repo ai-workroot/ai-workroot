@@ -5,11 +5,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.retrieval.providers.candidate_provider import upsert_context_candidate
-from ai_workroot.retrieval.providers.context_recall_hint_provider import ContextRecallHint, upsert_context_recall_hint
-from ai_workroot.relationships.operations import create_relationship_edge, create_relationship_node
-from ai_workroot.retrieval.providers.sqlite_fts import index_file_chunk
-from ai_workroot.context.builder import ContextRequest, build_context_package
+from ai_workroot.capabilities.retrieval.providers.candidate_provider import upsert_context_candidate
+from ai_workroot.capabilities.retrieval.providers.context_recall_hint_provider import (
+    ContextRecallHint,
+    upsert_context_recall_hint,
+)
+from ai_workroot.capabilities.relationships.operations import create_relationship_edge, create_relationship_node
+from ai_workroot.capabilities.retrieval.providers.sqlite_fts import index_file_chunk
+from ai_workroot.capabilities.context.builder import ContextRequest, build_context_package
 from ai_workroot.commands.init_workroot import initialize_workroot
 
 
@@ -20,7 +23,7 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
             home = base / "home"
             user_dir = base / "project"
             user_dir.mkdir()
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -111,7 +114,7 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:
@@ -161,7 +164,7 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
             base = Path(tmp)
             home = base / "home"
             user_dir = base / "project"
-            init = initialize_workroot(name="Demo", directory=user_dir, native_agent_entry=False, ai_workroot_home=home)
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
             workroot_id = init.registration.workroot_id
             db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
             with sqlite3.connect(db_path) as conn:

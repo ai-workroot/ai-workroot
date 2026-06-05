@@ -1023,7 +1023,7 @@ Files likely touched:
 - `src/ai_workroot/protocol/packet.py`
 - `src/ai_workroot/protocol/response.py`
 - `src/ai_workroot/commands/agent_exchange.py`
-- `src/ai_workroot/cli/main.py`
+- `src/ai_workroot/entrypoints/cli/main.py`
 - `tests/unit/test_protocol_packet.py`
 - `tests/unit/test_agent_exchange_command.py`
 - `tests/unit/test_protocol_commit_reliability_v2.py`
@@ -1041,8 +1041,8 @@ Work:
 Files likely touched:
 
 - `src/ai_workroot/protocol/projections.py`
-- `src/ai_workroot/retrieval/providers/sqlite_fts.py`
-- possibly a focused helper under `src/ai_workroot/assets/` or `src/ai_workroot/retrieval/`
+- `src/ai_workroot/capabilities/retrieval/providers/sqlite_fts.py`
+- possibly a focused helper under `src/ai_workroot/capabilities/assets/` or `src/ai_workroot/capabilities/retrieval/`
 - `tests/unit/test_protocol_projections.py`
 - new or existing integration tests for asset indexing
 
@@ -1060,7 +1060,7 @@ Files likely touched:
 
 - new focused writer module under existing state or protocol boundary, for example `src/ai_workroot/state/runtime_views.py`
 - `src/ai_workroot/protocol/controller.py`
-- `src/ai_workroot/context/builder.py`
+- `src/ai_workroot/capabilities/context/builder.py`
 - `src/ai_workroot/state/environment.py` only if directory constants need clarification
 - integration tests for generated view files
 

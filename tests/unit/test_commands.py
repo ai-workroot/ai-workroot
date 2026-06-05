@@ -20,6 +20,13 @@ class CommandsPackageTest(unittest.TestCase):
         self.assertTrue(callable(run_doctor.run_release_doctor))
         self.assertTrue(callable(bootstrap_dev.bootstrap_dev))
 
+    def test_build_context_command_exports_only_high_level_entrypoint(self) -> None:
+        from ai_workroot.commands import build_context
+
+        self.assertEqual(build_context.__all__, ["build_context"])
+        self.assertFalse(hasattr(build_context, "ContextRequest"))
+        self.assertFalse(hasattr(build_context, "build_context_package"))
+
 
 if __name__ == "__main__":
     unittest.main()

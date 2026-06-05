@@ -1,8 +1,8 @@
 # Engineering Structure
 
-## Design decision
+## Design Decision
 
-Use DDD only for strategic domain clarity. Source code is command-first, capability-owned, and shared-minimal.
+Use DDD only for strategic domain clarity. Source code is entrypoint-adapted, command-first, capability-owned, and shared-minimal.
 
 Docs remain domain-language-first. Code should show the executable path first, then the capability that owns each behavior.
 
@@ -10,28 +10,31 @@ The active lightweight structure is:
 
 ```text
 src/ai_workroot/
-  cli/
+  entrypoints/
+    cli/
+    native_agent/
+      templates/
   commands/
   protocol/
+  capabilities/
+    composition/
+    work/
+    assets/
+    relationships/
+    retrieval/
+    context/
+    release/
+    handoff/
+    system_health/
   state/
-  work/
-  assets/
-  relationships/
-  retrieval/
-  context/
-  release/
-  handoff/
-  agent_entry/
-  diagnostics/
   shared/
-  templates/
 ```
 
-Old layer-first packages are removed from the active source tree. Do not restore them as import compatibility layers.
+Old layer-first packages and old top-level capability packages are removed from the active source tree. Do not restore them as import compatibility layers.
 
-## Migration status
+## Migration Status
 
-`src/ai_workroot/` is the active architecture target. New Clean Workroot behavior should land in `commands/` or the owning capability module.
+`src/ai_workroot/` is the active architecture target. New Clean Workroot behavior should land in `commands/`, `protocol/`, or the owning capability module.
 
 `scripts/` is support-only and no longer carries active Clean Workroot product implementation:
 
@@ -42,18 +45,19 @@ scripts/
 
 Runnable legacy Public Seed compatibility is removed from active paths. Old source remains inspectable only as non-runnable history under `docs/history/public-seed/code-archive/`.
 
-## Module responsibilities
+## Module Responsibilities
 
-### `cli/`
+### `entrypoints/`
 
-Terminal adapter only.
+External adapters only.
 
 Rules:
 
-- Parse terminal input.
+- Parse terminal or transport-specific input.
+- Render Native Agent Entry files.
 - Call `commands/`.
-- Format terminal output and return exit codes.
-- Do not call storage, retrieval, state, release, context, or diagnostics internals directly.
+- Format adapter-specific output and return exit codes.
+- Do not call storage, retrieval, state, release, context, system health, or capability internals directly.
 
 ### `commands/`
 
@@ -73,9 +77,9 @@ commands/agent_exchange.py
 
 Rules:
 
-- Coordinate capability modules.
+- Coordinate protocol and capability modules.
 - Express primary executable paths.
-- Keep SQL, rendering algorithms, release policy, and template mechanics in capability modules.
+- Keep SQL, rendering algorithms, release policy, and template mechanics in lower owning modules.
 - Be reusable from CLI, tests, future API/MCP/GUI adapters, and automation.
 
 ### `protocol/`
@@ -88,14 +92,32 @@ Owns:
 - work-signal normalization and focus resolution.
 - lease validation, commit idempotency, and response replay.
 - model-facing response construction.
-- projection routing into capability modules.
+- projection routing into `capabilities/composition`.
 
 Rules:
 
-- May call capability modules and managed state infrastructure.
+- May call `capabilities/composition` and managed state infrastructure.
 - Must not own Task, Handoff, Context, Retrieval, Relationship, Release, or Asset truth.
 - Must not expose state infrastructure details as ordinary model guidance.
 - Capability modules must not import `protocol/`.
+
+### `capabilities/composition/`
+
+Cross-capability composition.
+
+Owns:
+
+- Protocol event projection into multiple capability facts.
+- Transactionally consistent Task, TaskRun, TaskItem, Asset, Relationship, Retrieval, and Handoff projection effects.
+- Durable facts derived from accepted protocol events and protocol commit batches.
+
+Rules:
+
+- Do not parse CLI input.
+- Do not render protocol packets.
+- Do not own lease or idempotency policy.
+- Do not become a general workflow layer.
+- Keep `projections.py` as one file until use-case complexity requires a semantic split.
 
 ### `state/`
 
@@ -108,6 +130,7 @@ Owns:
 - global registry and directory bindings.
 - JSONL helpers.
 - SQLite schema initialization and verification.
+- state version helpers.
 - migrations and file locks.
 
 Rules:
@@ -116,65 +139,45 @@ Rules:
 - Do not introduce ORM or one-repository-per-table structure.
 - SQLite schema changes remain explicitly scoped and tested.
 
-### `work/`
+### `capabilities/work/`
 
 Durable work facts and time events.
 
-Owns:
+Owns Task, TaskRun, TaskItem, AgentRun, WorkAction, WorkCheckpoint, InvalidationRecord, and TimeEvent runtime operations.
 
-- Task.
-- TaskRun and TaskItem for task continuity projected through protocol events.
-- AgentRun for lower-level direct work-operation records where needed.
-- WorkAction.
-- WorkCheckpoint.
-- InvalidationRecord.
-- TimeEvent runtime operations.
-
-### `handoff/`
+### `capabilities/handoff/`
 
 Derived transfer packages for the next agent, tool, session, human, or future self.
 
-Rules:
-
-- May reference Work facts, context packages, assets, relationships, and release filters.
-- Must not become the owner of durable work truth.
-- Must not expose compatibility wrappers through `work/`.
-
-### `assets/`
+### `capabilities/assets/`
 
 Asset metadata, lifecycle, publication, and asset runtime operations.
 
-### `relationships/`
+### `capabilities/relationships/`
 
 Canonical Relationship Network truth and relationship runtime operations.
 
 Retrieval may consume relationship signals, but relationship truth is owned here.
 
-### `retrieval/`
+### `capabilities/retrieval/`
 
 Indexing, FTS, candidate providers, recall hints, and global index read models.
 
 Retrieval finds candidates. It does not decide final context package structure, release filtering, or relationship truth.
 
-### `context/`
+### `capabilities/context/`
 
 Context package building, selection, budget handling, rendering, debug trace, and diagnostic logging.
 
-Context consumes retrieval output and release filters. It does not own durable work truth.
+Context consumes retrieval output and release filters. It does not own durable work truth. Context does not import `protocol/`; protocol startup guidance is built above context and injected into rendering.
 
-### `release/`
+### `capabilities/release/`
 
 Release Control models and authoring operations.
 
 Owns release, quiet/archive semantics where present, tombstone, redaction, deletion overlays, release target resolution, release filtering, and strict release-derived index sanitization.
 
-### `agent_entry/`
-
-Native Agent Entry templates, managed blocks, validation, and permission hints.
-
-AI Workroot is not an agent runtime; this package only owns the entry files that let agents enter a Workroot safely.
-
-### `diagnostics/`
+### `capabilities/system_health/`
 
 Doctor, release surface validation, health models, and actionable diagnostic reporting.
 
@@ -195,31 +198,28 @@ Rules:
 - Do not move capability-specific policy, models, or operations here.
 - `shared/contracts/` must not import project modules.
 
-### `templates/`
-
-Packaged templates used by runtime capabilities such as Native Agent Entry.
-
-## Dependency rules
+## Dependency Rules
 
 ```text
-cli
+entrypoints
   -> commands
 
 commands
   -> state
   -> protocol
-  -> work
-  -> assets
-  -> relationships
-  -> retrieval
-  -> context
-  -> release
-  -> handoff
-  -> agent_entry
-  -> diagnostics
+  -> capabilities
   -> shared
 
-capability modules
+protocol
+  -> state
+  -> capabilities/composition
+
+capabilities/composition
+  -> capability packages
+  -> state
+  -> shared
+
+capability packages
   -> shared
   -> state when persistence is needed
   -> other capabilities only when consuming their public capability output
@@ -234,16 +234,9 @@ shared/contracts
 Forbidden:
 
 ```text
-cli -> command implementation internals below commands/
+entrypoints -> implementation internals below commands/
 shared -> capability modules
-state -> commands or cli
+state -> commands or entrypoints
+capabilities -> protocol
 retrieval owns canonical relationship truth
-context owns durable work facts
-release owns retrieval indexes
-retrieval owns release filters
-agent_entry owns durable Workroot truth
 ```
-
-## Why not pure DDD directories
-
-Pure DDD directories are heavier and less obvious for open-source contributors and AI coding agents. The project uses DDD strategically for language and constraints, while implementation is organized by executable commands and owning capabilities.

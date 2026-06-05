@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from ai_workroot.assets.model import Asset, AssetPublication, AssetSurface
-from ai_workroot.context.model import ContextBudget
+from ai_workroot.capabilities.assets.model import Asset, AssetPublication, AssetSurface
+from ai_workroot.capabilities.context.model import ContextBudget
 from ai_workroot.shared.extensions import Capability
-from ai_workroot.relationships.model import RelationshipEdge, RelationshipEvidence, SourceRef
-from ai_workroot.release.model import DeletionRecord, Redaction, ReleaseTargetRef, Tombstone
-from ai_workroot.retrieval.model import IndexManifest
-from ai_workroot.work.model import Task
+from ai_workroot.capabilities.relationships.model import RelationshipEdge, RelationshipEvidence, SourceRef
+from ai_workroot.capabilities.release.model import DeletionRecord, Redaction, ReleaseTargetRef, Tombstone
+from ai_workroot.capabilities.retrieval.model import IndexManifest
+from ai_workroot.capabilities.work.model import Task
 
 
 class CoreModelsTest(unittest.TestCase):

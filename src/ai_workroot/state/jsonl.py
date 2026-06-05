@@ -24,6 +24,13 @@ def append_jsonl(path: Path, record: dict[str, Any]) -> None:
         file.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
 
 
+def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as file:
+        for record in records:
+            file.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+
+
 def write_json(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")

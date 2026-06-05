@@ -20,10 +20,10 @@ from ai_workroot.protocol.directives import directive
 from ai_workroot.protocol.errors import ProtocolError, protocol_error_response
 from ai_workroot.protocol.events import canonical_json, request_hash, semantic_commit_hash, validate_event_envelope
 from ai_workroot.protocol.focus import FocusResolution, resolve_sync_focus
-from ai_workroot.protocol.lease import bump_state_version, create_lease, decide_lease_safety, now_utc
+from ai_workroot.protocol.lease import create_lease, decide_lease_safety
 from ai_workroot.protocol.location import locate_for_commit
 from ai_workroot.protocol.model import CommitRequest, SyncRequest
-from ai_workroot.protocol.projections import ProjectionResult, apply_projection
+from ai_workroot.capabilities.composition.projections import ProjectionError, ProjectionResult, apply_projection
 from ai_workroot.protocol.response import (
     empty_workroot_contract,
     guidance_text,
@@ -36,6 +36,7 @@ from ai_workroot.state.layout import workroot_sqlite_path
 from ai_workroot.state.registry import find_workroot_by_cwd, list_workroots
 from ai_workroot.state.runtime_views import refresh_runtime_views
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
+from ai_workroot.state.versions import bump_state_version, now_utc
 
 
 def sync(request_data: dict[str, Any], *, ai_workroot_home: Path | str | None = None) -> dict[str, Any]:
@@ -56,7 +57,7 @@ def _sync(
 ) -> dict[str, Any]:
     try:
         request = SyncRequest.from_dict(request_data)
-    except ProtocolError as exc:
+    except (ProjectionError, ProtocolError) as exc:
         return protocol_error_response(exc.code, details=exc.details)
     try:
         workroot = _resolve_workroot(request, ai_workroot_home=ai_workroot_home)
@@ -101,7 +102,7 @@ def _sync(
 def commit(request_data: dict[str, Any], *, ai_workroot_home: Path | str | None = None) -> dict[str, Any]:
     try:
         request = CommitRequest.from_dict(request_data)
-    except ProtocolError as exc:
+    except (ProjectionError, ProtocolError) as exc:
         return protocol_error_response(exc.code, details=exc.details)
     if not request.atomic_batch:
         return protocol_error_response(
@@ -405,7 +406,7 @@ def _apply_commit_batch(
                 updated_by_event_id=str(event["event_id"]),
                 reason=f"commit:{event['kind']}",
             )
-    except ProtocolError as exc:
+    except (ProjectionError, ProtocolError) as exc:
         conn.execute("ROLLBACK TO projection")
         conn.execute("RELEASE projection")
         hard_error = hard_projection_error(exc.code)

@@ -22,9 +22,9 @@ class SourceLayoutImportsTest(unittest.TestCase):
         self.assertTrue(callable(sqlite.initialize_workroot_sqlite))
 
     def test_agent_entry_and_diagnostics_modules_expose_entrypoints(self) -> None:
-        from ai_workroot.agent_entry import native
-        from ai_workroot.diagnostics import doctor
-        from ai_workroot.diagnostics import release_validation
+        from ai_workroot.capabilities.system_health import doctor
+        from ai_workroot.capabilities.system_health import release_validation
+        from ai_workroot.entrypoints.native_agent import native
 
         self.assertTrue(callable(native.render_native_agent_entry))
         self.assertTrue(callable(doctor.run_doctor))
@@ -32,16 +32,16 @@ class SourceLayoutImportsTest(unittest.TestCase):
         self.assertTrue(callable(release_validation.validate_release_surface))
 
     def test_capability_modules_expose_runtime_entrypoints(self) -> None:
-        from ai_workroot.assets import operations as asset_operations
-        from ai_workroot.context import builder as context_builder
-        from ai_workroot.handoff import operations as handoff_operations
-        from ai_workroot.relationships import operations as relationship_operations
-        from ai_workroot.release import filter as release_filter
-        from ai_workroot.release import operations as release_operations
-        from ai_workroot.retrieval import global_indexes
-        from ai_workroot.retrieval.providers import candidate_provider
-        from ai_workroot.work import operations as work_operations
-        from ai_workroot.work import time
+        from ai_workroot.capabilities.assets import operations as asset_operations
+        from ai_workroot.capabilities.context import builder as context_builder
+        from ai_workroot.capabilities.handoff import operations as handoff_operations
+        from ai_workroot.capabilities.relationships import operations as relationship_operations
+        from ai_workroot.capabilities.release import filter as release_filter
+        from ai_workroot.capabilities.release import operations as release_operations
+        from ai_workroot.capabilities.retrieval import global_indexes
+        from ai_workroot.capabilities.retrieval.providers import candidate_provider
+        from ai_workroot.capabilities.work import operations as work_operations
+        from ai_workroot.capabilities.work import time
 
         self.assertTrue(callable(asset_operations.create_internal_asset))
         self.assertTrue(callable(context_builder.build_context_package))
@@ -55,22 +55,22 @@ class SourceLayoutImportsTest(unittest.TestCase):
         self.assertTrue(callable(time.record_time_event))
 
     def test_shared_and_local_models_are_importable(self) -> None:
-        from ai_workroot.agent_entry import model as agent_entry_model
-        from ai_workroot.assets import model as assets_model
-        from ai_workroot.context import model as context_model
-        from ai_workroot.diagnostics import model as diagnostics_model
-        from ai_workroot.handoff import model as handoff_model
-        from ai_workroot.relationships import model as relationships_model
-        from ai_workroot.release import model as release_model
-        from ai_workroot.retrieval import model as retrieval_model
+        from ai_workroot.capabilities.assets import model as assets_model
+        from ai_workroot.capabilities.context import model as context_model
+        from ai_workroot.capabilities.handoff import model as handoff_model
+        from ai_workroot.capabilities.relationships import model as relationships_model
+        from ai_workroot.capabilities.release import model as release_model
+        from ai_workroot.capabilities.retrieval import model as retrieval_model
+        from ai_workroot.capabilities.system_health import model as system_health_model
+        from ai_workroot.capabilities.work import model as work_model
+        from ai_workroot.entrypoints.native_agent import model as native_agent_model
         from ai_workroot.shared import extensions
         from ai_workroot.state import model as state_model
-        from ai_workroot.work import model as work_model
 
-        self.assertTrue(callable(agent_entry_model.PermissionHint))
+        self.assertTrue(callable(native_agent_model.PermissionHint))
         self.assertTrue(callable(assets_model.Asset))
         self.assertTrue(callable(context_model.ContextBudget))
-        self.assertTrue(callable(diagnostics_model.HealthCheckResult))
+        self.assertTrue(callable(system_health_model.HealthCheckResult))
         self.assertTrue(callable(handoff_model.HandoffPackage))
         self.assertTrue(callable(relationships_model.RelationshipEdge))
         self.assertTrue(callable(release_model.ReleaseTargetRef))

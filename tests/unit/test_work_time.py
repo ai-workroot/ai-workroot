@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.work.time import query_time_events, record_time_event
+from ai_workroot.capabilities.work.time import query_time_events, record_time_event
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 

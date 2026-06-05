@@ -16,9 +16,7 @@ The domain is Agent Interface. Native Agent Entry is one capability inside it.
 Templates must be committed:
 
 ```text
-templates/native-agent-entry/AGENTS.md.template
-templates/native-agent-entry/CLAUDE.md.template
-src/ai_workroot/templates/native_agent_entry/...
+src/ai_workroot/entrypoints/native_agent/templates/...
 ```
 
 Generated root files must not be committed:

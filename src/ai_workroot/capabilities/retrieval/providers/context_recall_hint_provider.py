@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from ai_workroot.retrieval.model import ContextRecallHint
+from ai_workroot.capabilities.retrieval.model import ContextRecallHint
 
 
 def upsert_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecallHint) -> None:

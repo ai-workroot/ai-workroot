@@ -23,26 +23,34 @@ The active implementation establishes:
 
 ```text
 src/ai_workroot/
-  cli/
+  entrypoints/
+    cli/
+    native_agent/
+      templates/
   commands/
   protocol/
+  capabilities/
+    composition/
+    work/
+    assets/
+    relationships/
+    retrieval/
+    context/
+    release/
+    handoff/
+    system_health/
   state/
-  work/
-  assets/
-  relationships/
-  retrieval/
-  context/
-  release/
-  handoff/
-  agent_entry/
-  diagnostics/
   shared/
-  templates/
 ```
+
+Key source paths are `entrypoints/`, `commands/`, `protocol/`, `capabilities/`, `state/`, `shared/`,
+`capabilities/work/`, `capabilities/assets/`, `capabilities/relationships/`, `capabilities/retrieval/`,
+`capabilities/context/`, `capabilities/release/`, `capabilities/handoff/`, `capabilities/system_health/`, and
+`entrypoints/native_agent/`.
 
 Required import rules:
 
-- `cli` calls `commands`; it does not call state, retrieval, storage, indexing, or runtime internals directly.
+- `entrypoints/cli` calls `commands`; it does not call state, retrieval, storage, indexing, or runtime internals directly.
 - `commands` coordinates protocol runtime and capability modules.
 - `protocol` implements Agent-facing sync/commit control and calls capability modules; capability modules must not import `protocol`.
 - capability modules own local models and operations.

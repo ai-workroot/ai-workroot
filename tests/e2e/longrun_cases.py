@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.context.builder import ContextRequest, build_context_package
+from ai_workroot.capabilities.context.builder import ContextRequest, build_context_package
 from tests.e2e.longrun import run_longrun
 from tests.e2e.persona_smoke import run_persona_smoke
 from tests.e2e.safety import new_default_run_root

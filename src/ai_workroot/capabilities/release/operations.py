@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from ai_workroot.release.evaluation import ReleaseEvaluation, evaluate_release_targets
-from ai_workroot.release.model import DeletionRecord, Redaction, ReleaseRecord, ReleaseTargetRef, Tombstone
+from ai_workroot.capabilities.release.evaluation import ReleaseEvaluation, evaluate_release_targets
+from ai_workroot.capabilities.release.model import DeletionRecord, Redaction, ReleaseRecord, ReleaseTargetRef, Tombstone
 
 
 STRICT_RELEASE_LEVELS = {"deleted", "redacted", "safety-sensitive"}

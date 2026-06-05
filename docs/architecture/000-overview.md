@@ -49,28 +49,29 @@ DDD was used only to understand the domain. The final implementation does not us
 These concepts are implemented through a command-first, capability-owned module structure:
 
 ```text
-cli/
+entrypoints/
+entrypoints/cli/
+entrypoints/native_agent/
 commands/
 protocol/
+capabilities/
 state/
-work/
-assets/
-relationships/
-retrieval/
-context/
-release/
-handoff/
-agent_entry/
-diagnostics/
 shared/
-templates/
+capabilities/work/
+capabilities/assets/
+capabilities/relationships/
+capabilities/retrieval/
+capabilities/context/
+capabilities/release/
+capabilities/handoff/
+capabilities/system_health/
 ```
 
 ## Engineering principles
 
 - Docs are domain-language-first.
-- Code is command-first, capability-owned, and shared-minimal.
-- Keep `cli` as a thin terminal adapter.
+- Code is entrypoint-adapted, command-first, capability-owned, and shared-minimal.
+- Keep `entrypoints/cli` as a thin terminal adapter.
 - Put application entrypoints in `commands`.
 - Let each capability own its local models, operations, and helpers.
 - Keep `shared` small and stable.

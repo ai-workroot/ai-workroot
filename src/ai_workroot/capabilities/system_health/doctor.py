@@ -7,8 +7,7 @@ from pathlib import Path
 import ast
 import subprocess
 
-from ai_workroot.agent_entry.native import NativeAgentEntryError, validate_managed_block
-from ai_workroot.diagnostics.release_validation import validate_release_surface
+from ai_workroot.capabilities.system_health.release_validation import validate_release_surface
 from ai_workroot.state.environment import record_environment_doctor_summary
 from ai_workroot.state.layout import resolve_ai_workroot_home
 from ai_workroot.state.registry import find_workroot_by_cwd
@@ -74,8 +73,8 @@ def run_doctor(*, cwd: Path | str = ".", ai_workroot_home: Path | str | None = N
         if not path.exists():
             continue
         try:
-            validate_managed_block(path.read_text(encoding="utf-8"))
-        except (NativeAgentEntryError, ValueError) as exc:
+            _validate_native_agent_entry_block(path.read_text(encoding="utf-8"))
+        except ValueError as exc:
             findings.append(DoctorFinding("FAIL", f"{filename} is not a safe Native Agent Entry: {exc}"))
         else:
             findings.append(DoctorFinding("PASS", f"{filename} Native Agent Entry is safe"))
@@ -92,15 +91,15 @@ def run_release_doctor(root: Path | str = ".") -> DoctorResult:
     findings = [
         _check_path(repo, "src/ai_workroot/commands", "commands package"),
         _check_path(repo, "src/ai_workroot/state", "state package"),
-        _check_path(repo, "src/ai_workroot/context/builder.py", "Context Control entrypoint"),
-        _check_path(repo, "src/ai_workroot/handoff", "Handoff package"),
-        _check_path(repo, "src/ai_workroot/retrieval/providers", "retrieval providers"),
-        _check_path(repo, "src/ai_workroot/release/operations.py", "Release Control"),
-        _check_path(repo, "src/ai_workroot/release/filter.py", "Release Control filtering"),
-        _check_path(repo, "src/ai_workroot/agent_entry/native.py", "Agent Entry"),
+        _check_path(repo, "src/ai_workroot/capabilities/context/builder.py", "Context Control entrypoint"),
+        _check_path(repo, "src/ai_workroot/capabilities/handoff", "Handoff package"),
+        _check_path(repo, "src/ai_workroot/capabilities/retrieval/providers", "retrieval providers"),
+        _check_path(repo, "src/ai_workroot/capabilities/release/operations.py", "Release Control"),
+        _check_path(repo, "src/ai_workroot/capabilities/release/filter.py", "Release Control filtering"),
+        _check_path(repo, "src/ai_workroot/entrypoints/native_agent/native.py", "Agent Entry"),
         _check_path(
             repo,
-            "src/ai_workroot/templates/native_agent_entry/AGENTS.md.template",
+            "src/ai_workroot/entrypoints/native_agent/templates/AGENTS.md.template",
             "Native Agent Entry templates",
         ),
         _check_path(
@@ -128,10 +127,37 @@ def _check_path(repo: Path, rel: str, label: str) -> DoctorFinding:
     return DoctorFinding("PASS" if (repo / rel).exists() else "FAIL", f"{label}: {rel}")
 
 
+def _validate_native_agent_entry_block(text: str) -> None:
+    begin = "<!-- AI_WORKROOT_BEGIN -->"
+    end = "<!-- AI_WORKROOT_END -->"
+    if text.count(begin) != 1 or text.count(end) != 1:
+        raise ValueError("Native Agent Entry must contain exactly one AI Workroot managed block")
+    start = text.index(begin) + len(begin)
+    stop = text.index(end)
+    if start > stop:
+        raise ValueError("Native Agent Entry managed block markers are out of order")
+    managed = text[start:stop]
+    forbidden_terms = (
+        "AI_WORKROOT_HOME",
+        "workroot_id",
+        ".ai-workroot/workroots",
+        "logs",
+        "indexes",
+        "handoffs",
+        "context package history",
+    )
+    for term in forbidden_terms:
+        if term.lower() in managed.lower():
+            raise ValueError(f"Native Agent Entry managed block contains forbidden term: {term}")
+    for line in managed.splitlines():
+        if line.startswith("/") or " /Users/" in line or " C:\\" in line:
+            raise ValueError("Native Agent Entry managed block must not contain absolute local paths")
+
+
 def _check_import_boundaries(repo: Path) -> DoctorFinding:
     errors: list[str] = []
     shared_contracts = repo / "src/ai_workroot/shared/contracts"
-    cli = repo / "src/ai_workroot/cli"
+    cli = repo / "src/ai_workroot/entrypoints/cli"
     state = repo / "src/ai_workroot/state"
     _scan_forbidden_imports(shared_contracts, ("ai_workroot.",), errors)
     _scan_forbidden_imports(
@@ -139,13 +165,13 @@ def _check_import_boundaries(repo: Path) -> DoctorFinding:
         (
             "ai_workroot.state",
             "ai_workroot.storage",
-            "ai_workroot.retrieval",
+            "ai_workroot.capabilities.retrieval",
             "ai_workroot.indexing",
             "ai_workroot.runtime",
         ),
         errors,
     )
-    _scan_forbidden_imports(state, ("ai_workroot.commands", "ai_workroot.cli"), errors)
+    _scan_forbidden_imports(state, ("ai_workroot.commands", "ai_workroot.entrypoints.cli"), errors)
     if errors:
         return DoctorFinding("FAIL", "import boundaries: " + "; ".join(errors[:3]))
     return DoctorFinding("PASS", "import boundaries")

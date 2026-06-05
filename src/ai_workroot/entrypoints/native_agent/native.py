@@ -10,7 +10,7 @@ MANAGED_BLOCK_BEGIN = "<!-- AI_WORKROOT_BEGIN -->"
 MANAGED_BLOCK_END = "<!-- AI_WORKROOT_END -->"
 BEGIN = MANAGED_BLOCK_BEGIN
 END = MANAGED_BLOCK_END
-TEMPLATE_PACKAGE = "ai_workroot.templates.native_agent_entry"
+TEMPLATE_PACKAGE = "ai_workroot.entrypoints.native_agent.templates"
 
 
 class NativeAgentEntryError(ValueError):

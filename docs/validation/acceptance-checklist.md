@@ -14,21 +14,24 @@
 
 ## Source tree
 
-- [ ] `src/ai_workroot/cli/` exists.
+- [ ] `src/ai_workroot/entrypoints/` exists.
+- [ ] `src/ai_workroot/entrypoints/cli/` exists.
+- [ ] `src/ai_workroot/entrypoints/native_agent/` exists.
+- [ ] `src/ai_workroot/entrypoints/native_agent/templates/` exists.
 - [ ] `src/ai_workroot/commands/` exists.
 - [ ] `src/ai_workroot/protocol/` exists.
+- [ ] `src/ai_workroot/capabilities/` exists.
+- [ ] `src/ai_workroot/capabilities/composition/` exists.
+- [ ] `src/ai_workroot/capabilities/work/` exists.
+- [ ] `src/ai_workroot/capabilities/assets/` exists.
+- [ ] `src/ai_workroot/capabilities/relationships/` exists.
+- [ ] `src/ai_workroot/capabilities/retrieval/` exists.
+- [ ] `src/ai_workroot/capabilities/context/` exists.
+- [ ] `src/ai_workroot/capabilities/release/` exists.
+- [ ] `src/ai_workroot/capabilities/handoff/` exists.
+- [ ] `src/ai_workroot/capabilities/system_health/` exists.
 - [ ] `src/ai_workroot/state/` exists.
-- [ ] `src/ai_workroot/work/` exists.
-- [ ] `src/ai_workroot/assets/` exists.
-- [ ] `src/ai_workroot/relationships/` exists.
-- [ ] `src/ai_workroot/retrieval/` exists.
-- [ ] `src/ai_workroot/context/` exists.
-- [ ] `src/ai_workroot/release/` exists.
-- [ ] `src/ai_workroot/handoff/` exists.
-- [ ] `src/ai_workroot/agent_entry/` exists.
-- [ ] `src/ai_workroot/diagnostics/` exists.
 - [ ] `src/ai_workroot/shared/` exists.
-- [ ] `src/ai_workroot/templates/` exists.
 - [ ] user install scripts under `install/`.
 - [ ] scripts are dev wrappers only.
 

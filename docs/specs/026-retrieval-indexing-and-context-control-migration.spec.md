@@ -100,13 +100,13 @@ budget_trim_decisions
 ### File Layout
 
 ```text
-src/ai_workroot/retrieval/providers/sqlite_fts.py
-src/ai_workroot/retrieval/providers/candidate_provider.py
-src/ai_workroot/retrieval/global_indexes.py
-src/ai_workroot/retrieval/providers/sqlite_fts.py
-src/ai_workroot/retrieval/providers/candidate_provider.py
-src/ai_workroot/context/builder.py
-src/ai_workroot/context/model.py
+src/ai_workroot/capabilities/retrieval/providers/sqlite_fts.py
+src/ai_workroot/capabilities/retrieval/providers/candidate_provider.py
+src/ai_workroot/capabilities/retrieval/global_indexes.py
+src/ai_workroot/capabilities/retrieval/providers/sqlite_fts.py
+src/ai_workroot/capabilities/retrieval/providers/candidate_provider.py
+src/ai_workroot/capabilities/context/builder.py
+src/ai_workroot/capabilities/context/model.py
 ```
 
 ### CLI / API
@@ -178,17 +178,17 @@ Debug trace must expose candidate sources, filtered reasons, scoring, FTS fallba
 
 T1: Migrate indexing chunking
 - Change: Move supported-file detection, hashing, chunking, and FTS insert behavior into package indexing modules.
-- Files likely affected: `src/ai_workroot/retrieval/providers/sqlite_fts.py`, `src/ai_workroot/retrieval/global_indexes.py`.
+- Files likely affected: `src/ai_workroot/capabilities/retrieval/providers/sqlite_fts.py`, `src/ai_workroot/capabilities/retrieval/global_indexes.py`.
 - Verification: package indexing tests.
 
 T2: Migrate candidate provider parity
 - Change: Port candidate FTS, safety filtering, source flags, and use-count updates.
-- Files likely affected: `src/ai_workroot/retrieval/providers/candidate_provider.py`, `src/ai_workroot/retrieval/providers/candidate_provider.py`.
+- Files likely affected: `src/ai_workroot/capabilities/retrieval/providers/candidate_provider.py`, `src/ai_workroot/capabilities/retrieval/providers/candidate_provider.py`.
 - Verification: candidate provider tests.
 
 T3: Migrate context budget/render helpers
 - Change: Move token estimator, budget config merge, render trim, confidence, and trace helpers into package modules.
-- Files likely affected: `src/ai_workroot/context/builder.py`, `src/ai_workroot/context/model.py`.
+- Files likely affected: `src/ai_workroot/capabilities/context/builder.py`, `src/ai_workroot/capabilities/context/model.py`.
 - Verification: token and context trace tests.
 
 T4: Add package context parity tests
