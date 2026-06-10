@@ -113,6 +113,71 @@ class ContextRecallHintsTest(unittest.TestCase):
         self.assertEqual(hints[0].target_type, "task")
         self.assertEqual(hints[0].target_id, "task-clean")
 
+    def test_query_context_recall_hints_handles_cjk_query_without_broad_fallback(self) -> None:
+        conn = self.open_db()
+        upsert_context_recall_hint(
+            conn,
+            ContextRecallHint(
+                hint_id="hint-office",
+                workroot_id="wr_demo",
+                target_type="asset",
+                target_id="asset-office",
+                title="安静办公位",
+                summary="下午安静办公位适合低峰时段。",
+                priority="high",
+            ),
+        )
+        upsert_context_recall_hint(
+            conn,
+            ContextRecallHint(
+                hint_id="hint-unrelated",
+                workroot_id="wr_demo",
+                target_type="asset",
+                target_id="asset-unrelated",
+                title="Unrelated report",
+                summary="A different operating note.",
+                priority="critical",
+            ),
+        )
+
+        hints = query_context_recall_hints(conn, "wr_demo", query="为什么选择下午安静办公位？")
+
+        self.assertEqual([hint.hint_id for hint in hints], ["hint-office"])
+
+    def test_query_context_recall_hints_respects_task_scope(self) -> None:
+        conn = self.open_db()
+        upsert_context_recall_hint(
+            conn,
+            ContextRecallHint(
+                hint_id="hint-task-one",
+                workroot_id="wr_demo",
+                target_type="task",
+                target_id="task-one",
+                scope_type="task",
+                scope_id="task-one",
+                title="Pricing decision",
+                summary="Current task pricing context.",
+            ),
+        )
+        upsert_context_recall_hint(
+            conn,
+            ContextRecallHint(
+                hint_id="hint-task-two",
+                workroot_id="wr_demo",
+                target_type="task",
+                target_id="task-two",
+                scope_type="task",
+                scope_id="task-two",
+                title="Pricing decision",
+                summary="Other task pricing context.",
+                priority="critical",
+            ),
+        )
+
+        hints = query_context_recall_hints(conn, "wr_demo", query="pricing", scope="task:task-one")
+
+        self.assertEqual([hint.hint_id for hint in hints], ["hint-task-one"])
+
     def test_query_context_recall_hints_does_not_mutate_connection_row_factory(self) -> None:
         conn = self.open_db()
         upsert_context_recall_hint(

@@ -13,6 +13,7 @@ from __future__ import annotations
 import sqlite3
 
 from ai_workroot.capabilities.retrieval.model import ContextRecallHint
+from ai_workroot.capabilities.retrieval.providers.sqlite_fts import compile_safe_fts_query, text_term_score
 
 
 def upsert_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecallHint) -> None:
@@ -72,6 +73,7 @@ def query_context_recall_hints(
     workroot_id: str,
     *,
     query: str = "",
+    scope: str = "",
     limit: int = 50,
 ) -> list[ContextRecallHint]:
     params: list[object] = [workroot_id]
@@ -79,14 +81,19 @@ def query_context_recall_hints(
         "h.workroot_id = ?",
         "COALESCE(h.lifecycle_status, 'active') = 'active'",
     ]
-    if query.strip():
-        hint_ids = _hint_fts_ids(conn, query)
-        if not hint_ids:
-            return []
-        placeholders = ",".join("?" for _ in hint_ids)
-        where.append(f"h.hint_id IN ({placeholders})")
-        params.extend(sorted(hint_ids))
-    params.append(limit)
+    parsed_scope = _parse_scope(scope)
+    if parsed_scope[0] == "task":
+        where.append(
+            """
+            (
+              COALESCE(h.scope_type, '') IN ('', 'workroot')
+              OR (h.scope_type = 'task' AND h.scope_id = ?)
+            )
+            """
+        )
+        params.append(parsed_scope[1])
+    row_limit = max(limit * 20, 100) if query.strip() else limit
+    params.append(row_limit)
     rows = conn.execute(
         f"""
         SELECT h.*
@@ -105,18 +112,67 @@ def query_context_recall_hints(
         """,
         params,
     ).fetchall()
-    return [_hint_from_row(row) for row in rows]
+    if not query.strip():
+        return [_hint_from_row(row) for row in rows[:limit]]
+    hint_ids = _hint_fts_ids(conn, query)
+    scored_rows: list[tuple[float, sqlite3.Row | tuple[object, ...]]] = []
+    for row in rows:
+        score = _hint_query_score(row, query, hint_ids)
+        if score <= 0 and str(row[_column(row, "recall_rule", 10)] or "") != "always":
+            continue
+        scored_rows.append((score, row))
+    scored_rows.sort(key=lambda item: (-item[0], _hint_sort_key(item[1])))
+    return [_hint_from_row(row) for _score, row in scored_rows[:limit]]
 
 
 def _hint_fts_ids(conn: sqlite3.Connection, query: str) -> set[str]:
+    compiled_query = compile_safe_fts_query(query)
+    if not compiled_query:
+        return set()
     try:
         rows = conn.execute(
             "SELECT hint_id FROM context_recall_hints_fts WHERE context_recall_hints_fts MATCH ?",
-            (query,),
+            (compiled_query,),
         ).fetchall()
     except sqlite3.OperationalError:
         return set()
     return {str(row[0]) for row in rows}
+
+
+def _hint_query_score(
+    row: sqlite3.Row | tuple[object, ...],
+    query: str,
+    hint_ids: set[str],
+) -> float:
+    score = 0.0
+    if str(row[_column(row, "hint_id", 0)]) in hint_ids:
+        score += 1.0
+    term_score = text_term_score(
+        f"{row[_column(row, 'title', 7)] or ''} {row[_column(row, 'summary', 8)] or ''}",
+        query,
+    )
+    if term_score > 0:
+        score += min(0.8, term_score * 0.2)
+    return score
+
+
+def _hint_sort_key(row: sqlite3.Row | tuple[object, ...]) -> tuple[int, str]:
+    priority = str(row[_column(row, "priority", 9)] or "normal")
+    priority_order = {
+        "critical": 0,
+        "high": 1,
+        "normal": 2,
+        "low": 3,
+    }.get(priority, 4)
+    return priority_order, str(row[_column(row, "hint_id", 0)])
+
+
+def _parse_scope(scope: str) -> tuple[str, str]:
+    value = str(scope or "").strip()
+    scope_type, separator, scope_id = value.partition(":")
+    if separator != ":" or not scope_type or not scope_id:
+        return "", ""
+    return scope_type, scope_id
 
 
 def _hint_from_row(row: sqlite3.Row | tuple[object, ...]) -> ContextRecallHint:

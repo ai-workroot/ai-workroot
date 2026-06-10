@@ -25,7 +25,7 @@ Within each priority level, the order in the table is the default execution orde
 | 4 | Keep scripts closed over support roles | Engineering | `scripts/dev` is the only active scripts support surface; active product logic stays in `src/ai_workroot`. |
 | 5 | Keep bootstrap-dev dogfood safe | Engineering | Source repo dogfood uses `workroot.project.json`, ignored Native Agent Entry files, and `.ai-workroot-local/` without commits, tags, or pushes. |
 | 6 | Preserve legacy knowledge safely | History | Old Public Seed source is preserved as non-runnable history/fixtures, not as active root layout or runnable compatibility. |
-| 7 | Harden Context Control | Product / Engineering | Keep local retrieval explainable, bounded, configurable, and free of mandatory vector, remote embedding, or remote LLM dependencies. Layered L1/L2/L3 recall remains the next major context strategy upgrade. |
+| 7 | Harden Context Control | Product / Engineering | Keep local retrieval explainable, bounded, configurable, and free of mandatory vector, remote embedding, or remote LLM dependencies. Layered context recall foundation is implemented; remaining work is hardening ranking quality, source coverage, multilingual WorkSignal behavior, and real E2E observability. |
 | 8 | Complete release validation | Engineering | Release gates include unit, integration, smoke, negative, Clean Workroot doctor, archive boundary checks, and text audits. |
 | 9 | Dogfood AI Workroot daily | Product | Use Clean Workroot and Agent Protocol flows to manage the AI Workroot project itself and real personal work. |
 

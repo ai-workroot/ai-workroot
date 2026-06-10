@@ -32,4 +32,4 @@ def safe_event_for_storage(event: dict[str, Any], *, occurred_at: str) -> dict[s
 
 
 def hard_projection_error(code: str) -> bool:
-    return code in {"invalid_state_transition", "state_conflict"}
+    return code in {"asset_owner_conflict", "invalid_state_transition", "state_conflict"}

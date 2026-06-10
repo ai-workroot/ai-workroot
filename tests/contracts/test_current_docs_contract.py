@@ -186,7 +186,6 @@ class CurrentDocsContractTest(unittest.TestCase):
             "docs/architecture-map.md",
             "docs/kernel-implementation-specification.md",
             "docs/specs",
-            "docs/superpowers/specs",
             "docs/validation",
             "docs/workroot-system-design.md",
         )
@@ -221,6 +220,85 @@ class CurrentDocsContractTest(unittest.TestCase):
             with self.subTest(rel=rel):
                 self.assertIn("Agent Protocol", text)
                 self.assertIn("protocol", text)
+
+    def test_current_public_docs_do_not_depend_on_superpowers_process_docs(self) -> None:
+        docs = (
+            "README.md",
+            "docs/workroot-system-design.md",
+            "docs/architecture.md",
+            "docs/architecture-map.md",
+            "docs/specs/README.md",
+        )
+        for rel in docs:
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            with self.subTest(rel=rel):
+                self.assertNotIn("docs/superpowers", text)
+
+    def test_roadmap_describes_layered_context_recall_as_current_foundation(self) -> None:
+        text = (ROOT / "ROADMAP.md").read_text(encoding="utf-8")
+
+        self.assertIn("Layered context recall foundation is implemented", text)
+        self.assertIn("remaining work is hardening", text)
+        self.assertNotIn("Layered L1/L2/L3 recall remains the next major context strategy upgrade", text)
+
+    def test_architecture_map_context_loading_is_strategy_first(self) -> None:
+        text = (ROOT / "docs/architecture-map.md").read_text(encoding="utf-8")
+        start = text.index("## Context Loading")
+        end = text.index("## Daily Loop")
+        section = text[start:end]
+
+        required_in_order = (
+            "WorkSignal",
+            "Focus",
+            "ContextStrategy",
+            "DisclosurePlan",
+            "RecallPlan",
+            "PlanConstrainedRetrieval",
+            "ContextPackage",
+        )
+        last_position = -1
+        for phrase in required_in_order:
+            with self.subTest(phrase=phrase):
+                position = section.find(phrase)
+                self.assertGreater(position, last_position)
+                last_position = position
+        self.assertNotIn("Req --> Candidates", section)
+
+    def test_old_0530_dev_package_is_historical_not_current_dev_docs(self) -> None:
+        self.assertFalse((ROOT / "docs/dev/0.9.530").exists())
+        self.assertTrue((ROOT / "docs/history/0.9.530/dev/README.md").is_file())
+
+        active_hits: list[str] = []
+        for path in current_doc_files():
+            rel = path.relative_to(ROOT).as_posix()
+            text = path.read_text(encoding="utf-8")
+            if "docs/dev/0.9.530" in text:
+                active_hits.append(rel)
+        self.assertEqual(active_hits, [])
+
+    def test_current_dev_docs_do_not_expose_process_heavy_plans(self) -> None:
+        forbidden_paths = (
+            ROOT / "docs/dev/focused-hardening-groups-1-2-design.md",
+            ROOT / "docs/dev/runnable-legacy-compat-removal-plan.md",
+        )
+        for path in forbidden_paths:
+            with self.subTest(path=path.relative_to(ROOT).as_posix()):
+                self.assertFalse(path.exists())
+
+        self.assertTrue((ROOT / "docs/history/0.9.531/dev/focused-hardening-groups-1-2-design.md").is_file())
+        self.assertTrue((ROOT / "docs/history/0.9.531/dev/runnable-legacy-compat-removal-plan.md").is_file())
+
+    def test_work_process_levels_are_consistent_and_distinct_from_context_disclosure(self) -> None:
+        docs = (
+            "docs/architecture.md",
+            "docs/kernel-implementation-specification.md",
+            "docs/workroot-operating-protocol.md",
+        )
+        for rel in docs:
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            with self.subTest(rel=rel):
+                self.assertIn("L0 / L1 / L2 / L3 process levels", text)
+                self.assertIn("Task process levels are distinct from Context Control disclosure levels", text)
 
     def test_release_checklist_uses_current_managed_state_truth_model(self) -> None:
         text = (ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")

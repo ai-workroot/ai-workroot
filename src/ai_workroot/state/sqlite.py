@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 REQUIRED_TABLES = (
     "schema_migrations",
@@ -388,6 +391,7 @@ CREATE TABLE IF NOT EXISTS exchange_leases (
   observed_versions_json TEXT NOT NULL,
   allowed_events_json TEXT NOT NULL,
   required_before_stop_json TEXT NOT NULL DEFAULT '[]',
+  policy_json TEXT NOT NULL DEFAULT '{}',
   status TEXT NOT NULL,
   issued_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
@@ -576,9 +580,6 @@ CREATE TABLE IF NOT EXISTS maintenance_actions (
   status TEXT
 );
 
-INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
-VALUES ('001-clean-workroot-schema', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
-
 CREATE INDEX IF NOT EXISTS idx_release_records_workroot_target
   ON release_records(workroot_id, target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_tombstones_workroot_target
@@ -601,49 +602,60 @@ CREATE INDEX IF NOT EXISTS idx_relationship_edges_workroot_nodes
   ON relationship_edges(workroot_id, from_node_id, to_node_id);
 CREATE INDEX IF NOT EXISTS idx_time_events_workroot_subject
   ON time_events(workroot_id, subject_type, subject_id, occurredAt);
-
-INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
-VALUES ('002-release-target-resolution-indexes', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
-
-INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
-VALUES ('003-context-recall-hints', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
-
-INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
-VALUES ('004-active-work-runtime-fields', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
-
-INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
-VALUES ('005-active-asset-runtime-fields', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
-
-INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
-VALUES ('006-time-events', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
-
-INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
-VALUES ('007-relationship-node-canonical-targets', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
-
-INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
-VALUES ('008-handoff-package-fields', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
-
-INSERT OR IGNORE INTO schema_migrations (migration_id, appliedAt)
-VALUES ('009-agent-protocol-task-continuity', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
 """
+
+
+@dataclass(frozen=True)
+class SQLiteSchemaMigration:
+    migration_id: str
+    apply_fn: Callable[[sqlite3.Connection], None]
 
 
 def initialize_workroot_sqlite(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as connection:
         connection.execute("PRAGMA journal_mode=WAL")
-        connection.executescript(_schema_without_release_indexes())
-        _ensure_indexed_file_source_columns(connection)
-        _ensure_active_work_runtime_columns(connection)
-        _ensure_handoff_package_columns(connection)
-        _ensure_protocol_runtime_columns(connection)
-        _ensure_protocol_v2_columns(connection)
-        _ensure_active_asset_runtime_columns(connection)
-        _ensure_relationship_node_target_columns(connection)
-        _ensure_context_candidate_time_columns(connection)
-        _ensure_context_runtime_columns(connection)
-        _ensure_context_recall_hint_time_columns(connection)
-        connection.executescript(SCHEMA)
+        _run_sqlite_schema_migrations(connection)
+
+
+def _run_sqlite_schema_migrations(connection: sqlite3.Connection) -> None:
+    _ensure_schema_migrations_table(connection)
+    applied = _applied_schema_migrations(connection)
+    for migration in SQLITE_SCHEMA_MIGRATIONS:
+        if migration.migration_id in applied:
+            continue
+        migration.apply_fn(connection)
+        _record_schema_migration(connection, migration.migration_id)
+        applied.add(migration.migration_id)
+
+
+def _ensure_schema_migrations_table(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          migration_id TEXT PRIMARY KEY,
+          appliedAt TEXT
+        )
+        """
+    )
+
+
+def _applied_schema_migrations(connection: sqlite3.Connection) -> set[str]:
+    return {str(row[0]) for row in connection.execute("SELECT migration_id FROM schema_migrations").fetchall()}
+
+
+def _record_schema_migration(connection: sqlite3.Connection, migration_id: str) -> None:
+    connection.execute(
+        """
+        INSERT INTO schema_migrations (migration_id, appliedAt)
+        VALUES (?, ?)
+        """,
+        (migration_id, _utc_now_iso_seconds()),
+    )
+
+
+def _utc_now_iso_seconds() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def record_index_invalidation(
@@ -751,6 +763,12 @@ def _ensure_protocol_v2_columns(connection: sqlite3.Connection) -> None:
     for name, definition in state_version_columns.items():
         _add_column_if_missing(connection, "state_versions", name, definition)
 
+    lease_columns = {
+        "policy_json": "TEXT NOT NULL DEFAULT '{}'",
+    }
+    for name, definition in lease_columns.items():
+        _add_column_if_missing(connection, "exchange_leases", name, definition)
+
 
 def _ensure_active_asset_runtime_columns(connection: sqlite3.Connection) -> None:
     columns = {row[1] for row in connection.execute("PRAGMA table_info(assets)").fetchall()}
@@ -770,11 +788,22 @@ def _ensure_relationship_node_target_columns(connection: sqlite3.Connection) -> 
             connection.execute(f"ALTER TABLE relationship_nodes ADD COLUMN {name} TEXT")
 
 
-def _ensure_context_candidate_time_columns(connection: sqlite3.Connection) -> None:
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(context_candidates)").fetchall()}
-    for name in ("updatedAt", "lastUsedAt"):
-        if name not in columns:
-            connection.execute(f"ALTER TABLE context_candidates ADD COLUMN {name} TEXT")
+def _ensure_context_candidate_runtime_columns(connection: sqlite3.Connection) -> None:
+    expected = {
+        "domains": "TEXT",
+        "importance": "TEXT",
+        "confidence": "REAL",
+        "status": "TEXT",
+        "context_policy": "TEXT",
+        "safety_policy": "TEXT",
+        "token_estimate": "INTEGER",
+        "updatedAt": "TEXT",
+        "lastUsedAt": "TEXT",
+        "use_count": "INTEGER DEFAULT 0",
+    }
+    for name, definition in expected.items():
+        _add_column_if_missing(connection, "context_candidates", name, definition)
+    _ensure_context_candidates_fts_schema(connection)
 
 
 def _ensure_context_runtime_columns(connection: sqlite3.Connection) -> None:
@@ -786,17 +815,121 @@ def _ensure_context_runtime_columns(connection: sqlite3.Connection) -> None:
     )
 
 
-def _ensure_context_recall_hint_time_columns(connection: sqlite3.Connection) -> None:
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(context_recall_hints)").fetchall()}
-    for name in ("createdAt", "updatedAt"):
-        if name not in columns:
-            connection.execute(f"ALTER TABLE context_recall_hints ADD COLUMN {name} TEXT")
+def _ensure_context_recall_hint_runtime_columns(connection: sqlite3.Connection) -> None:
+    expected = {
+        "scope_type": "TEXT",
+        "scope_id": "TEXT",
+        "kind": "TEXT",
+        "title": "TEXT",
+        "summary": "TEXT",
+        "priority": "TEXT",
+        "recall_rule": "TEXT",
+        "lifecycle_status": "TEXT",
+        "origin": "TEXT",
+        "source_ref": "TEXT",
+        "createdAt": "TEXT",
+        "updatedAt": "TEXT",
+    }
+    for name, definition in expected.items():
+        _add_column_if_missing(connection, "context_recall_hints", name, definition)
+
+
+def _ensure_context_candidates_fts_schema(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(context_candidates_fts)").fetchall()}
+    required = {"candidate_id", "title", "summary", "domains"}
+    if required.issubset(columns):
+        return
+    connection.execute("DROP TABLE IF EXISTS context_candidates_fts")
+    connection.execute("CREATE VIRTUAL TABLE context_candidates_fts USING fts5(candidate_id, title, summary, domains)")
+    connection.execute(
+        """
+        INSERT INTO context_candidates_fts (candidate_id, title, summary, domains)
+        SELECT candidate_id, COALESCE(title, ''), COALESCE(summary, ''), COALESCE(domains, '')
+        FROM context_candidates
+        """
+    )
 
 
 def _schema_without_release_indexes() -> str:
     marker = "CREATE INDEX IF NOT EXISTS idx_release_records_workroot_target"
     head, _, _tail = SCHEMA.partition(marker)
     return head
+
+
+def _release_lookup_index_schema() -> str:
+    marker = "CREATE INDEX IF NOT EXISTS idx_release_records_workroot_target"
+    _head, found, tail = SCHEMA.partition(marker)
+    if not found:
+        return ""
+    return f"{found}{tail}"
+
+
+def _migration_001_clean_workroot_schema(connection: sqlite3.Connection) -> None:
+    connection.executescript(_schema_without_release_indexes())
+
+
+def _migration_002_release_target_resolution_indexes(connection: sqlite3.Connection) -> None:
+    _ensure_indexed_file_source_columns(connection)
+    _ensure_relationship_node_target_columns(connection)
+    connection.executescript(_release_lookup_index_schema())
+
+
+def _migration_003_context_recall_hints(connection: sqlite3.Connection) -> None:
+    _ensure_context_recall_hint_runtime_columns(connection)
+
+
+def _migration_004_active_work_runtime_fields(connection: sqlite3.Connection) -> None:
+    _ensure_active_work_runtime_columns(connection)
+
+
+def _migration_005_active_asset_runtime_fields(connection: sqlite3.Connection) -> None:
+    _ensure_active_asset_runtime_columns(connection)
+
+
+def _migration_006_time_events(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_time_events_workroot_subject
+          ON time_events(workroot_id, subject_type, subject_id, occurredAt)
+        """
+    )
+
+
+def _migration_007_relationship_node_canonical_targets(connection: sqlite3.Connection) -> None:
+    _ensure_relationship_node_target_columns(connection)
+
+
+def _migration_008_handoff_package_fields(connection: sqlite3.Connection) -> None:
+    _ensure_handoff_package_columns(connection)
+
+
+def _migration_009_agent_protocol_task_continuity(connection: sqlite3.Connection) -> None:
+    _ensure_protocol_runtime_columns(connection)
+    _ensure_protocol_v2_columns(connection)
+
+
+def _migration_010_context_runtime_schema(connection: sqlite3.Connection) -> None:
+    _ensure_context_candidate_runtime_columns(connection)
+    _ensure_context_runtime_columns(connection)
+    _ensure_context_recall_hint_runtime_columns(connection)
+
+
+SQLITE_SCHEMA_MIGRATIONS: tuple[SQLiteSchemaMigration, ...] = (
+    SQLiteSchemaMigration("001-clean-workroot-schema", _migration_001_clean_workroot_schema),
+    SQLiteSchemaMigration("002-release-target-resolution-indexes", _migration_002_release_target_resolution_indexes),
+    SQLiteSchemaMigration("003-context-recall-hints", _migration_003_context_recall_hints),
+    SQLiteSchemaMigration("004-active-work-runtime-fields", _migration_004_active_work_runtime_fields),
+    SQLiteSchemaMigration("005-active-asset-runtime-fields", _migration_005_active_asset_runtime_fields),
+    SQLiteSchemaMigration("006-time-events", _migration_006_time_events),
+    SQLiteSchemaMigration(
+        "007-relationship-node-canonical-targets", _migration_007_relationship_node_canonical_targets
+    ),
+    SQLiteSchemaMigration("008-handoff-package-fields", _migration_008_handoff_package_fields),
+    SQLiteSchemaMigration("009-agent-protocol-task-continuity", _migration_009_agent_protocol_task_continuity),
+    SQLiteSchemaMigration("010-context-runtime-schema", _migration_010_context_runtime_schema),
+)
+
+SQLITE_SCHEMA_MIGRATION_IDS: tuple[str, ...] = tuple(migration.migration_id for migration in SQLITE_SCHEMA_MIGRATIONS)
 
 
 def sqlite_table_names(connection: sqlite3.Connection) -> set[str]:

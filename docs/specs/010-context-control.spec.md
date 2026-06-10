@@ -1,11 +1,14 @@
 # Spec 010 — Context Control
 
-Status: accepted
-Target: 0.9.530
+Status: accepted; amended by Spec 042
+Target: 0.9.530 base, 0.9.531+ strategy amendment
 
 ## Purpose
 
 Generate agent-ready context through explicit control of recall, safety, relevance, budget, and traceability.
+
+For the current WorkSignal-first, lease-aware, layered strategy contract, see
+`042-agent-protocol-context-strategy.spec.md`.
 
 ## Inputs
 
@@ -34,6 +37,8 @@ Generate agent-ready context through explicit control of recall, safety, relevan
 
 - resolve Workroot;
 - load Charter and active Task;
+- consume protocol focus, WorkSignal, known refs, and internal lease strategy signals;
+- compile a recall/disclosure plan before detailed retrieval;
 - request retrieval;
 - read release state;
 - read relationship signals;
@@ -95,4 +100,6 @@ Must support:
 - ContextTrace includes selected/dropped reasons.
 - Redacted/deleted content excluded.
 - Hard token limit respected using conservative estimate/fallback.
+- Deep evidence retrieval is scoped and plan-constrained.
+- Internal disclosure layer names and lease internals are not ordinary user-facing context.
 - Graph business wording replaced with Relationship Network in output/docs where appropriate.

@@ -46,6 +46,6 @@ Use `041-runnable-legacy-compat-removal.spec.md` for:
 
 ## Historical Note
 
-The 0.9.530 compatibility-preserving design is retained in `docs/dev/0.9.530/` and historical plans for traceability. It is not the current active implementation contract.
+The 0.9.530 compatibility-preserving design is retained in `docs/history/0.9.530/dev/` and historical plans for traceability. It is not the current active implementation contract.
 
 Compatibility Removal phase complete for active paths: no runnable legacy compatibility remains.

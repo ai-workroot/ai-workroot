@@ -11,6 +11,17 @@ def now_utc() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def load_state_versions(conn: sqlite3.Connection, workroot_id: str, scopes: list[str]) -> dict[str, int]:
+    versions: dict[str, int] = {}
+    for scope in scopes:
+        row = conn.execute(
+            "SELECT version FROM state_versions WHERE workroot_id = ? AND scope = ?",
+            (workroot_id, scope),
+        ).fetchone()
+        versions[scope] = int(row[0]) if row else 0
+    return versions
+
+
 def bump_state_version(
     conn: sqlite3.Connection,
     workroot_id: str,

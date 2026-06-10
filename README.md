@@ -138,6 +138,8 @@ AI Workroot is currently in the 0.9.531 Agent Protocol and Task Continuity line,
 
 Clean Workroot means the user-selected directory is treated as user asset space. AI Workroot does not create managed runtime folders, indexes, logs, control files, or context stores inside that directory by default.
 
+User-visible output guides and assets, such as `workroot-output/START_HERE.txt`, are user-space outputs, not managed runtime state.
+
 Managed state belongs under `AI_WORKROOT_HOME` by default, represented by `WorkrootEnvironment`. Per-Workroot SQLite, context packages, indexes, diagnostics, handoffs, release records, Relationship Network projections, and cache files live there unless the user explicitly chooses another mode.
 
 The active source implementation is organized as:
@@ -183,7 +185,8 @@ For the full current architecture, see:
 
 - [Workroot System Design](docs/workroot-system-design.md)
 - [Architecture Map](docs/architecture-map.md)
-- [0.9.531 Workroot Agent Protocol Bridge Design](docs/superpowers/specs/2026-06-01-workroot-agent-protocol-bridge-design.md)
+- [Agent Protocol and Context Strategy Spec](docs/specs/042-agent-protocol-context-strategy.spec.md)
+- [Documentation Policy](docs/DOCUMENTATION_POLICY.md)
 - [0.9.531 Release Notes](docs/releases/0.9.531.md)
 - [0.9.530 Release Notes](docs/releases/0.9.530.md)
 

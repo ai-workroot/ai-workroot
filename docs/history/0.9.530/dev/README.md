@@ -6,12 +6,12 @@ This directory preserves the external architecture package and final review clar
 
 When documents conflict, use this order:
 
-1. `docs/dev/0.9.530/final-architect-review-clarifications.md`
+1. `docs/history/0.9.530/dev/final-architect-review-clarifications.md`
 2. `docs/specs/`
 3. `docs/architecture/`
 4. `docs/adr/`
 5. `docs/history/0.9.530/plans/2026-05-20-0530-clean-workroot-domain-reset-plan.md`
-6. `docs/dev/0.9.530/execution/`
+6. `docs/history/0.9.530/dev/execution/`
 7. Raw package snapshots: `00-final-master-plan.md`, `final-all-in-one.md`, `package-readme.md`
 
 The raw package snapshots are retained for traceability. They may contain pre-clarification execution order or terminology examples. Do not treat them as higher authority than the final clarifications, current specs, architecture docs, ADRs, or implementation plan.

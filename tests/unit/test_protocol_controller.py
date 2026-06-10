@@ -58,7 +58,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Implement the Workroot Agent Protocol P0.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
 
@@ -116,7 +116,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Design protocol implementation.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
 
@@ -148,7 +148,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(explicit_user_dir),
                 "reason": "before_work",
                 "query": "Create explicit home task.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             },
             ai_workroot_home=explicit_home,
         )
@@ -180,7 +180,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Implement retry auto shorthand task.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         lease_id = self.lease_id(sync_response)
@@ -248,7 +248,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Create a tracked task if durable work starts.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
 
@@ -304,7 +304,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Create non atomic task.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         response = commit(
@@ -403,7 +403,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Create a tracked task.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
 
@@ -448,7 +448,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Create alpha protocol work.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         first_task = commit(
@@ -468,7 +468,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_task_switch",
                 "query": "Create beta audit work.",
-                "work_signal": {"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         second_task = commit(
@@ -537,7 +537,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Create a tracked task.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         intent = commit(
@@ -624,7 +624,7 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Create a tracked task.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
 
@@ -665,6 +665,57 @@ class ProtocolControllerSyncTest(unittest.TestCase):
                 "SELECT status FROM protocol_events WHERE event_id = ?", ("event-runtime-view-failure",)
             ).fetchone()
         self.assertEqual(row, ("applied",))
+
+    def test_unexpected_projection_storage_error_returns_non_blocking_protocol_response(self) -> None:
+        sync_response = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-unexpected-projection-failure",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "before_work",
+                "query": "Create a tracked task.",
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
+            }
+        )
+        request = build_commit_request_from_shape(
+            shape="start_work",
+            lease_id=self.lease_id(sync_response),
+            agent_name="codex",
+            title="Unexpected projection failure task",
+            summary="Unexpected projection failures should not block the Agent.",
+        )
+
+        with patch(
+            "ai_workroot.protocol.controller.apply_projection",
+            side_effect=sqlite3.OperationalError("database is locked"),
+        ):
+            response = commit(request)
+
+        self.assertFalse(response["ok"])
+        self.assertTrue(response["agent_may_continue"])
+        self.assertEqual(response["error"]["code"], "storage_error")
+        self.assertEqual(response["result"]["status"], "rejected")
+        self.assertEqual(response["result"]["warnings"], ["storage_error"])
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        sqlite_path = workroot_sqlite_path(Path(self.registration.state_directory))
+        with sqlite3.connect(sqlite_path) as conn:
+            batch = conn.execute(
+                """
+                SELECT status, response_json, error_json
+                FROM protocol_commit_batches
+                WHERE idempotency_key = ?
+                """,
+                (request["idempotency_key"],),
+            ).fetchone()
+            task_count = conn.execute(
+                "SELECT COUNT(*) FROM tasks WHERE title = 'Unexpected projection failure task'"
+            ).fetchone()[0]
+        self.assertIsNotNone(batch)
+        self.assertEqual(batch[0], "rejected")
+        self.assertIsNotNone(batch[1])
+        self.assertIsNotNone(batch[2])
+        self.assertEqual(task_count, 0)
 
     def count_semantic_rows(self, sqlite_path: Path) -> tuple[int, int, int]:
         with sqlite3.connect(sqlite_path) as conn:

@@ -9,6 +9,7 @@ DIRECTIVE_TYPES = {
     "answer_without_persistence",
     "continue_task",
     "continue_without_persistence",
+    "refine_focus",
     "ask_user",
     "commit_required",
     "handoff_required",

@@ -94,7 +94,19 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
                 )
 
             package = build_context_package(
-                ContextRequest(agent="codex", cwd=user_dir, query="Clean Mode", debug=True, hard_token_limit=900),
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="Clean Mode",
+                    debug=True,
+                    hard_token_limit=900,
+                    work_signal={
+                        "phase": "orienting",
+                        "work_kind": "investigation",
+                        "intended_action": "diagnose",
+                        "focus": "Clean Mode",
+                    },
+                ),
                 ai_workroot_home=home,
             )
 
@@ -209,7 +221,18 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
                 )
 
             package = build_context_package(
-                ContextRequest(agent="codex", cwd=user_dir, query="canonical", debug=True),
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="canonical",
+                    debug=True,
+                    work_signal={
+                        "phase": "orienting",
+                        "work_kind": "review",
+                        "intended_action": "review",
+                        "focus": "canonical asset context",
+                    },
+                ),
                 ai_workroot_home=home,
             )
 
@@ -217,6 +240,60 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
             self.assertIn("relationship-edge", package)
             self.assertIn("Relationship Signals", package)
             self.assertIn("edge-canonical-asset", package)
+
+    def test_context_evidence_can_drill_down_from_candidate_ref_to_indexed_chunk(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "candidate-shop-plan",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-shop-plan",
+                        "title": "Shop plan",
+                        "summary": "Candidate summary for the shop plan.",
+                    },
+                )
+                index_file_chunk(
+                    conn,
+                    workroot_id=workroot_id,
+                    file_id="file-shop-plan",
+                    chunk_id="chunk-shop-plan",
+                    relative_path="workroot-output/shop-plan.md",
+                    body="Detailed source evidence for the shop plan.",
+                    source_type="asset",
+                    source_id="asset-shop-plan",
+                )
+
+            package = build_context_package(
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="这个方案当时依据是什么？",
+                    debug=True,
+                    work_signal={
+                        "phase": "orienting",
+                        "work_kind": "continuation",
+                        "intended_action": "inspect",
+                        "focus": "方案依据",
+                        "concerns": ["needs_evidence"],
+                        "refs": ["candidate:candidate-shop-plan"],
+                    },
+                ),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("contextIntent: evidence_lookup", package)
+            self.assertNotIn("disclosureLevels", package)
+            self.assertNotRegex(package, r"\bL[123]\b")
+            self.assertIn("workroot-output/shop-plan.md: ref-scoped-evidence; Ref: chunk:chunk-shop-plan", package)
 
 
 if __name__ == "__main__":

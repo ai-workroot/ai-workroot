@@ -24,11 +24,11 @@ class PublicSeedHistoryContractTest(unittest.TestCase):
 
     def test_part2_means_capability_parity_not_compatibility_removal(self) -> None:
         docs = (
-            "docs/dev/0.9.530/README.md",
-            "docs/dev/0.9.530/final-compatibility-preserving-script-migration-design.md",
-            "docs/dev/0.9.530/scripts-to-src-migration.md",
-            "docs/dev/0.9.530/scripts-to-src-migration-architecture.md",
-            "docs/dev/0.9.530/scripts-to-src-migration-detailed-design.md",
+            "docs/history/0.9.530/dev/README.md",
+            "docs/history/0.9.530/dev/final-compatibility-preserving-script-migration-design.md",
+            "docs/history/0.9.530/dev/scripts-to-src-migration.md",
+            "docs/history/0.9.530/dev/scripts-to-src-migration-architecture.md",
+            "docs/history/0.9.530/dev/scripts-to-src-migration-detailed-design.md",
             "docs/specs/031-compatibility-preserving-script-migration.spec.md",
             "docs/specs/032-part2-capability-parity-small-specs.spec.md",
             "docs/specs/033-time-and-global-index-parity.spec.md",

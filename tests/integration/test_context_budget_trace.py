@@ -11,6 +11,7 @@ from ai_workroot.capabilities.retrieval.providers.context_recall_hint_provider i
     ContextRecallHint,
     upsert_context_recall_hint,
 )
+from ai_workroot.capabilities.retrieval.providers.sqlite_fts import index_file_chunk
 from ai_workroot.capabilities.context.builder import ContextRequest, build_context_package, estimate_tokens
 from ai_workroot.commands.build_context import build_context
 from ai_workroot.commands.init_workroot import initialize_workroot
@@ -436,6 +437,214 @@ class ContextBudgetTraceTest(unittest.TestCase):
             self.assertIn("retrieval", record)
             self.assertIn("selectedCandidateIds", record["retrieval"])
             self.assertNotIn("renderedPackage", record)
+
+    def test_rendered_token_usage_ignores_unrendered_evidence_body(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                index_file_chunk(
+                    conn,
+                    workroot_id=workroot_id,
+                    file_id="file-large-evidence",
+                    chunk_id="chunk-large-evidence",
+                    relative_path="workroot-output/large-evidence.md",
+                    body="needle " + ("large unrendered evidence body " * 500),
+                    source_type="asset",
+                    source_id="asset-large-evidence",
+                )
+
+            package = build_context_package(
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="needle",
+                    debug=True,
+                    target_tokens=10_000,
+                    hard_token_limit=12_000,
+                    work_signal={
+                        "intended_action": "inspect",
+                        "concerns": ["needs_evidence"],
+                        "refs": ["asset:asset-large-evidence"],
+                    },
+                ),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("Ref: chunk:chunk-large-evidence", package)
+            self.assertNotIn("large unrendered evidence body large unrendered evidence body", package)
+            self.assertEqual(parse_token_usage(package), estimate_tokens(package))
+
+    def test_evidence_without_ref_records_summary_refs_and_no_broad_chunks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-evidence-map",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-evidence-map",
+                        "title": "Evidence map candidate",
+                        "summary": "Compact needle source summary for evidence map.",
+                        "importance": "critical",
+                    },
+                )
+                index_file_chunk(
+                    conn,
+                    workroot_id=workroot_id,
+                    file_id="file-evidence-map",
+                    chunk_id="chunk-evidence-map",
+                    relative_path="workroot-output/evidence-map.md",
+                    body="needle raw evidence should not be fetched without explicit refs.",
+                    source_type="asset",
+                    source_id="asset-evidence-map",
+                )
+
+            package = build_context_package(
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="needle",
+                    debug=True,
+                    work_signal={
+                        "intended_action": "inspect",
+                        "concerns": ["needs_evidence"],
+                        "focus": "needle evidence",
+                    },
+                ),
+                ai_workroot_home=home,
+            )
+
+            with sqlite3.connect(db_path) as conn:
+                trace = json.loads(
+                    conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+                )
+
+            self.assertIn("Evidence map candidate", package)
+            self.assertNotIn("## Evidence", package)
+            self.assertEqual(trace["evidenceDecision"]["detailMode"], "summary_with_refs")
+            self.assertEqual(trace["evidenceDecision"]["reason"], "explicit_ref_required")
+            self.assertEqual(trace["retrievalStats"]["ftsCount"], 0)
+            self.assertIn("budgetPlan", trace)
+
+    def test_explicit_ref_evidence_trace_records_scoped_detail(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-scoped-evidence",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-scoped-evidence",
+                        "title": "Scoped evidence candidate",
+                        "summary": "Compact source summary for scoped evidence.",
+                        "importance": "critical",
+                    },
+                )
+                index_file_chunk(
+                    conn,
+                    workroot_id=workroot_id,
+                    file_id="file-scoped-evidence",
+                    chunk_id="chunk-scoped-evidence",
+                    relative_path="workroot-output/scoped-evidence.md",
+                    body="scoped raw evidence selected by explicit ref.",
+                    source_type="asset",
+                    source_id="asset-scoped-evidence",
+                )
+
+            package = build_context_package(
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="scoped",
+                    debug=True,
+                    work_signal={
+                        "intended_action": "inspect",
+                        "concerns": ["needs_evidence"],
+                        "focus": "scoped evidence",
+                        "refs": ["asset:asset-scoped-evidence"],
+                    },
+                ),
+                ai_workroot_home=home,
+            )
+
+            with sqlite3.connect(db_path) as conn:
+                trace = json.loads(
+                    conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+                )
+
+            self.assertIn("## Evidence", package)
+            self.assertIn("Ref: chunk:chunk-scoped-evidence", package)
+            self.assertEqual(trace["evidenceDecision"]["detailMode"], "ref_scoped_evidence")
+            self.assertEqual(trace["evidenceDecision"]["refs"], ["asset:asset-scoped-evidence"])
+            self.assertEqual(trace["retrievalStats"]["ftsCount"], 1)
+
+    def test_context_trace_records_budget_drops_for_unselected_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                for index in range(12):
+                    upsert_context_candidate(
+                        conn,
+                        {
+                            "candidate_id": f"cand-budget-drop-{index:02d}",
+                            "workroot_id": workroot_id,
+                            "source_type": "asset",
+                            "source_id": f"asset-budget-drop-{index:02d}",
+                            "title": f"Budget drop candidate {index:02d}",
+                            "summary": "Budget selection candidate.",
+                            "importance": "critical" if index < 2 else "normal",
+                            "context_policy": "always",
+                        },
+                    )
+
+            build_context_package(
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="Budget",
+                    debug=True,
+                    target_tokens=500,
+                    hard_token_limit=900,
+                ),
+                ai_workroot_home=home,
+            )
+
+            with sqlite3.connect(db_path) as conn:
+                trace = json.loads(
+                    conn.execute("SELECT debug_json FROM context_traces ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+                )
+                reasons = [row[0] for row in conn.execute("SELECT reason FROM candidate_selections").fetchall()]
+                trim_sections = [
+                    tuple(row) for row in conn.execute("SELECT section, reason FROM budget_trim_decisions").fetchall()
+                ]
+
+            self.assertGreater(trace["retrievalStats"]["droppedByBudget"], 0)
+            self.assertIn("dropped:budget", reasons)
+            self.assertIn(("candidate-map", "budget-selection"), trim_sections)
 
     def test_context_diagnostic_logging_can_include_rendered_package_when_explicitly_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

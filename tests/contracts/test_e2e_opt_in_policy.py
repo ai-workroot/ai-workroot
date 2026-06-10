@@ -158,10 +158,12 @@ class E2EOptInPolicyTest(unittest.TestCase):
             self.assertFalse((sandbox_codex_home / "logs_2.sqlite").exists())
             self.assertFalse((sandbox_codex_home / "sessions").exists())
 
-    def test_live_agent_prompt_requires_workroot_context_call(self) -> None:
-        from tests.e2e.live_agent import LIVE_AGENT_PROMPT, REQUIRED_CONTEXT_COMMAND
+    def test_live_agent_read_only_context_smoke_prompt_uses_auxiliary_context_command(self) -> None:
+        from tests.e2e.live_agent import LIVE_AGENT_PROMPT, READ_ONLY_CONTEXT_SMOKE_COMMAND
 
-        self.assertIn(REQUIRED_CONTEXT_COMMAND, LIVE_AGENT_PROMPT)
+        self.assertIn(READ_ONLY_CONTEXT_SMOKE_COMMAND, LIVE_AGENT_PROMPT)
+        self.assertIn("read-only context smoke", LIVE_AGENT_PROMPT)
+        self.assertIn("auxiliary command", LIVE_AGENT_PROMPT)
         self.assertIn("Do not inspect README.md directly", LIVE_AGENT_PROMPT)
 
     def test_live_agent_targets_all_personas(self) -> None:

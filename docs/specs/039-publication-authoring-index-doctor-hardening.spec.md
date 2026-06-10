@@ -132,7 +132,7 @@ src/ai_workroot/state/sqlite.py
 src/ai_workroot/capabilities/system_health/doctor.py
 scripts/dev/export-review-zip.sh
 scripts/dev/validate-release.sh
-docs/dev/0.9.530/active-authoring-surfaces.md
+docs/history/0.9.530/dev/active-authoring-surfaces.md
 tests/unit/test_assets_operations.py
 tests/unit/test_work_operations.py
 tests/unit/test_release_operations.py
@@ -146,7 +146,7 @@ tests/smoke/test_clean_release_validator.py
 Preferred for this pass:
 
 - Keep runtime APIs as the active authoring surface.
-- Document them in `docs/dev/0.9.530/active-authoring-surfaces.md`.
+- Document them in `docs/history/0.9.530/dev/active-authoring-surfaces.md`.
 - Defer broad CLI groups unless product need is confirmed.
 
 ### Runtime Behavior
@@ -256,7 +256,7 @@ T1: Asset publication semantic split
 
 T2: Active authoring surface documentation
 - Change: Document runtime APIs and compatibility status.
-- Files likely affected: `docs/dev/0.9.530/active-authoring-surfaces.md`
+- Files likely affected: `docs/history/0.9.530/dev/active-authoring-surfaces.md`
 - Verification: Release surface/docs tests pass.
 
 T3: Index invalidation on active writes

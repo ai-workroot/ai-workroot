@@ -17,7 +17,7 @@ The active architecture is Clean Workroot:
 ```text
 user-selected directory   user assets and optional authorized Native Agent Entry
 AI_WORKROOT_HOME          WorkrootEnvironment and managed state
-src/ai_workroot/          Core / Contracts / Runtime / Storage / Indexing / Agent / CLI
+src/ai_workroot/          entrypoints / commands / protocol / capabilities / state / shared
 ```
 
 Public Seed is historical. Legacy material may appear under `docs/history/public-seed/` or in compatibility fixtures, but agents must not treat root `space/`, root `.workroot/`, root `AGENTS.md`, or root `CLAUDE.md` as active architecture requirements.
@@ -29,6 +29,10 @@ The user-selected directory is user-owned asset space.
 AI Workroot must not create managed runtime folders, indexes, logs, context packages, handoffs, kernel files, or control files inside that directory by default.
 
 Native Agent Entry files are the normal exception, and only after explicit authorization or bootstrap-dev dogfood behavior.
+
+`workroot-output/START_HERE.txt` is also allowed after initialization as a
+user-visible output guide. It is not runtime state, an index, a log, or a
+control file.
 
 Managed state belongs under `AI_WORKROOT_HOME` by default.
 
@@ -50,15 +54,25 @@ If guidance is blank or generic, ask only the smallest useful question, then con
 
 ## 3. Startup
 
-For a normal agent entry, use the Native Agent Entry file when present. It should stay short and direct the agent to request the current Context Package, for example:
+For a normal agent entry, use the Native Agent Entry file when present. It
+should stay short and direct the agent to sync state and request compact
+current context, for example:
 
 ```bash
-workroot context --agent codex --cwd .
+workroot agent sync --agent codex --cwd . --query "<current user request>" --format packet
 ```
 
-The Context Package is the current startup surface. It should include mode, confidence, latency, token usage, selected candidates, relevant state, and guardrails.
+`sync` is the normal meaningful-turn surface. It returns focus, compact
+context, lease data when durable writes are safe, and the commit contract.
+`workroot context` is read-only auxiliary behavior for startup recovery,
+manual recall, and debugging.
 
-Do not load deep history by default. Do not scan all files by default. Use `workroot context --debug` when a task needs explainability.
+`--agent` is an Agent descriptor string, not a fixed product enum. Use
+`--transport` when the caller is not the default CLI transport, for example
+`--transport mcp`.
+
+Do not load deep history by default. Do not scan all files by default. Use
+`workroot context --debug` when a task needs explainability.
 
 ## 4. Classify The Work
 
@@ -87,7 +101,7 @@ Do not ask ordinary users to manually create folders, choose task types, edit in
 Formal work is represented by Work concepts:
 
 - Task
-- L0 / L1 / L2 process levels
+- L0 / L1 / L2 / L3 process levels
 - AgentRun
 - WorkAction
 - WorkCheckpoint
@@ -101,6 +115,9 @@ Use the lightest process level that preserves continuity:
 - `L0`: simple task state
 - `L1`: process records with plans, runs, retrieval cards, and checkpoints
 - `L2`: evidence records with actions, recipes, validation, and invalidations
+- `L3`: deeper process continuity for complex, long-running, evidence-heavy, or cross-session work
+
+Task process levels are distinct from Context Control disclosure levels. Task process levels describe persisted Work continuity depth; Context disclosure levels describe rendered recall depth inside a Context Package.
 
 Legacy Public Seed task files may remain readable in compatibility tests and historical fixtures. New Clean Workroot behavior should use managed state and runtime APIs.
 

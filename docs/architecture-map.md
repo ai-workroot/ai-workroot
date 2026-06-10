@@ -116,16 +116,13 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  Req[ContextRequest] --> Rules[Required rules<br/>agent, mode, budget]
-  Req --> Candidates[Materialized Context Candidates]
-  Req --> FTS[SQLite FTS]
-  Req --> Rel[Relationship one-hop signals]
-  Req --> Recent[recent and high-importance items]
-  Rules --> Select[merge, score, filter, trim]
-  Candidates --> Select
-  FTS --> Select
-  Rel --> Select
-  Recent --> Select
+  Req[ContextRequest] --> WorkSignal[WorkSignal<br/>stable protocol semantics]
+  WorkSignal --> Focus[Focus<br/>current task boundary]
+  Focus --> ContextStrategy[ContextStrategy<br/>policy, safety, budget]
+  ContextStrategy --> DisclosurePlan[DisclosurePlan<br/>internal layered detail]
+  DisclosurePlan --> RecallPlan[RecallPlan<br/>sources, scope, limits]
+  RecallPlan --> PlanConstrainedRetrieval[PlanConstrainedRetrieval<br/>candidates, FTS, relationships, recent]
+  PlanConstrainedRetrieval --> Select[score, filter, budget fit]
   Select --> Package[ContextPackage]
   Select --> Trace[ContextTrace]
 ```

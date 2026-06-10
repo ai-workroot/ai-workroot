@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class NativeAgentEntryTest(unittest.TestCase):
-    def test_templates_render_short_relative_agent_context_commands(self) -> None:
+    def test_templates_render_short_relative_agent_sync_commands(self) -> None:
         cases = {
             "codex": "AGENTS.md",
             "claude": "CLAUDE.md",
@@ -31,7 +31,12 @@ class NativeAgentEntryTest(unittest.TestCase):
         for agent, filename in cases.items():
             with self.subTest(agent=agent):
                 rendered = render_native_agent_entry(agent)
-                self.assertIn(f"workroot context --agent {agent} --cwd .", rendered)
+                self.assertIn(
+                    f'workroot agent sync --agent {agent} --cwd . --query "<current user request>" --format packet',
+                    rendered,
+                )
+                self.assertIn("For recall inside a normal user turn, use sync", rendered)
+                self.assertIn("outside the normal turn loop", rendered)
                 self.assertIn(MANAGED_BLOCK_BEGIN, rendered)
                 self.assertIn(MANAGED_BLOCK_END, rendered)
                 self.assertLess(len(rendered.encode("utf-8")), 2048)
@@ -56,7 +61,10 @@ class NativeAgentEntryTest(unittest.TestCase):
             self.assertIn("User content mentions logs/ and indexes/.", text)
             self.assertEqual(text.count(MANAGED_BLOCK_BEGIN), 1)
             self.assertEqual(text.count(MANAGED_BLOCK_END), 1)
-            self.assertIn("workroot context --agent codex --cwd .", text)
+            self.assertIn(
+                'workroot agent sync --agent codex --cwd . --query "<current user request>" --format packet',
+                text,
+            )
 
 
 class BootstrapDevReplacementTest(unittest.TestCase):

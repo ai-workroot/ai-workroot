@@ -15,7 +15,7 @@
 This plan is superseded for the final script migration execution details by:
 
 ```text
-docs/dev/0.9.530/final-compatibility-preserving-script-migration-design.md
+docs/history/0.9.530/dev/final-compatibility-preserving-script-migration-design.md
 docs/specs/031-compatibility-preserving-script-migration.spec.md
 docs/superpowers/plans/2026-05-21-compatibility-preserving-final-script-migration.md
 ```
@@ -45,8 +45,8 @@ Do not remove old script entry points while executing Part 1.
 ## Phase 0: Baseline Validation
 
 **Files:**
-- Read: `docs/dev/0.9.530/scripts-to-src-migration-architecture.md`
-- Read: `docs/dev/0.9.530/scripts-to-src-migration-detailed-design.md`
+- Read: `docs/history/0.9.530/dev/scripts-to-src-migration-architecture.md`
+- Read: `docs/history/0.9.530/dev/scripts-to-src-migration-detailed-design.md`
 - Read: `docs/specs/023-active-package-cli-and-legacy-isolation.spec.md`
 - Read: `docs/specs/030-test-suite-and-public-seed-quarantine.spec.md`
 
@@ -385,7 +385,7 @@ git commit -m "Move validation and wrappers to Clean Workroot package"
 **Files:**
 - Modify: `tests/`
 - Modify: `docs/history/`
-- Modify: `docs/dev/0.9.530/`
+- Modify: `docs/history/0.9.530/dev/`
 - Modify: release validator tests.
 
 - [ ] **Step 1: Write test audit checks**
@@ -428,7 +428,7 @@ git commit -m "Split tests and quarantine legacy Public Seed behavior"
 ## Phase 8: Final Handoff Without Tag
 
 **Files:**
-- Modify: `docs/dev/0.9.530/`
+- Modify: `docs/history/0.9.530/dev/`
 - Read: Git diff and validation output.
 
 - [ ] **Step 1: Run final validation**

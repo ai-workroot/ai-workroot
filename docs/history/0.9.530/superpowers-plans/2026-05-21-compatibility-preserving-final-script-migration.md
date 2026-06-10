@@ -28,7 +28,7 @@ Do not remove old script entry points in this plan. A script may become a wrappe
 ## Phase 0: Baseline and Audit
 
 **Files:**
-- Read: `docs/dev/0.9.530/final-compatibility-preserving-script-migration-design.md`
+- Read: `docs/history/0.9.530/dev/final-compatibility-preserving-script-migration-design.md`
 - Read: `docs/specs/031-compatibility-preserving-script-migration.spec.md`
 - Read: `scripts/workroot_client.py`
 - Read: `scripts/workroot_cli.py`

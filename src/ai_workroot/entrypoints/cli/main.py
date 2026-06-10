@@ -6,6 +6,7 @@ import argparse
 from collections.abc import Sequence
 import json
 from pathlib import Path
+import re
 import uuid
 
 from ai_workroot.commands.agent_exchange import (
@@ -80,12 +81,15 @@ def build_parser() -> argparse.ArgumentParser:
         if command == "status":
             command_parser.add_argument("--cwd", default=".")
         if command == "context":
-            command_parser.add_argument("--agent", choices=("codex", "claude"), required=True)
+            command_parser.add_argument("--agent", required=True)
+            command_parser.add_argument("--transport", default="cli")
             command_parser.add_argument("--cwd", default=".")
             command_parser.add_argument("--query", default="")
+            command_parser.add_argument("--reason", choices=SYNC_REASON_CHOICES, default="startup")
             command_parser.add_argument("--mode", choices=("fast", "standard", "quality", "deep"), default="standard")
             command_parser.add_argument("--target-tokens", type=int)
             command_parser.add_argument("--hard-token-limit", type=int)
+            command_parser.add_argument("--work-signal", default="{}")
             command_parser.add_argument("--debug", action="store_true")
         if command == "doctor":
             command_parser.add_argument("--cwd", default=".")
@@ -104,6 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
             sync_parser = agent_subparsers.add_parser("sync", help="Create a protocol sync request.")
             sync_parser.add_argument("--request-id")
             sync_parser.add_argument("--agent", default="codex")
+            sync_parser.add_argument("--transport", default="cli")
             sync_parser.add_argument("--cwd", default=".")
             sync_parser.add_argument("--workroot-id")
             sync_parser.add_argument("--reason", choices=SYNC_REASON_CHOICES, default="before_work")
@@ -115,6 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
             sync_parser.add_argument("--intended-action")
             sync_parser.add_argument("--focus")
             sync_parser.add_argument("--concern", action="append", default=[])
+            sync_parser.add_argument("--refs", action="append", default=[], help=argparse.SUPPRESS)
             sync_parser.add_argument("--persistence", choices=("normal", "temporary", "quick"), help=argparse.SUPPRESS)
             sync_parser.add_argument("--format", choices=("json", "guidance", "packet"), default="json")
             sync_parser.add_argument("work_signal_parts", nargs="*", help=argparse.SUPPRESS)
@@ -128,6 +134,11 @@ def build_parser() -> argparse.ArgumentParser:
             )
             commit_parser.add_argument("--lease", help="Exchange lease id for commit.")
             commit_parser.add_argument("--agent", default="codex")
+            commit_parser.add_argument("--transport", default="cli")
+            commit_parser.add_argument("--client", default="")
+            commit_parser.add_argument("--agent-version", default="")
+            commit_parser.add_argument("--thread-id", default="")
+            commit_parser.add_argument("--channel-id", default="")
             commit_parser.add_argument("--cwd")
             commit_parser.add_argument("--workroot-id")
             commit_parser.add_argument("--title", default="")
@@ -229,12 +240,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             package = build_context(
                 agent=args.agent,
+                transport=args.transport,
                 cwd=Path(args.cwd),
                 query=args.query,
                 mode=args.mode,
                 target_tokens=args.target_tokens,
                 hard_token_limit=args.hard_token_limit,
                 debug=args.debug,
+                work_signal=_json_object_arg(args.work_signal, "--work-signal"),
+                reason=args.reason,
             )
         except (OSError, ValueError) as exc:
             parser.exit(1, f"{exc}\n")
@@ -269,6 +283,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 response = run_sync_request(
                     request_id=args.request_id or f"req-{uuid.uuid4().hex}",
                     agent_name=args.agent,
+                    agent_transport=args.transport,
                     cwd=Path(args.cwd),
                     workroot_id=args.workroot_id,
                     query=args.query,
@@ -282,6 +297,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             intended_action=args.intended_action,
                             focus=args.focus,
                             concerns=tuple(args.concern),
+                            refs=tuple(args.refs),
                             work_signal_parts=tuple(args.work_signal_parts),
                         ),
                         persistence=args.persistence,
@@ -295,6 +311,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                         shape=args.shape,
                         lease_id=args.lease or "",
                         agent_name=args.agent,
+                        agent_transport=args.transport,
+                        client=args.client,
+                        agent_version=args.agent_version,
+                        thread_id=args.thread_id,
+                        channel_id=args.channel_id,
                         cwd=Path(args.cwd) if args.cwd else None,
                         workroot_id=args.workroot_id,
                         title=args.title,
@@ -328,7 +349,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 parser.error(f"`agent {args.agent_command}` is not implemented")
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.exit(1, f"{exc}\n")
-        print(render_agent_response(response, output_format=args.format, agent=getattr(args, "agent", "codex")), end="")
+        print(
+            render_agent_response(
+                response,
+                output_format=args.format,
+                agent=getattr(args, "agent", "codex"),
+                transport=getattr(args, "transport", "cli"),
+            ),
+            end="",
+        )
         return 0
 
     if args.command:
@@ -412,7 +441,7 @@ def _sync_work_signal(work_signal: dict[str, object], *, persistence: str | None
         signal.setdefault("intended_action", "preserve")
         return signal
     signal.setdefault("work_kind", "task")
-    signal.setdefault("phase", "switching")
+    signal.setdefault("phase", "starting")
     signal.setdefault("intended_action", "plan")
     return signal
 
@@ -425,6 +454,7 @@ def _merge_split_work_signal_args(
     intended_action: str | None,
     focus: str | None,
     concerns: tuple[str, ...],
+    refs: tuple[str, ...] = (),
     work_signal_parts: tuple[str, ...] = (),
 ) -> dict[str, object]:
     signal = dict(work_signal)
@@ -443,7 +473,22 @@ def _merge_split_work_signal_args(
         merged = [str(item) for item in existing] if isinstance(existing, list) else []
         merged.extend(concerns)
         signal["concerns"] = merged
+    if refs:
+        existing_refs = signal.get("refs")
+        merged_refs = [str(item) for item in existing_refs] if isinstance(existing_refs, list) else []
+        merged_refs.extend(_split_refs(refs))
+        signal["refs"] = merged_refs
     return signal
+
+
+def _split_refs(values: tuple[str, ...]) -> list[str]:
+    refs: list[str] = []
+    for value in values:
+        for item in str(value or "").replace("|", " ").replace(",", " ").split():
+            cleaned = item.strip()
+            if cleaned:
+                refs.append(cleaned)
+    return refs
 
 
 def _plain_text_work_signal(text: str) -> dict[str, object]:
@@ -454,7 +499,7 @@ def _plain_text_work_signal(text: str) -> dict[str, object]:
     if key_value_signal:
         return key_value_signal
     if lowered in {"new_work", "new work", "start work", "start task"}:
-        return {"work_kind": "task", "intended_action": "plan", "phase": "switching", "focus": text}
+        return {"work_kind": "task", "intended_action": "plan", "phase": "starting", "focus": text}
     if lowered == "quick":
         return {"work_kind": "quick", "intended_action": "answer", "focus": text}
     if lowered == "continuation":
@@ -473,18 +518,21 @@ def _plain_text_work_signal(text: str) -> dict[str, object]:
 
 
 def _plain_text_key_value_work_signal(text: str) -> dict[str, object]:
-    allowed_keys = {"phase", "work_kind", "intended_action", "focus", "concerns"}
-    parts = [part.strip() for part in text.replace(";", ",").split(",") if part.strip()]
-    if not parts or any("=" not in part for part in parts):
+    allowed_keys = {"phase", "work_kind", "intended_action", "focus", "concerns", "refs"}
+    key_pattern = re.compile(r"(?:^|[\s,;]+)(phase|work[-_]kind|intended[-_]action|focus|concerns|refs)\s*=", re.I)
+    matches = list(key_pattern.finditer(text))
+    if not matches:
         return {}
     signal: dict[str, object] = {}
-    for part in parts:
-        key, value = part.split("=", 1)
-        normalized_key = key.strip().replace("-", "_")
+    for index, match in enumerate(matches):
+        normalized_key = match.group(1).strip().lower().replace("-", "_")
         if normalized_key not in allowed_keys:
             continue
-        cleaned_value = value.strip().strip("\"'")
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        cleaned_value = text[match.end() : end].strip().strip(",;").strip().strip("\"'")
         if normalized_key == "concerns":
+            signal[normalized_key] = [item.strip() for item in cleaned_value.replace("|", " ").split() if item.strip()]
+        elif normalized_key == "refs":
             signal[normalized_key] = [item.strip() for item in cleaned_value.replace("|", " ").split() if item.strip()]
         elif cleaned_value:
             signal[normalized_key] = cleaned_value

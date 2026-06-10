@@ -11,8 +11,9 @@ from unittest.mock import patch
 from ai_workroot.commands.build_context import build_context
 from ai_workroot.protocol.controller import commit, sync
 from ai_workroot.state.environment import initialize_environment, register_workroot
+from ai_workroot.state.jsonl import append_jsonl
 from ai_workroot.state.layout import workroot_sqlite_path
-from ai_workroot.state.runtime_views import write_context_runtime_view
+from ai_workroot.state.runtime_views import refresh_runtime_views, write_context_runtime_view
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
 
 
@@ -53,7 +54,7 @@ class RuntimeViewsTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Implement runtime views.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         intent = commit(
@@ -138,6 +139,71 @@ class RuntimeViewsTest(unittest.TestCase):
         self.assertTrue(trace["latestContextPreview"]["truncated"])
         self.assertEqual(trace["latestContextPreview"]["renderedBytes"], len(rendered.encode("utf-8")))
         self.assertEqual(trace["latestContextPreview"]["maxBytes"], CONTEXT_LATEST_PREVIEW_MAX_BYTES)
+
+    def test_protocol_friction_view_includes_rejected_commit_batches(self) -> None:
+        sync_response = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-friction",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "before_work",
+                "query": "Start protocol friction task.",
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
+            }
+        )
+        commit(
+            self.commit_request(
+                self.lease_id(sync_response),
+                "progress",
+                "evt-friction-rejected",
+                {
+                    "task_id": "task-missing",
+                    "run_id": "run-missing",
+                    "summary": "This progress is not allowed by an intent lease.",
+                },
+            )
+        )
+
+        state_dir = Path(self.registration.state_directory)
+        friction = json.loads((state_dir / "diagnostics/protocol-friction.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(friction["commitBatchStatuses"]["rejected"], 1)
+        self.assertEqual(friction["rejectedCommitBatches"], 1)
+
+    def test_protocol_friction_view_includes_runtime_jsonl_diagnostics(self) -> None:
+        state_dir = Path(self.registration.state_directory)
+        append_jsonl(
+            state_dir / "logs/protocol-friction.jsonl",
+            {
+                "eventId": "friction_demo",
+                "workrootId": "wr_demo",
+                "action": "commit",
+                "sourceLayer": "cli_adapter",
+                "stage": "pre_request",
+                "code": "missing_shape_fields",
+                "severity": "recoverable",
+                "resultStatus": "rejected",
+                "requestId": "req-friction-runtime",
+                "leaseId": "lease-demo",
+                "shape": "decision",
+                "occurredAt": "2026-06-10T00:00:00Z",
+            },
+        )
+
+        refresh_runtime_views(
+            state_directory=state_dir,
+            sqlite_path=self.sqlite_path(),
+            workroot_id="wr_demo",
+        )
+
+        friction = json.loads((state_dir / "diagnostics/protocol-friction.json").read_text(encoding="utf-8"))
+        self.assertEqual(friction["frictionEventsTotal"], 1)
+        self.assertEqual(friction["frictionByCode"], {"missing_shape_fields": 1})
+        self.assertEqual(friction["frictionByStage"], {"pre_request": 1})
+        self.assertEqual(friction["frictionBySourceLayer"], {"cli_adapter": 1})
+        self.assertEqual(friction["recent"][0]["code"], "missing_shape_fields")
+        self.assertEqual(friction["recent"][0]["requestId"], "req-friction-runtime")
 
     def test_handoff_on_older_task_becomes_current_runtime_view(self) -> None:
         first = self.create_task(
@@ -226,7 +292,7 @@ class RuntimeViewsTest(unittest.TestCase):
                 "reason": "before_task_switch" if switching else "before_work",
                 "query": title,
                 "work_signal": {
-                    "phase": "switching" if switching else "planning",
+                    "phase": "starting",
                     "work_kind": "task",
                     "intended_action": "plan",
                 },

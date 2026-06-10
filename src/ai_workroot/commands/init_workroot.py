@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import secrets
 
+from ai_workroot.capabilities.assets.rules import ensure_default_asset_rules
 from ai_workroot.state.environment import WorkrootRegistration, register_workroot, unregister_workroot
 from ai_workroot.state.jsonl import read_jsonl
 from ai_workroot.state.layout import ensure_workroot_id, resolve_ai_workroot_home, validate_user_directory
@@ -38,6 +39,11 @@ def initialize_workroot(
     warnings = tuple(_nested_workroot_warnings(home, user_directory))
     registration = register_workroot(home, resolved_id, name, user_directory)
     initialize_workroot_sqlite(Path(registration.state_directory) / "cache/workroot.sqlite")
+    ensure_default_asset_rules(
+        state_directory=Path(registration.state_directory),
+        user_directory=Path(registration.user_directory),
+        workroot_id=registration.workroot_id,
+    )
 
     return InitResult(registration=registration, warnings=warnings)
 

@@ -17,6 +17,7 @@ Clean Workroot has two active scenarios:
    - A user selects a directory.
    - That directory is user asset space.
    - AI Workroot does not create managed folders or control files there by default.
+   - User-visible output guides and assets, such as `workroot-output/START_HERE.txt`, are allowed user-space outputs, not managed runtime state.
    - Managed state lives under `AI_WORKROOT_HOME` through `WorkrootEnvironment`.
    - Native Agent Entry files are written only with explicit authorization.
 
@@ -103,6 +104,8 @@ Work keeps factual process continuity:
 - InvalidationRecord
 - OperationTransaction
 
+Task process levels are distinct from Context Control disclosure levels. Task process levels describe how much process continuity Work should preserve; Context disclosure levels describe how much recalled context is shown to an Agent for one turn.
+
 ## Handoff Model
 
 Handoff owns derived transfer packages for the next agent, tool, session, human, or future self.
@@ -144,7 +147,7 @@ $AI_WORKROOT_HOME/
       logs/
 ```
 
-The user-selected directory remains clean by default. User-owned files remain there; managed runtime state does not.
+The user-selected directory remains clean by default. User-owned files remain there; managed runtime state does not. `workroot-output/` is user output space, not runtime state.
 
 ## Retrieval And Context
 

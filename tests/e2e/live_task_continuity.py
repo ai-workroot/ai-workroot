@@ -37,6 +37,7 @@ class LiveRoundScript:
     expected_shapes: tuple[str, ...] = ()
     expected_asset_paths: tuple[str, ...] = ()
     expected_asset_owners: tuple[tuple[str, str], ...] = ()
+    expected_context_intent: str = ""
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,7 @@ class LiveRoleScenario:
     mode: str
     user_files: dict[str, str]
     rounds: tuple[LiveRoundScript, ...]
+    expected_final_owner: str = ""
 
     @property
     def persona(self) -> Persona:
@@ -152,6 +154,118 @@ def live_task_continuity_scenarios(
                     "roadmap.md": "# Roadmap\n\nImprove protocol UX without adding visible user noise.\n",
                 },
                 rounds=_select_rounds(_mixed_complexity_rounds(), count),
+            ),
+        )
+    if role_slug == "live-chinese-founder-operator":
+        return (
+            LiveRoleScenario(
+                slug="live-chinese-founder-operator",
+                name="Live Chinese Founder Operator",
+                workroot_id="wr_live_chinese_founder_operator",
+                mode="long_cycle",
+                user_files={
+                    "客户访谈记录.md": (
+                        "# 客户访谈记录\n\n"
+                        "- 华东制造企业关注部署周期和权限边界。\n"
+                        "- 连锁零售客户关注门店知识库同步和一线使用成本。\n"
+                        "- 金融科技客户关注审计、留痕和私有化交付。\n"
+                    ),
+                    "试点指标.csv": (
+                        "指标,当前值,目标值\n首周激活率,0.28,0.55\n有效问题解决率,0.41,0.70\n人工接力次数,18,8\n"
+                    ),
+                    "产品约束.md": (
+                        "# 产品约束\n\n"
+                        "试点版本必须保持交付简单，不把内部协议暴露给普通业务用户。\n"
+                        "销售承诺要围绕真实业务流程，不承诺尚未验证的自动化能力。\n"
+                    ),
+                },
+                rounds=_select_rounds(_chinese_founder_operator_rounds(), count),
+            ),
+        )
+    if role_slug == "live-novice-chinese-shop-owner":
+        return (
+            LiveRoleScenario(
+                slug="live-novice-chinese-shop-owner",
+                name="Live Novice Chinese Shop Owner",
+                workroot_id="wr_live_novice_chinese_shop_owner",
+                mode="long_cycle",
+                user_files={
+                    "店铺现状.md": (
+                        "# 店铺现状\n\n"
+                        "社区咖啡店，工作日早高峰人多，下午空档明显。"
+                        "主要客群是附近上班族、宝妈和周末亲子家庭。\n"
+                    ),
+                    "本月流水.csv": ("项目,金额\n咖啡,18500\n轻食,7600\n活动收入,1200\n会员充值,5200\n"),
+                    "顾客反馈.md": (
+                        "# 顾客反馈\n\n"
+                        "- 很多人希望有早餐套餐。\n"
+                        "- 下午想要安静办公位。\n"
+                        "- 周末亲子活动有人问，但店员觉得组织起来麻烦。\n"
+                    ),
+                },
+                rounds=_select_rounds(_novice_chinese_shop_owner_rounds(), count),
+                expected_final_owner="咖啡",
+            ),
+        )
+    if role_slug == "live-novice-english-community-builder":
+        return (
+            LiveRoleScenario(
+                slug="live-novice-english-community-builder",
+                name="Live Novice English Community Builder",
+                workroot_id="wr_live_novice_english_community_builder",
+                mode="long_cycle",
+                user_files={
+                    "community-notes.md": (
+                        "# Community Notes\n\n"
+                        "Small local community for independent designers. People ask for critique, referrals, "
+                        "and lightweight accountability.\n"
+                    ),
+                    "member-feedback.csv": (
+                        "segment,signal\nnew_member,wants easier first event\nactive_member,wants critique night\n"
+                        "sponsor,wants clearer audience description\n"
+                    ),
+                    "constraints.md": (
+                        "# Constraints\n\n"
+                        "The organizer has three hours per week. Events should be simple, low cost, and easy to repeat.\n"
+                    ),
+                },
+                rounds=_select_rounds(_novice_english_community_builder_rounds(), count),
+            ),
+        )
+    if role_slug == "live-novice-chinese-service-owner":
+        return (
+            LiveRoleScenario(
+                slug="live-novice-chinese-service-owner",
+                name="Live Novice Chinese Service Owner",
+                workroot_id="wr_live_novice_chinese_service_owner",
+                mode="long_cycle",
+                user_files={
+                    "门店现状.md": (
+                        "# 门店现状\n\n"
+                        "县城家政培训门店，主要做月嫂、育儿嫂、保洁和养老陪护介绍。"
+                        "老板自己懂业务但不懂软件，希望把招生、培训、客户交付和阿姨管理理顺。\n"
+                    ),
+                    "学员与阿姨情况.csv": (
+                        "类型,人数,主要问题\n新学员,36,怕学完接不到单\n可上岗阿姨,28,服务标准不统一\n"
+                        "老客户转介绍,17,回访不稳定\n投诉记录,5,沟通预期不清楚\n"
+                    ),
+                    "客户反馈.md": (
+                        "# 客户反馈\n\n"
+                        "- 客户最担心阿姨临时请假和服务边界说不清。\n"
+                        "- 新手妈妈希望先听一节体验课再交钱。\n"
+                        "- 老年陪护客户更看重稳定和应急联系人。\n"
+                    ),
+                    "现金流记录.csv": (
+                        "项目,金额\n本月报名收入,42600\n阿姨介绍服务费,23800\n房租水电,9200\n广告投放,6800\n老师课酬,14800\n"
+                    ),
+                    "下月想法.md": (
+                        "# 下月想法\n\n"
+                        "想做一次社区活动，一次短视频直播，另外考虑招聘一个兼职招生顾问。"
+                        "老板担心一下子做太多，店员跟不上。\n"
+                    ),
+                },
+                rounds=_select_rounds(_novice_chinese_service_owner_rounds(), count),
+                expected_final_owner="家政",
             ),
         )
     bases = (
@@ -453,6 +567,8 @@ def _run_role(
         round_results.append(result)
 
     final_db = summarize_role_database(ai_home=ai_workroot_home, workroot_id=role.workroot_id)
+    role_command_records = [read_jsonl(round_result.command_log_path) for round_result in round_results]
+    failures.extend(_validate_role_protocol_usage(role_command_records))
     failures.extend(_validate_role_continuity(role=role, user_directory=user_directory, final_db=final_db))
     return LiveTaskRoleResult(
         role_slug=role.slug,
@@ -551,8 +667,11 @@ def _run_round(
 
 
 def _round_prompt(*, role: LiveRoleScenario, round_script: LiveRoundScript) -> str:
+    if role.slug.startswith("live-novice-"):
+        return _novice_round_prompt(role=role, round_script=round_script)
     expected_assets = ", ".join(round_script.expected_asset_paths) or "none"
     expected_shapes = ", ".join(round_script.expected_shapes) or "as-needed"
+    context_intent_guidance = _context_intent_guidance(round_script)
     return f"""Live task-continuity E2E.
 
 You are the Codex Agent working inside a sandbox Workroot for role: {role.name}.
@@ -567,19 +686,56 @@ Expected Workroot capture shape(s): {expected_shapes}
 Expected user-visible asset path(s): {expected_assets}
 
 Protocol behavior:
-1. Start by using `workroot context` or `workroot agent sync` from cwd ".". Do not call top-level `workroot sync`. Every sync call must include `--query` with the current user request or a short intent.
-2. Sync with a structured Work Signal: new normal work uses `--reason before_task_switch` with `phase=switching, work_kind=task, intended_action=plan`; returning to an existing task uses `--reason continue` with `work_kind=continuation`; a new temporary inbox uses `--reason before_task_switch` with `phase=switching, work_kind=inbox`; decisions inside active work use `phase=deciding, work_kind=decision, intended_action=decide`.
+1. Start by using `workroot agent sync --format packet` from cwd ".". Do not call top-level `workroot sync`. For recall inside a normal user turn, use sync with `intended_action=inspect`; use `workroot context` only for startup, recovery, or debugging outside the normal turn loop. Every context or sync call must include `--query` with the current user request or a short intent.
+2. Sync with a structured Work Signal: new normal work uses `phase=starting, work_kind=task, intended_action=plan`; returning to an existing task uses `--reason continue` with `work_kind=continuation`; a new temporary inbox uses `--reason before_task_switch` with `phase=switching, work_kind=inbox`; decisions inside active work use `phase=deciding, work_kind=decision, intended_action=decide`.
 3. Follow the private packet. When it asks for commit, use `workroot agent commit --format packet --shape ... --lease ...` with concise stable facts.
 4. Use `--persistence temporary` only on `workroot agent commit` for inbox or adhoc temporary work. Use `--persistence normal` only on `workroot agent commit` for long-cycle work.
 5. If you create a user-visible file, create it first, then commit `--shape asset` with its relative path.
 6. If you make a stable decision, commit `--shape decision`.
 7. Before stopping or switching, commit `--shape continuation` when Workroot asks for continuity.
 8. If Workroot is unavailable or rejects a write, continue helping the user and mention only the user-facing result.
+{context_intent_guidance}
 
 Finish with exactly two short user-facing lines. The first line must be:
 LIVE_TASK_CONTINUITY_OK {role.slug} round-{round_script.index:02d}
 The second line should summarize the useful user-facing result without protocol details.
 """
+
+
+def _novice_round_prompt(*, role: LiveRoleScenario, round_script: LiveRoundScript) -> str:
+    return f"""Live novice task-continuity E2E.
+
+You are the Codex Agent working inside a sandbox Workroot for role: {role.name}.
+The user is a normal person using an AI assistant. They do not know Workroot internals.
+Use Workroot privately. Do not show Workroot packets, refs, leases, JSON, or internal paths to the user.
+Do not create runtime files in the user directory. If you create a useful user-visible result file, keep it in the user's normal output area and then preserve it privately.
+
+Round {round_script.index}: {round_script.label}
+User request:
+{round_script.user_request}
+
+Private operating rules:
+1. Start by using `workroot agent sync --format packet` from cwd "." with `--query` set to the current user request or a short intent.
+2. If the user's ordinary language clearly implies durable work, temporary side work, continuation, a decision, evidence lookup, or a user-visible file, include a compact `--work-signal` with stable enum fields and keep `focus` in the user's language.
+3. Use `phase=starting, work_kind=task, intended_action=plan` only when the user is starting a new long-running goal.
+4. Use `work_kind=continuation` when continuing the same direction, `phase=switching, work_kind=inbox` for loose temporary side thoughts, `work_kind=decision` for stable choices, and `intended_action=inspect` with `concerns=["needs_evidence"]` for source, proof, or rationale requests.
+5. Follow the private packet. When it asks for commit, use `workroot agent commit --format packet --shape ... --lease ...` with concise stable facts.
+6. If Workroot is unavailable or rejects a write, continue helping the user and mention only the user-facing result.
+
+Finish with exactly two short user-facing lines. The first line must be:
+LIVE_TASK_CONTINUITY_OK {role.slug} round-{round_script.index:02d}
+The second line should summarize the useful user-facing result without protocol details.
+"""
+
+
+def _context_intent_guidance(round_script: LiveRoundScript) -> str:
+    if round_script.expected_context_intent != "evidence_lookup":
+        return ""
+    return (
+        "9. This round needs evidence lookup: the first `workroot agent sync` call must include "
+        '`--work-signal` with `intended_action=inspect` and `concerns=["needs_evidence"]`, '
+        "or an equivalent evidence action alias."
+    )
 
 
 def _codex_command(
@@ -644,8 +800,12 @@ def _validate_round(
             failures.append("last model message missing live continuity marker")
     if not commands:
         failures.append("no Workroot command was called")
-    if round_script.index == 1 and "agent sync" not in commands and "context" not in commands:
-        failures.append("first round did not call context or sync")
+    if "agent sync" not in commands:
+        failures.append("round did not call agent sync")
+    failures.extend(_validate_context_and_sync_queries(command_records or []))
+    failures.extend(_validate_agent_sync_format(command_records or []))
+    failures.extend(_validate_context_usage(command_records or []))
+    failures.extend(_validate_context_intent(round_script, command_records or []))
     if round_script.expected_shapes and "agent commit" not in commands:
         failures.append(f"expected commit for shapes {round_script.expected_shapes}")
     indexed_assets = {_normalize_relative_path(path) for path in db_summary.get("assetPaths", [])}
@@ -662,6 +822,101 @@ def _validate_round(
     for shape in _unrecovered_rejected_commit_shapes(command_records or []):
         failures.append(f"Workroot commit was rejected: {shape}")
     return failures
+
+
+def _validate_context_and_sync_queries(command_records: list[dict[str, Any]]) -> list[str]:
+    failures: list[str] = []
+    placeholder_queries = {"<short intent>", "<current user request or short intent>"}
+    for record in command_records:
+        argv = record.get("argv")
+        if not isinstance(argv, list) or not argv:
+            continue
+        if "--help" in argv:
+            continue
+        is_context = argv[0] == "context"
+        is_agent_sync = len(argv) >= 2 and argv[:2] == ["agent", "sync"]
+        if not is_context and not is_agent_sync:
+            continue
+        query = _arg_value(argv, "--query")
+        if not query.strip() or query.strip() in placeholder_queries:
+            failures.append(f"{'context' if is_context else 'agent sync'} missing meaningful --query")
+    return failures
+
+
+def _validate_context_usage(command_records: list[dict[str, Any]]) -> list[str]:
+    context_count = sum(1 for record in command_records if _record_is_context(record))
+    sync_count = sum(1 for record in command_records if _record_is_agent_sync(record))
+    if context_count and not sync_count:
+        return ["context was used without agent sync"]
+    return []
+
+
+def _validate_agent_sync_format(command_records: list[dict[str, Any]]) -> list[str]:
+    failures: list[str] = []
+    for record in command_records:
+        if not _record_is_agent_sync(record):
+            continue
+        argv = record.get("argv")
+        if not isinstance(argv, list):
+            continue
+        if _arg_value(argv, "--format") != "packet":
+            failures.append("agent sync did not request packet format")
+    return failures
+
+
+def _validate_role_protocol_usage(command_records_by_round: list[list[dict[str, Any]]]) -> list[str]:
+    if len(command_records_by_round) <= 1:
+        return []
+    context_rounds = sum(
+        1 for records in command_records_by_round if any(_record_is_context(record) for record in records)
+    )
+    if context_rounds == len(command_records_by_round):
+        return ["context was used in every round; sync-first loop regressed"]
+    return []
+
+
+def _validate_context_intent(round_script: LiveRoundScript, command_records: list[dict[str, Any]]) -> list[str]:
+    if round_script.expected_context_intent != "evidence_lookup":
+        return []
+    protocol_records = [
+        record for record in command_records if _record_is_agent_sync(record) or _record_is_context(record)
+    ]
+    if not protocol_records:
+        return ["evidence round missing agent sync"]
+    work_signal = _json_arg(protocol_records[0]["argv"], "--work-signal")
+    if _has_evidence_signal(work_signal):
+        return []
+    return ["evidence round sync missing needs_evidence WorkSignal"]
+
+
+def _record_is_context(record: dict[str, Any]) -> bool:
+    argv = record.get("argv")
+    return isinstance(argv, list) and bool(argv) and argv[0] == "context"
+
+
+def _record_is_agent_sync(record: dict[str, Any]) -> bool:
+    argv = record.get("argv")
+    return isinstance(argv, list) and len(argv) >= 2 and argv[:2] == ["agent", "sync"]
+
+
+def _json_arg(argv: list[object], flag: str) -> dict[str, Any]:
+    value = _arg_value(argv, flag)
+    if not value:
+        return {}
+    try:
+        loaded = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def _has_evidence_signal(work_signal: dict[str, Any]) -> bool:
+    intended_action = str(work_signal.get("intended_action") or "").strip().lower()
+    concerns = work_signal.get("concerns")
+    concern_values = {str(item).strip().lower() for item in concerns} if isinstance(concerns, list) else set()
+    if "needs_evidence" in concern_values:
+        return True
+    return intended_action in {"explain", "rationale", "evidence", "source", "proof", "justify"}
 
 
 def _unrecovered_rejected_commit_shapes(command_records: list[dict[str, Any]]) -> list[str]:
@@ -726,6 +981,12 @@ def _validate_role_continuity(
         expectation for round_script in role.rounds for expectation in round_script.expected_asset_owners
     )
     failures.extend(_validate_asset_owner_expectations(owner_expectations, final_db))
+    if role.expected_final_owner:
+        latest_handoff = final_db.get("latestHandoff") if isinstance(final_db.get("latestHandoff"), dict) else {}
+        task_title = str(latest_handoff.get("taskTitle") or "")
+        expected = role.expected_final_owner.strip().lower()
+        if expected and expected not in task_title.lower():
+            failures.append(f"latest handoff owner drifted away from expected owner: {role.expected_final_owner}")
     return failures
 
 
@@ -848,6 +1109,7 @@ def _select_rounds(base: tuple[LiveRoundScript, ...], count: int) -> tuple[LiveR
             expected_shapes=round_script.expected_shapes,
             expected_asset_paths=round_script.expected_asset_paths,
             expected_asset_owners=round_script.expected_asset_owners,
+            expected_context_intent=round_script.expected_context_intent,
         )
         for index, round_script in enumerate(selected[:count], start=1)
     )
@@ -1123,6 +1385,465 @@ def _product_manager_rounds() -> tuple[LiveRoundScript, ...]:
         ),
         LiveRoundScript(
             10, "Final handoff", "Leave a clear product handoff for the next planning session.", ("continuation",)
+        ),
+    )
+
+
+def _chinese_founder_operator_rounds() -> tuple[LiveRoundScript, ...]:
+    return (
+        LiveRoundScript(
+            1,
+            "Start Chinese founder pilot thread",
+            "我想启动一个长期任务：作为创始人推进企业 AI 工作台的首批试点，重点围绕客户分层、定价、交付风险和上下文连续性。请先把任务目标管起来。",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            2,
+            "Pilot priorities checkpoint",
+            "继续刚才的试点任务。请基于已有客户访谈记录，沉淀三个优先级和一个当前最大的开放风险。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            3,
+            "First pilot segment decision",
+            "现在需要做一个稳定决策：首批试点客户应该优先选择制造、零售还是金融科技？请给出选择和理由，并把这个决策保存下来。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            4,
+            "Create pilot operating plan asset",
+            "请创建 `workroot-output/enterprise-ai-pilot-plan.md`，写一份紧凑的试点推进计划，并把这个用户可见结果作为资产登记。",
+            ("asset",),
+            ("workroot-output/enterprise-ai-pilot-plan.md",),
+        ),
+        LiveRoundScript(
+            5,
+            "Pricing checkpoint",
+            "继续主线任务，不要重新开始新任务。请把试点定价需要验证的两个问题和一个暂不承诺的边界记录为进展。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            6,
+            "Temporary sales-language tangent",
+            "临时插一个发散讨论：我想快速想三句销售开场白，这个不要变成正式项目。请按临时 inbox 处理，保存时使用 `--persistence temporary`。",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            7,
+            "Temporary sales-language checkpoint",
+            "继续刚才临时销售话术讨论，只保留一个最值得下次再看的话术方向，不要把它升级成长期任务。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            8,
+            "Resume main pilot after tangent",
+            "回到企业 AI 工作台试点主线。请从上下文接上，不要新建主线任务，记录下一步客户访谈排序。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            9,
+            "Update pilot operating plan asset",
+            "请更新 `workroot-output/enterprise-ai-pilot-plan.md`，补充客户访谈排序和定价边界，并再次登记这个资产。",
+            ("asset",),
+            ("workroot-output/enterprise-ai-pilot-plan.md",),
+        ),
+        LiveRoundScript(
+            10,
+            "Main pilot handoff",
+            "请给企业 AI 工作台试点主线留一个接力说明：当前状态、下一步动作、一个需要我决策的问题。",
+            ("continuation",),
+        ),
+        LiveRoundScript(
+            11,
+            "Start delivery risk thread",
+            "现在启动一个相关但独立的长期任务：梳理试点交付风险，重点看部署、权限、审计和一线培训。请把它和主线保持关联但不要混成同一个任务。",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            12,
+            "Delivery risk checkpoint",
+            "继续交付风险任务。请结合产品约束，记录最重要的交付风险、触发条件和一个缓解动作。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            13,
+            "Delivery scope decision",
+            "请做一个稳定决策：首批试点是否承诺私有化部署？请保存决策和原因。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            14,
+            "Create delivery risk asset",
+            "请创建 `workroot-output/delivery-risk-note.md`，写一份交付风险说明，并把这个文件作为资产登记。",
+            ("asset",),
+            ("workroot-output/delivery-risk-note.md",),
+        ),
+        LiveRoundScript(
+            15,
+            "Quick answer without new task",
+            "快速回答一个问题即可：为什么不要把所有历史细节都塞进上下文？不要为这个问题新建正式任务。",
+            (),
+        ),
+        LiveRoundScript(
+            16,
+            "Resume main pilot with metrics",
+            "回到企业 AI 工作台试点主线。请根据试点指标表，记录一个最需要追踪的北极星指标和判断理由。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            17,
+            "Temporary sales-language handoff",
+            "回到临时销售话术讨论，留一个临时接力说明，说明后续如果继续聊应该从哪句话术方向开始。",
+            ("continuation",),
+        ),
+        LiveRoundScript(
+            18,
+            "Pilot KPI decision",
+            "再次回到企业 AI 工作台试点主线。请做一个稳定决策：首批试点最核心的成功指标是什么？保存这个决策。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            19,
+            "Create interview script asset",
+            "请创建 `workroot-output/customer-interview-script.md`，写一份用于首批试点客户访谈的提纲，并把它作为资产登记。",
+            ("asset",),
+            ("workroot-output/customer-interview-script.md",),
+        ),
+        LiveRoundScript(
+            20,
+            "Final Chinese pilot handoff",
+            "请为这轮中文试点任务留下最终接力：主线当前结论、交付风险任务当前结论、临时话术讨论状态，以及下一轮最应该先做什么。",
+            ("continuation",),
+        ),
+    )
+
+
+def _novice_chinese_shop_owner_rounds() -> tuple[LiveRoundScript, ...]:
+    return (
+        LiveRoundScript(
+            1,
+            "Shop planning start",
+            "我最近想把社区咖啡店经营得更稳一点，你先帮我整理一个未来一个月的经营方向。",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            2,
+            "Morning offer",
+            "你看一下店铺现状和流水，帮我想两个早高峰可以试的小动作，别太复杂。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            3,
+            "Choose first experiment",
+            "这两个里面先做哪个更合适？你直接帮我定一个，并说明为什么。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            4,
+            "Create simple plan",
+            "帮我写一份给店员看的执行清单，放到 `outputs/shop-month-plan.md`。",
+            ("asset",),
+            ("outputs/shop-month-plan.md",),
+        ),
+        LiveRoundScript(
+            5,
+            "Side idea",
+            "我临时想到一个事：周末亲子活动能不能做？先随便帮我想两个点子，不一定真的做。",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            6,
+            "Return to main",
+            "先回到这个月经营方向，帮我把第一周最该盯的一个数字和原因记下来。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            7,
+            "Afternoon issue",
+            "下午空档还是头疼，你结合顾客反馈，帮我补一个低成本办法。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            8,
+            "Update plan",
+            "把刚才定下来的早高峰和下午空档安排补进 `outputs/shop-month-plan.md`。",
+            ("asset",),
+            ("outputs/shop-month-plan.md",),
+        ),
+        LiveRoundScript(
+            9,
+            "Small answer",
+            "简单回答一下：为什么我不能同时改早餐、下午办公、周末活动三个方向？",
+            (),
+        ),
+        LiveRoundScript(
+            10,
+            "Midway pause",
+            "我上午先到这里。你帮我记一下现在已经定了什么，下次回来我别忘了先看哪里。",
+            ("continuation",),
+        ),
+        LiveRoundScript(
+            11,
+            "Create customer message",
+            "帮我写一版发朋友圈的小短文，介绍这周早高峰的小活动，放到 `outputs/朋友圈文案.md`。",
+            ("asset",),
+            ("outputs/朋友圈文案.md",),
+        ),
+        LiveRoundScript(
+            12,
+            "Temporary decoration thought",
+            "忽然想到店里要不要换几张桌子，这个先不急，你帮我列两个判断标准就行。",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            13,
+            "Back to operations",
+            "先别管桌子了，回到店里的经营安排。你帮我看一下下午空档那个办法，第一天怎么做最省事？",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            14,
+            "Evidence request",
+            "你刚才说下午可以做安静办公位，这个判断主要是从哪些现有信息看出来的？",
+            (),
+            expected_context_intent="evidence_lookup",
+        ),
+        LiveRoundScript(
+            15,
+            "Update staff plan again",
+            "把会员要不要推、下午第一天怎么做，也补进 `outputs/shop-month-plan.md`。",
+            ("asset",),
+            ("outputs/shop-month-plan.md",),
+        ),
+        LiveRoundScript(
+            16,
+            "Quick pricing question",
+            "顺手问一句：现在咖啡要不要直接涨一块钱？你先给我一个很短的判断。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            17,
+            "Create weekly review sheet",
+            "帮我做一张下周每天关店后能填的复盘表，放到 `outputs/下周复盘表.md`。",
+            ("asset",),
+            ("outputs/下周复盘表.md",),
+        ),
+        LiveRoundScript(
+            18,
+            "Resume side idea lightly",
+            "周末亲子活动那个事我还没想好，你帮我留一个最小版本，不要影响这个月主安排。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            19,
+            "Final prioritization",
+            "如果我下周只能盯三件事，你帮我排个顺序，别讲太复杂。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            20,
+            "Natural stop",
+            "今天先这样。下次我回来，你提醒我先看哪几个结果。",
+            ("continuation",),
+        ),
+    )
+
+
+def _novice_chinese_service_owner_rounds() -> tuple[LiveRoundScript, ...]:
+    return (
+        LiveRoundScript(
+            1,
+            "Service business planning start",
+            "我这家家政培训门店最近事情有点乱，招生、培训、阿姨上岗、客户回访都在我脑子里打架。我不懂你们这些工具该怎么用，你就当我在跟一个靠谱助理说话，先帮我把未来一个月最应该抓的经营方向理出来，别写得太虚，也别一上来就让我做很多表格。",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            2,
+            "Training and delivery checkpoint",
+            "你看一下现有材料，我感觉现在问题不是没人问，而是报名以后能不能学会、学完能不能接到合适的单、客户会不会满意。请帮我把最关键的三个问题按先后顺序排一下，再说明每个问题如果不管会带来什么后果，最好能让我拿去跟店员开十分钟小会。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            3,
+            "Choose first operating focus",
+            "这三个问题里我不可能同时抓，我店里就三个人，还要正常接客户电话。你帮我直接定一下这个月先抓哪个方向，理由要能说服店员，别给我一堆平均用力的建议，我需要一个明确选择。如果你觉得有些事要先放下，也请直接说出来。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            4,
+            "Create one month operating plan",
+            "帮我把刚才定下来的方向写成一份店里能执行的一个月安排，不要像咨询报告，最好就是老板和店员每天能照着看的。请放成 `outputs/家政门店一个月经营安排.md` 这个文件，里面要有每周重点、谁来做、怎么判断有没有进展。",
+            ("asset",),
+            ("outputs/家政门店一个月经营安排.md",),
+        ),
+        LiveRoundScript(
+            5,
+            "Temporary live streaming idea",
+            "我又想到一个不一定靠谱的点子：有人说让我每晚直播讲月嫂课，但我自己没做过，也怕店员忙不过来。这个先当临时想法，不要影响刚才那个主安排，你帮我快速列一下它可能有用和可能添乱的地方，尤其要提醒我哪些坑别马上踩。",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            6,
+            "Return to main training path",
+            "先别被直播带跑了，回到家政培训这条主线。我想知道第一周具体应该盯哪个动作，是先改体验课、先整理阿姨服务标准，还是先补客户回访？你结合现有情况给一个落地顺序，并说明第一天就能开始做的最小动作是什么，不要超过店员现在的承受能力。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            7,
+            "Create training checklist",
+            "请帮我写一份给老师和店员用的培训检查清单，重点是新学员学完之后能不能达到上岗要求，语言要普通人看得懂。文件放到 `outputs/学员上岗检查清单.md`，不要太长，但关键项不能漏，最好让老师明天上课前就能照着改。",
+            ("asset",),
+            ("outputs/学员上岗检查清单.md",),
+        ),
+        LiveRoundScript(
+            8,
+            "Evidence for training priority",
+            "你刚才一直强调先把培训和上岗标准理顺，我想确认一下这个判断不是拍脑袋。你主要是从我给你的哪些信息看出来的？请用普通话讲清楚，不要说得像技术说明，也不要把所有原话都堆给我，我只想知道关键依据，以及这个依据是不是足够支持现在先这么做。",
+            (),
+            expected_context_intent="evidence_lookup",
+        ),
+        LiveRoundScript(
+            9,
+            "Pricing package decision",
+            "现在有个收费问题我拿不准：体验课要不要免费，还是收一个很低的定金，后面报名再抵扣？你帮我做个明确选择，考虑到县城客户比较敏感，但完全免费又可能来一堆不认真学的人。这个选择最好能兼顾口碑和筛选诚意，也方便前台解释。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            10,
+            "Pause with next pickup",
+            "我上午先忙客户去了。你帮我把现在已经定下来的东西、还没定的东西、下次回来最先该看的地方整理一下。不要写太多，我希望晚上打开以后能马上接着做，不用重新想一遍，也别让我从头解释门店情况。",
+            ("continuation",),
+        ),
+        LiveRoundScript(
+            11,
+            "Customer message asset",
+            "晚上继续。我准备在老客户群里发一段话，说我们下周会把阿姨服务标准和回访做得更清楚，也顺便带一下体验课。帮我写一版自然一点的群公告，放到 `outputs/老客户群公告.md`，别太营销，像老板本人发出来的就行。",
+            ("asset",),
+            ("outputs/老客户群公告.md",),
+        ),
+        LiveRoundScript(
+            12,
+            "Temporary hiring thought",
+            "另外我临时又想到招聘一个兼职招生顾问，但现在现金流也不是特别宽裕。这个想法先不要影响主安排，你帮我列三个判断条件：什么情况下值得招，什么情况下先别招。请别默认招人一定能解决招生问题。",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            13,
+            "Cash flow checkpoint",
+            "回到门店经营这件事，我想把现金流也看一下。根据现有收入和支出，你帮我指出下个月最需要控制的一个花钱点，以及一个不能省过头的投入，最好能讲得让我这种不懂财务的人也明白，还能直接拿去跟会计沟通。",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            14,
+            "Hiring decision",
+            "关于兼职招生顾问这件事，别再模糊了。你帮我定一下这个月到底招不招，如果不招，那用什么替代办法；如果招，要先满足什么条件。请给一个明确判断，也说明这个判断以后在什么情况下需要改。我不想因为一时焦虑就多背固定开支。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            15,
+            "Community event asset",
+            "我们下周可能去社区做一场小活动，主题想围绕新手妈妈怎么挑月嫂，也顺便让别人知道我们这里能培训。帮我写一份活动小方案，放到 `outputs/社区活动小方案.md`，要简单、低成本、店员能执行，不要搞得像大型讲座。",
+            ("asset",),
+            ("outputs/社区活动小方案.md",),
+        ),
+        LiveRoundScript(
+            16,
+            "Update operating plan",
+            "把收费选择、现金流注意点、社区活动安排都补进 `outputs/家政门店一个月经营安排.md`。如果原来安排里有太满的地方，你顺手帮我收一收，别让我下周看起来什么都要做。最后请让这个安排更像店里真实能执行的版本。",
+            ("asset",),
+            ("outputs/家政门店一个月经营安排.md",),
+        ),
+        LiveRoundScript(
+            17,
+            "Side threads pause",
+            "直播和招聘这两个想法今天都先别展开了。你帮我各留一句以后再看时应该先问自己的问题，别让它们把主线带偏。这个只是方便我以后想起来，不需要变成今天的重点，也不要让店员以为明天就要开始做。",
+            ("continuation",),
+        ),
+        LiveRoundScript(
+            18,
+            "Weekly review table",
+            "我想让店员每天关店前花五分钟填一下今天做得怎么样，不要复杂表格。请帮我做一张下周复盘表，放到 `outputs/下周门店复盘表.md`，里面要能看出招生、培训、客户回访有没有推进，最好填完我一眼能看出问题。",
+            ("asset",),
+            ("outputs/下周门店复盘表.md",),
+        ),
+        LiveRoundScript(
+            19,
+            "Final weekly priorities decision",
+            "如果我下周只能盯三件事，你帮我排个顺序。请考虑培训质量、客户信任、现金流和店员精力，不要为了好看列太多。我要的是明天早会能直接讲的版本，每件事最好都有一句为什么排在这里，以及谁最适合先负责。",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            20,
+            "Natural stop and next pickup",
+            "今天先到这里。下次我回来，你要提醒我先看哪几个文件、先检查哪三个结果、如果情况变了应该先调整哪里。请用老板能看懂的话整理，别把过程讲复杂，也别让我重新翻所有聊天才能继续。",
+            ("continuation",),
+        ),
+    )
+
+
+def _novice_english_community_builder_rounds() -> tuple[LiveRoundScript, ...]:
+    return (
+        LiveRoundScript(
+            1,
+            "Community planning start",
+            "I run a small local group for independent designers. Help me figure out what to focus on this month.",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            2,
+            "Member signals",
+            "Look at the notes and member feedback, then give me the two most useful things to improve first.",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            3,
+            "Choose first move",
+            "Which one should I do first? Pick one and explain the tradeoff in plain English.",
+            ("decision",),
+        ),
+        LiveRoundScript(
+            4,
+            "Create run sheet",
+            "Write a simple run sheet for the next event at `outputs/community-event-run-sheet.md`.",
+            ("asset",),
+            ("outputs/community-event-run-sheet.md",),
+        ),
+        LiveRoundScript(
+            5,
+            "Loose idea",
+            "Side thought: maybe sponsors could help. Give me two rough sponsor ideas, but do not make this the main plan yet.",
+            ("start_work",),
+        ),
+        LiveRoundScript(
+            6,
+            "Back to main",
+            "Back to the monthly community plan. What is the one thing I should measure after the next event?",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            7,
+            "Constraint check",
+            "I only have three hours a week. Tighten the plan so it is realistic.",
+            ("checkpoint",),
+        ),
+        LiveRoundScript(
+            8,
+            "Update run sheet",
+            "Update `outputs/community-event-run-sheet.md` with the realistic version.",
+            ("asset",),
+            ("outputs/community-event-run-sheet.md",),
+        ),
+        LiveRoundScript(
+            9,
+            "Quick question",
+            "Quick question: why should I not start three new event formats at once?",
+            (),
+        ),
+        LiveRoundScript(
+            10,
+            "Natural stop",
+            "I am done for today. Leave me a clean place to pick this up next time.",
+            ("continuation",),
         ),
     )
 
@@ -1436,10 +2157,11 @@ def _asset_owners(conn: sqlite3.Connection) -> dict[str, list[str]]:
 def _latest_handoff(conn: sqlite3.Connection) -> dict[str, Any] | None:
     row = conn.execute(
         """
-        SELECT handoff_id, task_id, run_id, current_state, next_action
-        FROM handoffs
-        WHERE status = 'current'
-        ORDER BY created_at DESC, handoff_id DESC
+        SELECT h.handoff_id, h.task_id, h.run_id, t.title, t.role, h.current_state, h.next_action
+        FROM handoffs h
+        LEFT JOIN tasks t ON t.workroot_id = h.workroot_id AND t.task_id = h.task_id
+        WHERE h.status = 'current'
+        ORDER BY h.created_at DESC, h.handoff_id DESC
         LIMIT 1
         """
     ).fetchone()
@@ -1449,8 +2171,10 @@ def _latest_handoff(conn: sqlite3.Connection) -> dict[str, Any] | None:
         "handoffId": row[0],
         "taskId": row[1],
         "runId": row[2],
-        "currentState": row[3],
-        "nextAction": row[4],
+        "taskTitle": row[3],
+        "taskRole": row[4],
+        "currentState": row[5],
+        "nextAction": row[6],
     }
 
 

@@ -108,10 +108,13 @@ def validate_user_directory(persona: Persona, user_directory: Path, ai_workroot_
             text = path.read_text(encoding="utf-8")
             if str(ai_workroot_home) in text:
                 failures.append(f"{filename} leaks AI_WORKROOT_HOME")
-            if len(text.splitlines()) > 12:
+            if len(text.splitlines()) > 13:
                 failures.append(f"{filename} is too long")
-            if f"workroot context --agent {agent} --cwd ." not in text:
-                failures.append(f"{filename} missing relative context command")
+            if (
+                f'workroot agent sync --agent {agent} --cwd . --query "<current user request>" --format packet'
+                not in text
+            ):
+                failures.append(f"{filename} missing relative sync command")
     else:
         for filename in ("AGENTS.md", "CLAUDE.md"):
             if (user_directory / filename).exists():

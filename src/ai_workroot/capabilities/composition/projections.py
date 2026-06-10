@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from ai_workroot.capabilities.assets.rules import save_declared_output_rule
 from ai_workroot.state.versions import bump_state_version, now_utc
 
 
@@ -64,6 +65,7 @@ def apply_projection(
     lease: dict[str, Any],
     event: dict[str, Any],
     user_directory: Optional[Path] = None,
+    state_directory: Optional[Path] = None,
 ) -> ProjectionResult:
     kind = event["kind"]
     if kind == "intent":
@@ -73,7 +75,14 @@ def apply_projection(
     if kind == "handoff":
         return project_handoff(conn, workroot_id=workroot_id, lease=lease, event=event)
     if kind == "state":
-        return project_state(conn, workroot_id=workroot_id, lease=lease, event=event)
+        return project_state(
+            conn,
+            workroot_id=workroot_id,
+            lease=lease,
+            event=event,
+            state_directory=state_directory,
+            user_directory=user_directory,
+        )
     if kind == "asset":
         return project_asset(conn, workroot_id=workroot_id, lease=lease, event=event, user_directory=user_directory)
     if kind == "decision":
@@ -105,6 +114,7 @@ def project_intent(
         )
     if persistence not in {"normal", "temporary"}:
         raise ProjectionError("event_not_allowed", f"persistence is not implemented in P0: {persistence}")
+    _validate_lease_policy_for_intent(lease=lease, persistence=persistence)
 
     task_hint = _dict_value(payload, "task_hint")
     event_id = str(event["event_id"])
@@ -421,8 +431,19 @@ def project_state(
     workroot_id: str,
     lease: dict[str, Any],
     event: dict[str, Any],
+    state_directory: Optional[Path] = None,
+    user_directory: Optional[Path] = None,
 ) -> ProjectionResult:
     payload = event["payload"]
+    if payload.get("target_type") == "output_rule":
+        return _project_output_rule_state(
+            conn,
+            workroot_id=workroot_id,
+            lease=lease,
+            payload=payload,
+            state_directory=state_directory,
+            user_directory=user_directory,
+        )
     if payload.get("target_type") != "task":
         raise ProjectionError("event_not_allowed", "P0 state projection only supports task targets")
     task_id = _required_text(payload, "target_id")
@@ -508,10 +529,6 @@ def project_asset(
 ) -> ProjectionResult:
     payload = event["payload"]
     task_id, run_id = _optional_task_run_from_payload_or_lease(payload, lease)
-    if task_id and run_id:
-        _require_matching_lease(lease, task_id=task_id, run_id=run_id)
-        _require_run(conn, workroot_id, task_id, run_id)
-
     event_id = str(event["event_id"])
     title = _required_text(payload, "title")
     asset_kind = _text_or_none(payload.get("asset_kind")) or _text_or_none(payload.get("kind")) or "artifact"
@@ -524,6 +541,22 @@ def project_asset(
         or _path_asset_id(workroot_id, normalized_path)
         or _stable_id("asset", event_id)
     )
+    existing_task_owners = _existing_asset_task_owners(
+        conn,
+        workroot_id=workroot_id,
+        asset_id=asset_id,
+        normalized_path=normalized_path,
+    )
+    if task_id and existing_task_owners and task_id not in existing_task_owners:
+        raise ProjectionError(
+            "asset_owner_conflict",
+            "asset path is already linked to a different task owner",
+            {"path": normalized_path, "existing_task_ids": sorted(existing_task_owners), "requested_task_id": task_id},
+        )
+    if task_id and run_id:
+        _require_matching_lease(lease, task_id=task_id, run_id=run_id)
+        _require_run(conn, workroot_id, task_id, run_id)
+
     summary = _text_or_none(payload.get("summary")) or ""
     status = _text_or_none(payload.get("status")) or "current"
     now = now_utc()
@@ -726,6 +759,39 @@ def _project_task_metadata_state(
     )
 
 
+def _project_output_rule_state(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    lease: dict[str, Any],
+    payload: dict[str, Any],
+    state_directory: Optional[Path],
+    user_directory: Optional[Path],
+) -> ProjectionResult:
+    if _text_or_none(lease.get("task_id")):
+        raise ProjectionError("state_conflict", "output rule updates require a workroot-scoped lease")
+    if state_directory is None or user_directory is None:
+        raise ProjectionError("projection_failed", "output rule projection requires registered Workroot directories")
+    asset_kind = _required_text(payload, "target_id")
+    path = _required_text(payload, "path")
+    try:
+        rule = save_declared_output_rule(
+            state_directory=state_directory,
+            user_directory=user_directory,
+            workroot_id=workroot_id,
+            asset_kind=asset_kind,
+            path=path,
+        )
+    except ValueError as exc:
+        raise ProjectionError("projection_failed", str(exc)) from exc
+    now = now_utc()
+    bump_state_version(conn, workroot_id, "workroot", now)
+    bump_state_version(conn, workroot_id, "config:asset-rules", now)
+    return _workroot_capture_result(
+        effects=[{"type": "output_rule_declared", "target_type": "output_rule", "target_id": rule.asset_kind}]
+    )
+
+
 def _continue_result(
     *,
     effects: list[dict[str, str]],
@@ -908,6 +974,18 @@ def _resolve_intent_attach_target(
     if len(candidates) > 1 and candidates[0][0] - candidates[1][0] < 10:
         return None
     return candidates[0][1], candidates[0][2]
+
+
+def _validate_lease_policy_for_intent(*, lease: dict[str, Any], persistence: str) -> None:
+    policy = lease.get("policy")
+    if not isinstance(policy, dict):
+        return
+    expected_persistence = _text_or_none(policy.get("expected_start_work_persistence"))
+    if expected_persistence == "temporary" and persistence == "normal":
+        raise ProjectionError(
+            "lease_policy_conflict",
+            "lease expected temporary start-work persistence but commit requested normal persistence",
+        )
 
 
 def _latest_usable_run_id(conn: sqlite3.Connection, workroot_id: str, task_id: str) -> Optional[str]:
@@ -1253,6 +1331,38 @@ def _link_task_to_target(
             "active",
         ),
     )
+
+
+def _existing_asset_task_owners(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    asset_id: str,
+    normalized_path: str,
+) -> set[str]:
+    rows = conn.execute(
+        """
+        SELECT DISTINCT task_node.target_id
+        FROM assets asset
+        JOIN relationship_nodes asset_node
+          ON asset_node.workroot_id = asset.workroot_id
+         AND asset_node.target_type = 'asset'
+         AND asset_node.target_id = asset.asset_id
+        JOIN relationship_edges edge
+          ON edge.workroot_id = asset.workroot_id
+         AND edge.to_node_id = asset_node.node_id
+         AND edge.relationship_type = 'produced_asset'
+         AND COALESCE(edge.status, 'active') = 'active'
+        JOIN relationship_nodes task_node
+          ON task_node.workroot_id = asset.workroot_id
+         AND task_node.node_id = edge.from_node_id
+         AND task_node.target_type = 'task'
+        WHERE asset.workroot_id = ?
+          AND (asset.asset_id = ? OR asset.current_path = ?)
+        """,
+        (workroot_id, asset_id, normalized_path),
+    ).fetchall()
+    return {str(row[0]) for row in rows if row[0]}
 
 
 def _path_asset_id(workroot_id: str, relative_path: str) -> Optional[str]:

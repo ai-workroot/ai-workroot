@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ai_workroot.state.environment import utc_now
+from ai_workroot.state.protocol_friction import summarize_protocol_friction
 
 
 CONTEXT_LATEST_PREVIEW_MAX_BYTES = 64 * 1024
@@ -37,7 +38,10 @@ def refresh_runtime_views(
         _write_json(state_directory / "assets/manifest.json", _assets_manifest(conn, workroot_id))
         _write_json(state_directory / "relationships/summary.json", _relationships_summary(conn, workroot_id))
         _write_json(state_directory / "indexes/manifest.json", _indexes_manifest(conn, workroot_id))
-        _write_json(state_directory / "diagnostics/protocol-friction.json", _protocol_friction(conn, workroot_id))
+        _write_json(
+            state_directory / "diagnostics/protocol-friction.json",
+            _protocol_friction(conn, workroot_id, state_directory),
+        )
 
 
 def write_context_runtime_view(
@@ -256,8 +260,8 @@ def _indexes_manifest(conn: sqlite3.Connection, workroot_id: str) -> dict[str, A
     }
 
 
-def _protocol_friction(conn: sqlite3.Connection, workroot_id: str) -> dict[str, Any]:
-    rows = conn.execute(
+def _protocol_friction(conn: sqlite3.Connection, workroot_id: str, state_directory: Path) -> dict[str, Any]:
+    event_rows = conn.execute(
         """
         SELECT status, COUNT(*) AS count
         FROM protocol_events
@@ -267,9 +271,24 @@ def _protocol_friction(conn: sqlite3.Connection, workroot_id: str) -> dict[str, 
         """,
         (workroot_id,),
     ).fetchall()
+    batch_rows = conn.execute(
+        """
+        SELECT status, COUNT(*) AS count
+        FROM protocol_commit_batches
+        WHERE workroot_id = ?
+        GROUP BY status
+        ORDER BY status
+        """,
+        (workroot_id,),
+    ).fetchall()
+    batch_statuses = {str(row["status"]): int(row["count"]) for row in batch_rows}
+    friction_summary = summarize_protocol_friction(state_directory=state_directory, workroot_id=workroot_id)
     return {
         "workrootId": workroot_id,
-        "eventStatuses": {str(row["status"]): int(row["count"]) for row in rows},
+        "eventStatuses": {str(row["status"]): int(row["count"]) for row in event_rows},
+        "commitBatchStatuses": batch_statuses,
+        "rejectedCommitBatches": int(batch_statuses.get("rejected") or 0),
+        **friction_summary,
         "updatedAt": utc_now(),
     }
 

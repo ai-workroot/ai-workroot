@@ -53,7 +53,7 @@ Status values:
 | environment migrations | `state/migrations.py` | EnvironmentMigrationState | preserve | Migration records retained. |
 | FTS indexed files/chunks | `capabilities/retrieval/providers/sqlite_fts.py` | AssetTextIndex / FTS provider | preserve | FTS works locally; no vector/remote dependency. |
 | Context Candidates | `capabilities/retrieval/model.py` | ContextCandidateIndex | preserve | Candidate is read model, not Asset. |
-| Context Guide Builder | `capabilities/context/model.py` + `capabilities/context/builder.py` | Context Control | rename | CLI remains `workroot context`. |
+| Context Guide Builder | `capabilities/context/model.py` + `capabilities/context/builder.py` | Context Control | rename | Agent loop uses `workroot agent sync`; auxiliary CLI remains `workroot context`. |
 | Context Package history | `capabilities/context/model.py` | ContextPackage | preserve | Not user asset by default. |
 | Debug Trace | `capabilities/context/model.py` + `capabilities/system_health/model.py` | ContextTrace | preserve | Not user asset by default. |
 | Doctor | `capabilities/system_health/model.py` + `capabilities/system_health/doctor.py` | System Health | preserve | Doctor read-only by default. |

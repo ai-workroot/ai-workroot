@@ -71,6 +71,7 @@ It owns:
 - `sync` and `commit` orchestration.
 - Work-signal normalization and semantic focus resolution.
 - Lease minting and validation.
+- Lease write-policy snapshots for guarded durable writes.
 - Commit idempotency and response replay.
 - Recorded/projected/accepted result semantics.
 - Non-blocking recovery responses.
@@ -81,7 +82,7 @@ It does not own:
 
 - Task, TaskRun, Handoff, Asset, Relationship, Release, Retrieval, or Context facts.
 - SQLite layout or migration policy.
-- Full context recall strategy.
+- Context package rendering or provider execution.
 - Raw chat fragment persistence.
 
 ### Capability Layer
@@ -93,7 +94,7 @@ Examples:
 - `capabilities/composition/` owns cross-capability projection orchestration.
 - `capabilities/work/` owns Task, TaskRun, TaskItem, work lifecycle, and time events.
 - `capabilities/handoff/` owns handoff package creation and lookup.
-- `capabilities/context/` owns context package building, budget handling, filtering, rendering, and diagnostics.
+- `capabilities/context/` owns context strategy, recall planning, context package building, budget handling, filtering, rendering, and diagnostics.
 - `capabilities/retrieval/` owns candidate lookup, recall hints, FTS, and global read indexes.
 - `capabilities/release/` owns tombstone, redaction, deletion, release filtering, and release target resolution.
 - `capabilities/relationships/` owns Relationship Network truth.
@@ -192,9 +193,13 @@ shared -> capability modules
 The 0.9.531 line is an Agent Protocol and Task Continuity foundation release. It establishes:
 
 - Agent-facing sync/commit protocol flow.
+- Generic Agent descriptors and transport metadata on protocol entry surfaces.
 - Task, TaskRun, TaskItem, handoff, asset, and decision projections through protocol events.
 - Commit-batch idempotency.
 - Non-blocking degraded behavior.
 - Runtime views derived from SQLite facts.
+- WorkSignal-first context strategy with internal layered disclosure.
+- Lease-aware context strategy signals and write-policy guarded task creation.
 
-It does not yet deliver the full layered L1/L2/L3 context recall strategy. That should be designed as a later context strategy upgrade, not folded into this layering cleanup.
+It does not require a remote LLM, remote embedding service, vector database, or
+new L1/L2/L3 storage entities for context recall.

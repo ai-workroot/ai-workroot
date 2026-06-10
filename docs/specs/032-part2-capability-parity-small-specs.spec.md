@@ -69,8 +69,8 @@ Each slice is a small Spec iteration with acceptance criteria, targeted tests, a
 - Spec 026 Retrieval, Indexing, and Context Control Migration.
 - Spec 027 Release, Relationship, and Safety Migration.
 - Spec 031 Compatibility-Preserving Script Migration.
-- `docs/dev/0.9.530/matrix/legacy-capability-preservation-matrix.md`.
-- `docs/dev/0.9.530/scripts-to-src-migration.md`.
+- `docs/history/0.9.530/dev/matrix/legacy-capability-preservation-matrix.md`.
+- `docs/history/0.9.530/dev/scripts-to-src-migration.md`.
 
 ## Requirements
 
@@ -344,7 +344,7 @@ Context debug traces must show:
 
 T1: Capability parity gates and baseline
 - Change: Add this Spec and keep parity matrix/migration docs aligned.
-- Files likely affected: `docs/specs/032-part2-capability-parity-small-specs.spec.md`, `docs/dev/0.9.530/matrix/legacy-capability-preservation-matrix.md`, `docs/dev/0.9.530/scripts-to-src-migration.md`.
+- Files likely affected: `docs/specs/032-part2-capability-parity-small-specs.spec.md`, `docs/history/0.9.530/dev/matrix/legacy-capability-preservation-matrix.md`, `docs/history/0.9.530/dev/scripts-to-src-migration.md`.
 - Verification: `rg -n "Context Card|ContextRecallHint|Work runtime|Asset runtime|Release Control|Relationship Network" docs/architecture docs/dev docs/specs`.
 
 T2: ContextRecallHint schema and provider
@@ -394,7 +394,7 @@ T10: Minimal Global Workroot Index visibility
 
 T11: Script migration parity audit and wrapper hardening
 - Change: Prove remaining script-owned behavior is package-owned, compatibility-wrapped, or explicitly deferred.
-- Files likely affected: `docs/dev/0.9.530/scripts-to-src-migration.md`, wrapper scripts only if a tested compatibility gap is found.
+- Files likely affected: `docs/history/0.9.530/dev/scripts-to-src-migration.md`, wrapper scripts only if a tested compatibility gap is found.
 - Verification: targeted wrapper tests plus `scripts/dev/validate-release.sh`.
 
 T12: Final capability parity validation

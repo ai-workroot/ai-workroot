@@ -25,6 +25,68 @@ SHAPE_INPUT_REQUIREMENTS = {
     "asset": ["title", "asset_kind", "path", "summary", "status"],
     "decision": ["title", "decision", "reason_text", "scope"],
 }
+SHAPE_REQUIRED_FIELDS = {
+    "start_work": ["title", "summary", "persistence"],
+    "checkpoint": ["summary"],
+    "continuation": ["current_state", "next_action"],
+    "state_update": ["target", "change"],
+    "asset": ["title", "asset_kind", "path", "summary", "status"],
+    "decision": ["title", "decision", "reason_text"],
+}
+SHAPE_OPTIONAL_FIELDS = {
+    "start_work": ["parent_task_id"],
+    "checkpoint": ["done", "open", "blocked"],
+    "continuation": ["open", "questions"],
+    "state_update": [],
+    "asset": [],
+    "decision": ["scope"],
+}
+SHAPE_NOT_ACCEPTED_FIELDS = {
+    "start_work": [],
+    "checkpoint": [],
+    "continuation": [],
+    "state_update": [],
+    "asset": [],
+    "decision": ["summary"],
+}
+SHAPE_CAPTURE_RULES = {
+    "start_work": "stable_goal_not_chat_log",
+    "checkpoint": "stable_facts_only",
+    "continuation": "resume_ready_state",
+    "state_update": "explicit_state_change_only",
+    "asset": "user_visible_assets_only",
+    "decision": "stable_decisions_only",
+}
+SHAPE_COMMAND_TEMPLATES = {
+    "start_work": (
+        "workroot agent commit --format packet --shape start-work --agent <agent> --transport <transport> "
+        '--lease {lease} --title "<title>" --summary "<stable goal summary>" '
+        "--persistence <normal|temporary> --cwd ."
+    ),
+    "checkpoint": (
+        "workroot agent commit --format packet --shape checkpoint --agent <agent> --transport <transport> --lease {lease} "
+        '--summary "<stable progress summary>" --cwd .'
+    ),
+    "continuation": (
+        "workroot agent commit --format packet --shape continuation --agent <agent> --transport <transport> "
+        "--lease {lease} "
+        '--state "<current state>" --next "<next useful action>" --cwd .'
+    ),
+    "state_update": (
+        "workroot agent commit --format packet --shape state-update --agent <agent> --transport <transport> "
+        "--lease {lease} "
+        '--target <target> --change "<state change>" --cwd .'
+    ),
+    "asset": (
+        "workroot agent commit --format packet --shape asset --agent <agent> --transport <transport> "
+        '--lease {lease} --title "<asset title>" --asset-kind <asset kind> --path "<relative path>" '
+        '--summary "<asset summary>" --status current --cwd .'
+    ),
+    "decision": (
+        "workroot agent commit --format packet --shape decision --agent <agent> --transport <transport> --lease {lease} "
+        '--title "<decision title>" --decision "<decision>" --reason-text "<reason>" --scope <scope> --cwd .'
+    ),
+}
 
 
 def semantic_response(
@@ -92,6 +154,8 @@ def guidance_text(
     elif next_exchange_action == "commit":
         if "start_work" in shapes:
             lines.append("- Ask the Agent to commit a short intent summary if this work should be tracked.")
+        elif "asset" in shapes and "asset" in set(required_before_stop or []):
+            lines.append("- Ask the Agent to create or update the user-visible file, then commit it as an asset.")
         elif "continuation" in shapes:
             lines.append(
                 "- Ask the Agent to commit the current state and next useful action before stopping or switching work."
@@ -130,6 +194,7 @@ def workroot_contract_from_lease(
     task_ref: Optional[str] = None,
     run_ref: Optional[str] = None,
     context_refs: Optional[list[dict[str, Any]]] = None,
+    binding: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     lease = lease or {}
     event_kinds = list(allowed_commit_kinds or lease.get("allowed_events") or [])
@@ -138,8 +203,9 @@ def workroot_contract_from_lease(
     lease_id = str(lease.get("lease_id") or "") or None
     resolved_task_ref = task_ref or _text_or_none(lease.get("task_id"))
     resolved_run_ref = run_ref or _text_or_none(lease.get("run_id"))
+    write_policy = _dict_or_empty(lease.get("policy"))
 
-    return {
+    contract: dict[str, Any] = {
         "next_exchange": {
             "action": next_action,
             "reason": reason,
@@ -153,6 +219,8 @@ def workroot_contract_from_lease(
             "required_before_stop": required_stop,
             "required_before_stop_kinds": list(required_before_stop or lease.get("required_before_stop") or []),
             "input_requirements": _input_requirements(accepted_shapes),
+            "shape_contracts": _shape_contracts(accepted_shapes, lease_id=lease_id),
+            "write_policy": write_policy,
             "resync_when": ["lease_rejected", "state_conflict"],
         },
         "state_refs": {
@@ -163,6 +231,10 @@ def workroot_contract_from_lease(
         "context_refs": list(context_refs or []),
         "recovery_contract": default_recovery(),
     }
+    clean_binding = _binding_contract(binding)
+    if clean_binding:
+        contract["binding"] = clean_binding
+    return contract
 
 
 def empty_workroot_contract(*, next_action: str = "none", reason: str = "no_exchange_needed") -> dict[str, Any]:
@@ -186,6 +258,7 @@ def workroot_view(
     open_items: Optional[list[dict[str, Any]]] = None,
     recent_done_items: Optional[list[dict[str, Any]]] = None,
     refs: Optional[list[dict[str, Any]]] = None,
+    output_rules: Optional[list[dict[str, Any]]] = None,
     warnings: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     return {
@@ -198,6 +271,7 @@ def workroot_view(
         "open_items": list(open_items or []),
         "recent_done_items": list(recent_done_items or []),
         "refs": list(refs or []),
+        "output_rules": list(output_rules or []),
         "warnings": list(warnings or []),
     }
 
@@ -214,6 +288,7 @@ def normalize_workroot_view(value: Optional[dict[str, Any]]) -> dict[str, Any]:
         open_items=list(value.get("open_items") or []),
         recent_done_items=list(value.get("recent_done_items") or []),
         refs=list(value.get("refs") or []),
+        output_rules=list(value.get("output_rules") or []),
         warnings=list(value.get("warnings") or []),
     )
 
@@ -271,8 +346,58 @@ def _input_requirements(accepted_shapes: list[str]) -> list[str]:
     return requirements
 
 
+def _shape_contracts(accepted_shapes: list[str], *, lease_id: Optional[str]) -> dict[str, dict[str, Any]]:
+    contracts: dict[str, dict[str, Any]] = {}
+    lease_value = lease_id or "<lease>"
+    for shape in accepted_shapes:
+        if shape not in SHAPE_REQUIRED_FIELDS:
+            continue
+        template = SHAPE_COMMAND_TEMPLATES.get(shape, "")
+        contract = {
+            "required": list(SHAPE_REQUIRED_FIELDS.get(shape, [])),
+            "optional": list(SHAPE_OPTIONAL_FIELDS.get(shape, [])),
+            "not_accepted": list(SHAPE_NOT_ACCEPTED_FIELDS.get(shape, [])),
+            "capture_rule": SHAPE_CAPTURE_RULES.get(shape, ""),
+        }
+        if template:
+            contract["command_template"] = template.format(lease=lease_value)
+        contracts[shape] = contract
+    return contracts
+
+
 def _text_or_none(value: Any) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _dict_or_empty(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    result: dict[str, str] = {}
+    for key, item in value.items():
+        text = str(item or "").strip()
+        if text:
+            result[str(key)] = text
+    return result
+
+
+def _binding_contract(value: Optional[dict[str, Any]]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    binding: dict[str, Any] = {}
+    for key in ("mode", "confidence", "reason"):
+        text = _text_or_none(value.get(key))
+        if text:
+            binding[key] = text
+    refs = value.get("refs")
+    if isinstance(refs, dict):
+        clean_refs: dict[str, str] = {}
+        for key in ("task", "run", "root"):
+            text = _text_or_none(refs.get(key))
+            if text:
+                clean_refs[key] = text
+        if clean_refs:
+            binding["refs"] = clean_refs
+    return binding

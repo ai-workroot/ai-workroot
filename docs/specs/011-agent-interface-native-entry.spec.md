@@ -1,7 +1,7 @@
 # Spec 011 — Agent Interface and Native Agent Entry
 
-Status: accepted
-Target: 0.9.530
+Status: accepted; amended for 0.9.531 Agent Protocol
+Target: 0.9.530 base, 0.9.531 protocol amendment
 
 ## Purpose
 
@@ -31,8 +31,20 @@ Generated root files must not be committed:
 Native Entry must be short and only instruct:
 
 ```text
-workroot context --agent <agent> --cwd .
+workroot agent sync --agent <agent> --cwd . --query "<current user request>" --format packet
 ```
+
+`workroot agent sync` is the normal meaningful-turn entry. `workroot context`
+is read-only auxiliary behavior for startup recovery, manual recall, or
+debugging; it must not be required for every turn.
+
+`--agent` is an Agent descriptor string. It is not limited to Codex or Claude
+at the protocol level. Native Entry templates may remain product-specific
+where the local Agent platform requires product-specific filenames.
+
+`--transport` defaults to `cli`. Future MCP or SDK entrypoints should preserve
+the same protocol semantics and pass their transport descriptor through the
+entry adapter.
 
 It must not include:
 
@@ -70,3 +82,5 @@ An agent-ready Workroot requires Native Entry.
 - no private state path in generated entry.
 - user content outside managed block preserved.
 - default repo does not track generated entry files.
+- generated entry instructs meaningful turns to call `workroot agent sync`
+  with `--format packet` and pass `--query`.

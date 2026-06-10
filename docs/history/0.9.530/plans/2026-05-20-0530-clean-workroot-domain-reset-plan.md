@@ -56,7 +56,7 @@ AI Workroot release kernel validation passed.
 - `docs/architecture/*.md`.
 - `docs/adr/*.md`.
 - `docs/validation/*.md`.
-- `docs/dev/0.9.530/**`.
+- `docs/history/0.9.530/dev/**`.
 - Historical 0.9.529 specs under `docs/history/0.9.529/specs/`.
 
 **Risks:**
@@ -67,9 +67,9 @@ AI Workroot release kernel validation passed.
 **Verification:**
 
 ```bash
-find docs/specs docs/architecture docs/adr docs/validation docs/dev/0.9.530 -type f | sort
-rg -n "Phase 3 . Legacy active-tree quarantine" docs/specs docs/dev/0.9.530 || true
-rg -n "validate_kernel.py --release" docs/specs docs/dev/0.9.530
+find docs/specs docs/architecture docs/adr docs/validation docs/history/0.9.530/dev -type f | sort
+rg -n "Phase 3 . Legacy active-tree quarantine" docs/specs docs/history/0.9.530/dev || true
+rg -n "validate_kernel.py --release" docs/specs docs/history/0.9.530/dev
 git diff --check
 ```
 

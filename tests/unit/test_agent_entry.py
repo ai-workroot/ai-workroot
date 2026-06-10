@@ -13,13 +13,27 @@ from ai_workroot.entrypoints.native_agent.native import (
 
 
 class WorkrootAgentEntryTest(unittest.TestCase):
-    def test_codex_block_uses_relative_context_command(self) -> None:
+    def test_codex_block_uses_relative_sync_command(self) -> None:
         block = codex_block()
-        self.assertIn("workroot context --agent codex --cwd .", block)
+        self.assertIn(
+            'workroot agent sync --agent codex --cwd . --query "<current user request>" --format packet',
+            block,
+        )
+        self.assertIn("Start each meaningful user turn", block)
+        self.assertIn("Optional: add `--work-signal` with stable enum fields when clear", block)
+        self.assertIn("For new long-running work, use phase=starting, work_kind=task", block)
+        self.assertIn("For recall inside a normal user turn, use sync", block)
+        self.assertIn(
+            "Use `workroot context` only for startup, recovery, or debugging outside the normal turn loop", block
+        )
+        self.assertIn('"intended_action":"inspect"', block)
+        self.assertIn('"concerns":["needs_evidence"]', block)
+        self.assertIn("rationale, source, proof, citation, or original detail", block)
         self.assertIn("<!-- AI_WORKROOT_BEGIN -->", block)
         self.assertIn("<!-- AI_WORKROOT_END -->", block)
         self.assertIn("Use Workroot guidance privately", block)
         self.assertIn("keep helping the user", block)
+        self.assertLessEqual(len(block.splitlines()), 13)
         self.assertNotIn(str(Path.home()), block)
         self.assertNotIn(".ai-workroot/workroots", block)
         self.assertLess(len(block.encode("utf-8")), 2 * 1024)

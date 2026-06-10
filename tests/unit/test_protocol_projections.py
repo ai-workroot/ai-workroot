@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.capabilities.assets.rules import load_asset_rules
 from ai_workroot.protocol.controller import commit
 from ai_workroot.protocol.lease import create_lease
 from ai_workroot.state.environment import initialize_environment, register_workroot
@@ -39,7 +40,14 @@ class ProtocolProjectionTest(unittest.TestCase):
         else:
             os.environ["AI_WORKROOT_HOME"] = self.previous_home
 
-    def create_lease(self, *, task_id: str | None = None, run_id: str | None = None, events: list[str]) -> str:
+    def create_lease(
+        self,
+        *,
+        task_id: str | None = None,
+        run_id: str | None = None,
+        events: list[str],
+        policy: dict[str, object] | None = None,
+    ) -> str:
         with sqlite3.connect(self.sqlite_path) as conn:
             lease = create_lease(
                 conn,
@@ -49,6 +57,7 @@ class ProtocolProjectionTest(unittest.TestCase):
                 run_id=run_id,
                 allowed_events=events,
                 required_before_stop=["handoff"] if task_id else [],
+                policy=policy,
             )
             return lease["lease_id"]
 
@@ -118,6 +127,32 @@ class ProtocolProjectionTest(unittest.TestCase):
 
         self.assertEqual(task, ("inbox", "L0", "inbox", "rolling_7d", "implicit", "Temporary protocol discussion"))
         self.assertEqual(run, ("active", "Keep a temporary discussion thread"))
+
+    def test_normal_intent_against_inbox_policy_does_not_create_normal_task(self) -> None:
+        lease_id = self.create_lease(
+            events=["intent"],
+            policy={
+                "expected_start_work_persistence": "temporary",
+                "expected_task_role": "inbox",
+                "source": "work_signal",
+            },
+        )
+
+        response = commit(
+            self.commit_request(
+                lease_id,
+                "intent",
+                self.intent_payload(),
+                event_id="evt-intent-conflicting-policy",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertFalse(response["result"]["projected"])
+        self.assertNotEqual(response["result"]["status"], "applied")
+        self.assertEqual(response["result"]["warnings"], ["lease_policy_conflict"])
+        self.assertEqual(self.count_rows("tasks"), 0)
+        self.assertEqual(self.count_rows("task_runs"), 0)
 
     def test_commit_progress_updates_run_and_returns_next_lease(self) -> None:
         intent_response = commit(
@@ -457,6 +492,38 @@ class ProtocolProjectionTest(unittest.TestCase):
             ).fetchone()
         self.assertEqual(row, ("normal", "L1", "normal", "until_closed"))
 
+    def test_state_update_declares_output_rule(self) -> None:
+        response = commit(
+            self.commit_request(
+                self.create_lease(events=["state"]),
+                "state",
+                {
+                    "target_type": "output_rule",
+                    "target_id": "report",
+                    "path": "reports",
+                    "reason": "User wants future reports in reports/.",
+                },
+                event_id="evt-state-output-rule-report",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        state_dir = Path(self.registration.state_directory)
+        rules = load_asset_rules(state_dir)
+        declared = [rule for rule in rules.rules if rule.role == "declared_output"]
+        self.assertEqual(len(declared), 1)
+        self.assertEqual(declared[0].asset_kind, "report")
+        self.assertEqual(declared[0].path, "reports")
+        self.assertIn(
+            {"type": "output_rule_declared", "target_type": "output_rule", "target_id": "report"},
+            self.effects("evt-state-output-rule-report"),
+        )
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "none")
+        self.assertIn(
+            {"asset_kind": "report", "path": "reports", "role": "declared_output"},
+            response["workroot_view"]["output_rules"],
+        )
+
     def test_commit_asset_records_asset_candidate_and_task_relationship(self) -> None:
         intent_response = commit(
             self.commit_request(self.create_lease(events=["intent"]), "intent", self.intent_payload())
@@ -585,6 +652,11 @@ class ProtocolProjectionTest(unittest.TestCase):
             "classification": {"persistence": "normal", "confidence": 0.9, "reason": "test"},
             "task_hint": {"title": "Protocol P0", "task_id": None, "parent_task_id": None},
         }
+
+    def count_rows(self, table: str) -> int:
+        with sqlite3.connect(self.sqlite_path) as conn:
+            row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
+        return int(row[0])
 
     def commit_request(
         self, lease_id: str, kind: str, payload: dict[str, object], event_id: str | None = None

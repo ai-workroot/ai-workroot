@@ -232,7 +232,7 @@ T3: Add Global Task/Asset/Time Index projections
 
 T4: Add migration priorities
 - Change: Add `Migration priority` column to script migration matrix.
-- Files likely affected: `docs/dev/0.9.530/scripts-to-src-migration.md`, split repository/docs contract tests under `tests/contracts/`.
+- Files likely affected: `docs/history/0.9.530/dev/scripts-to-src-migration.md`, split repository/docs contract tests under `tests/contracts/`.
 - Verification: targeted public seed surface test.
 
 T5: Full validation

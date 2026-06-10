@@ -127,6 +127,7 @@ class E2ESafetyTest(unittest.TestCase):
                 slug="persona-test",
                 name="Persona Test",
                 workroot_id="wr_persona_test",
+                native_agent_entry=False,
                 user_files={},
             )
 

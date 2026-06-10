@@ -156,6 +156,132 @@ class WorkSignalTest(unittest.TestCase):
         self.assertEqual(signal.focus, "Still help the user.")
         self.assertEqual(signal.concerns, ("needs_evidence",))
 
+    def test_work_signal_normalizes_evidence_aliases_language_independently(self) -> None:
+        for intended_action in ("explain", "rationale", "evidence", "source", "proof", "justify"):
+            with self.subTest(intended_action=intended_action):
+                signal = WorkSignal.from_dict(
+                    {
+                        "phase": "orienting",
+                        "work_kind": "continuation",
+                        "intended_action": intended_action,
+                        "focus": "下午安静办公位判断依据",
+                    }
+                )
+
+                self.assertEqual(signal.intended_action, "inspect")
+                self.assertEqual(signal.concerns, ("needs_evidence",))
+
+    def test_work_signal_accepts_bounded_refs(self) -> None:
+        signal = WorkSignal.from_dict(
+            {
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "focus": "Pricing decision evidence.",
+                "concerns": ["needs_evidence"],
+                "refs": [
+                    "decision:dec_001",
+                    "asset:asset_001",
+                    "chunk:chunk_001",
+                    "task:task_001",
+                    "run:run_001",
+                    "handoff:handoff_001",
+                    "relationship:edge_001",
+                    "candidate:cand_001",
+                    "asset:asset_ignored",
+                ],
+            }
+        )
+
+        self.assertEqual(
+            signal.refs,
+            (
+                "decision:dec_001",
+                "asset:asset_001",
+                "chunk:chunk_001",
+                "task:task_001",
+                "run:run_001",
+                "handoff:handoff_001",
+                "relationship:edge_001",
+                "candidate:cand_001",
+            ),
+        )
+        self.assertEqual(
+            signal.to_dict()["refs"],
+            [
+                "decision:dec_001",
+                "asset:asset_001",
+                "chunk:chunk_001",
+                "task:task_001",
+                "run:run_001",
+                "handoff:handoff_001",
+                "relationship:edge_001",
+                "candidate:cand_001",
+            ],
+        )
+
+    def test_work_signal_drops_malformed_refs_without_failing(self) -> None:
+        signal = WorkSignal.from_dict(
+            {
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "focus": "Still continue.",
+                "refs": [
+                    "decision:dec_ok",
+                    "../asset:bad",
+                    "unknown:ref",
+                    "asset:",
+                    "",
+                    "asset:" + "x" * 200,
+                    123,
+                ],
+            }
+        )
+
+        self.assertEqual(signal.refs, ("decision:dec_ok",))
+
+    def test_work_signal_normalizes_protocol_aliases_without_language_keywords(self) -> None:
+        cases = [
+            ({"phase": "working", "intended_action": "record"}, "executing", "preserve"),
+            ({"phase": "running", "intended_action": "save"}, "executing", "preserve"),
+            ({"phase": "lookup", "intended_action": "lookup"}, "orienting", "inspect"),
+            ({"phase": "finding", "intended_action": "find"}, "orienting", "inspect"),
+        ]
+
+        for raw, expected_phase, expected_action in cases:
+            with self.subTest(raw=raw):
+                signal = WorkSignal.from_dict(
+                    {
+                        **raw,
+                        "work_kind": "continuation",
+                        "focus": "User-language focus stays unchanged.",
+                    }
+                )
+
+                self.assertEqual(signal.phase, expected_phase)
+                self.assertEqual(signal.intended_action, expected_action)
+                self.assertEqual(signal.work_kind, "continuation")
+                self.assertEqual(signal.focus, "User-language focus stays unchanged.")
+
+    def test_work_signal_normalizes_protocol_enum_case_and_ref_prefix_case(self) -> None:
+        signal = WorkSignal.from_dict(
+            {
+                "phase": " Working ",
+                "work_kind": " Continuation ",
+                "intended_action": " Save ",
+                "focus": "User-language focus stays unchanged.",
+                "concerns": [" Needs_Evidence "],
+                "refs": ["Task:task_001", "ASSET:asset_001"],
+            }
+        )
+
+        self.assertEqual(signal.phase, "executing")
+        self.assertEqual(signal.work_kind, "continuation")
+        self.assertEqual(signal.intended_action, "preserve")
+        self.assertEqual(signal.concerns, ("needs_evidence",))
+        self.assertEqual(signal.refs, ("task:task_001", "asset:asset_001"))
+
 
 if __name__ == "__main__":
     unittest.main()

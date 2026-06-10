@@ -1,7 +1,7 @@
 # Spec 020 — Documentation Rewrite
 
-Status: accepted
-Applies to: 0.9.530
+Status: accepted for 0.9.530; amended by 0.9.531 source layout
+Applies to: 0.9.530 base documentation rewrite
 
 ## Purpose
 
@@ -47,17 +47,22 @@ Context Gate
 TombstoneMarker
 ```
 
-Required active-architecture language:
+Required active-architecture language for the 0.9.530 rewrite:
 
 ```text
 Clean Workroot
 WorkrootEnvironment
-Core / Contracts / Runtime / Storage / Indexing / Agent / CLI
 Relationship Network
 Retrieval & Index Control
 Release Control
 Tombstone
 Agent Interface
+```
+
+0.9.531 source layout amendment:
+
+```text
+entrypoints / commands / protocol / capabilities / state / shared
 ```
 
 ## Acceptance

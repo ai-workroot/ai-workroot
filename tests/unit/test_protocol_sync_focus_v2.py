@@ -70,22 +70,22 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
         self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
         self.assertEqual(self.count_rows("exchange_leases"), 0)
 
-    def test_durable_query_markers_override_erroneous_quick_signal(self) -> None:
+    def test_durable_query_markers_do_not_override_structured_quick_signal(self) -> None:
         response = self.sync_request(
             request_id="req-sync-durable-overrides-quick",
             query="Start durable work to design the Workroot Agent protocol implementation and break down the test plan.",
             work_signal={"phase": "starting", "work_kind": "quick", "intended_action": "answer"},
         )
 
-        self.assertEqual(response["workroot_view"]["focus"], "new_work")
-        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "commit")
-        self.assertTrue(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(response["workroot_view"]["focus"], "quick")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "none")
+        self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
 
-    def test_structured_durable_signal_is_treated_as_new_work(self) -> None:
+    def test_structured_starting_task_signal_is_treated_as_new_work(self) -> None:
         response = self.sync_request(
             request_id="req-sync-durable-language",
             query="Six-week pricing and onboarding cadence",
-            work_signal={"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+            work_signal={"phase": "starting", "work_kind": "task", "intended_action": "plan"},
         )
 
         self.assertEqual(response["workroot_view"]["focus"], "new_work")
@@ -93,6 +93,80 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
         self.assertTrue(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
         self.assertIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
         self.assertIsNotNone(response["workroot_contract"]["commit_contract"]["lease_id"])
+
+    def test_planning_task_signal_without_owner_does_not_create_new_root_task(self) -> None:
+        response = self.sync_request(
+            request_id="req-sync-planning-task-no-owner",
+            query="Six-week pricing and onboarding cadence",
+            work_signal={"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "ambiguous")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"], [])
+        self.assertIsNone(response["workroot_contract"]["commit_contract"]["lease_id"])
+
+    def test_switching_task_signal_without_owner_does_not_create_new_root_task(self) -> None:
+        response = self.sync_request(
+            request_id="req-sync-switching-task-no-owner",
+            reason="before_task_switch",
+            query="Six-week pricing and onboarding cadence",
+            work_signal={"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "ambiguous")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"], [])
+        self.assertIsNone(response["workroot_contract"]["commit_contract"]["lease_id"])
+
+    def test_starting_continuation_signal_without_owner_does_not_create_new_root_task(self) -> None:
+        response = self.sync_request(
+            request_id="req-sync-starting-continuation-no-owner",
+            query="Continue the pricing work if there is one.",
+            work_signal={"phase": "starting", "work_kind": "continuation", "intended_action": "plan"},
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "ambiguous")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"], [])
+        self.assertIsNone(response["workroot_contract"]["commit_contract"]["lease_id"])
+
+    def test_output_rule_request_uses_workroot_state_capture(self) -> None:
+        response = self.sync_request(
+            request_id="req-sync-output-rule",
+            query="Remember that future reports should go in reports.",
+            work_signal={
+                "phase": "planning",
+                "work_kind": "operations",
+                "intended_action": "preserve",
+                "refs": ["output_rule:report"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "workroot_capture")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "commit")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], None)
+        self.assertIn("state", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+        self.assertNotIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+
+    def test_query_language_alone_does_not_control_persistent_focus(self) -> None:
+        cases = (
+            ("req-sync-query-only-output-rule", "Remember that future reports should go in reports."),
+            ("req-sync-query-only-new-work", "Start durable work to design the protocol."),
+            ("req-sync-query-only-asset", "Create an asset file and save it."),
+            ("req-sync-query-only-decision", "Record the important decision and reason."),
+        )
+        for request_id, query in cases:
+            with self.subTest(query=query):
+                response = self.sync_request(request_id=request_id, query=query)
+
+                self.assertEqual(response["workroot_view"]["focus"], "quick")
+                self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "none")
+                self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+                self.assertEqual(response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"], [])
 
     def test_durable_followup_prefers_current_active_task(self) -> None:
         self.insert_task_graph(
@@ -193,6 +267,61 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
         self.assertIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
         self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], None)
 
+    def test_switching_inbox_signal_overrides_known_state_continuation(self) -> None:
+        self.insert_task_graph(
+            task_id="task-shop-month",
+            run_id="run-shop-month",
+            title="Community coffee shop monthly operating direction",
+            summary="Track the coffee shop's monthly operating direction and low-cost actions.",
+            handoff_next_action="Continue the monthly operating direction.",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-temporary-inbox-known-state",
+            reason="before_task_switch",
+            query="Side thought: should we try a weekend parent-child event? Just give two ideas; maybe later.",
+            known_state={"task_id": "task-shop-month", "run_id": "run-shop-month"},
+            work_signal={
+                "phase": "switching",
+                "work_kind": "inbox",
+                "intended_action": "plan",
+                "focus": "weekend parent-child event side thought",
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "new_work")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], None)
+        contract = response["workroot_contract"]["commit_contract"]
+        self.assertIn("intent", contract["allowed_commit_kinds"])
+        self.assertNotIn("progress", contract["allowed_commit_kinds"])
+        self.assertEqual(contract["write_policy"]["expected_start_work_persistence"], "temporary")
+
+    def test_switching_inbox_sync_contract_carries_temporary_write_policy(self) -> None:
+        response = self.sync_request(
+            request_id="req-sync-inbox-policy",
+            reason="before_task_switch",
+            query="Loose branch for a possible sponsor idea.",
+            work_signal={
+                "phase": "switching",
+                "work_kind": "inbox",
+                "intended_action": "plan",
+                "focus": "possible sponsor idea",
+                "concerns": ["uncertain_task_boundary"],
+            },
+        )
+
+        contract = response["workroot_contract"]["commit_contract"]
+        self.assertEqual(response["workroot_view"]["focus"], "new_work")
+        self.assertIn("intent", contract["allowed_commit_kinds"])
+        self.assertEqual(
+            contract["write_policy"],
+            {
+                "expected_start_work_persistence": "temporary",
+                "expected_task_role": "inbox",
+                "source": "work_signal",
+            },
+        )
+
     def test_switching_inbox_signal_is_new_work_even_when_action_is_unknown(self) -> None:
         self.insert_task_graph(
             task_id="task-founder-cadence",
@@ -216,6 +345,42 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
         self.assertEqual(response["workroot_view"]["focus"], "new_work")
         self.assertIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
         self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], None)
+
+    def test_switching_inbox_signal_starts_new_temporary_boundary_despite_single_existing_inbox(self) -> None:
+        self.insert_task_graph(
+            task_id="task-founder-cadence",
+            run_id="run-founder-cadence",
+            title="Founder operating task",
+            summary="Founder operating task.",
+            handoff_next_action="Continue founder work.",
+        )
+        self.insert_task_graph(
+            task_id="task-sales-inbox",
+            run_id="run-sales-inbox",
+            title="Temporary sales opening lines inbox",
+            summary="Temporary inbox for sales opening lines.",
+            handoff_next_action="",
+            role="inbox",
+            process_level="L0",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-switching-new-inbox",
+            reason="before_task_switch",
+            query="忽然想到店里要不要换几张桌子，这个先不急，你帮我列两个判断标准就行。",
+            work_signal={
+                "phase": "switching",
+                "work_kind": "inbox",
+                "intended_action": "plan",
+                "focus": "店里是否换几张桌子的临时判断标准",
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "new_work")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], None)
+        contract = response["workroot_contract"]["commit_contract"]
+        self.assertIn("intent", contract["allowed_commit_kinds"])
+        self.assertEqual(contract["write_policy"]["expected_start_work_persistence"], "temporary")
 
     def test_switching_task_decision_prefers_existing_task_not_new_root(self) -> None:
         self.insert_task_graph(
@@ -243,7 +408,33 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
         self.assertIn("decision", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
         self.assertNotIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
 
-    def test_start_durable_task_phrase_is_new_work_even_with_active_task(self) -> None:
+    def test_switching_task_signal_without_explicit_new_boundary_prefers_single_active_normal_task(self) -> None:
+        self.insert_task_graph(
+            task_id="task-shop-month",
+            run_id="run-shop-month",
+            title="Community coffee shop monthly operating direction",
+            summary="Track the coffee shop's monthly operating direction and low-cost actions.",
+            handoff_next_action="Continue the monthly operating direction.",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-chinese-followup-misclassified-switching",
+            reason="before_task_switch",
+            query="你看一下店铺现状和流水，帮我想两个早高峰可以试的小动作，别太复杂。",
+            work_signal={
+                "phase": "switching",
+                "work_kind": "task",
+                "intended_action": "plan",
+                "focus": "早高峰小动作建议",
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-shop-month")
+        self.assertIn("progress", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+        self.assertNotIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+
+    def test_structured_starting_task_signal_continues_single_active_normal_task(self) -> None:
         self.insert_task_graph(
             task_id="task-founder-cadence",
             run_id="run-founder-cadence",
@@ -254,13 +445,44 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
 
         response = self.sync_request(
             request_id="req-sync-start-durable-inspection",
-            reason="after_error",
+            reason="before_work",
             query="start durable inspection task",
-            work_signal={"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+            work_signal={"phase": "starting", "work_kind": "task", "intended_action": "plan"},
         )
 
-        self.assertEqual(response["workroot_view"]["focus"], "new_work")
-        self.assertIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-founder-cadence")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["run_ref"], "run-founder-cadence")
+        self.assertIn("progress", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+        self.assertNotIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+
+    def test_chinese_service_subwork_starting_task_signal_continues_current_root(self) -> None:
+        self.insert_task_graph(
+            task_id="task-service-month",
+            run_id="run-service-month",
+            title="家政培训门店月度经营方向梳理",
+            summary="围绕招生、培训、阿姨上岗和客户回访推进门店月度经营。",
+            handoff_next_action="继续家政培训门店月度经营主线。",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-chinese-service-subwork-starting",
+            reason="before_work",
+            query="帮我做一张下周门店复盘表，方便每天看招生、培训和客户回访。",
+            work_signal={
+                "phase": "starting",
+                "work_kind": "task",
+                "intended_action": "plan",
+                "focus": "下周门店复盘表",
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-service-month")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["run_ref"], "run-service-month")
+        self.assertIn("progress", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+        self.assertIn("asset", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+        self.assertNotIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
 
     def test_start_durable_task_with_source_file_reference_is_new_work(self) -> None:
         self.insert_task_graph(
@@ -282,7 +504,7 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
             request_id="req-sync-start-task-with-source-file-reference",
             reason="before_task_switch",
             query="Start a third durable investigation task to connect metrics.csv signals to task continuity and asset recall quality.",
-            work_signal={"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+            work_signal={"phase": "starting", "work_kind": "task", "intended_action": "plan"},
         )
 
         self.assertEqual(response["workroot_view"]["focus"], "new_work")
@@ -290,7 +512,7 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
         self.assertIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
         self.assertIsNotNone(response["workroot_contract"]["commit_contract"]["lease_id"])
 
-    def test_quick_answer_query_overrides_erroneous_task_signal(self) -> None:
+    def test_structured_quick_signal_avoids_persistence_with_active_task(self) -> None:
         self.insert_task_graph(
             task_id="task-current",
             run_id="run-current",
@@ -303,7 +525,7 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
             request_id="req-sync-quick-overrides-task-signal",
             reason="before_task_switch",
             query="Quick answer only: contrast a checkpoint with an asset in one sentence.",
-            work_signal={"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+            work_signal={"phase": "starting", "work_kind": "quick", "intended_action": "answer"},
         )
 
         self.assertEqual(response["workroot_view"]["focus"], "quick")
@@ -522,7 +744,12 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
             request_id="req-sync-existing-asset-new-task-signal",
             reason="before_task_switch",
             query="Update results/operating-brief.md with the customer interview sequencing checkpoint.",
-            work_signal={"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+            work_signal={
+                "phase": "switching",
+                "work_kind": "authoring",
+                "intended_action": "preserve",
+                "refs": ["asset:asset-operating-brief"],
+            },
         )
 
         self.assertEqual(response["workroot_view"]["focus"], "continuation")
@@ -550,6 +777,35 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
         self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-current-plan")
         self.assertIn("asset", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
         self.assertNotIn("intent", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+
+    def test_explicit_relative_output_path_requires_asset_before_handoff(self) -> None:
+        self.insert_task_graph(
+            task_id="task-service-month",
+            run_id="run-service-month",
+            title="Service store monthly operating task",
+            summary="Monthly operating work for a service training store.",
+            handoff_next_action="Keep turning the operating plan into simple staff-facing outputs.",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-explicit-relative-output-path",
+            reason="before_work",
+            query=("请把刚才的安排写成 outputs/门店一周复盘表.md，让店员每天关店前能直接填写。"),
+            work_signal={
+                "phase": "starting",
+                "work_kind": "continuation",
+                "intended_action": "plan",
+                "focus": "门店一周复盘表",
+            },
+        )
+
+        contract = response["workroot_contract"]["commit_contract"]
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-service-month")
+        self.assertIn("asset", contract["allowed_commit_kinds"])
+        self.assertIn("handoff", contract["required_before_stop_kinds"])
+        self.assertIn("asset", contract["required_before_stop"])
+        self.assertIn("continuation", contract["required_before_stop"])
 
     def test_new_asset_with_multiple_tasks_uses_workroot_scope_when_owner_unclear(self) -> None:
         self.insert_task_graph(
@@ -587,7 +843,12 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
             request_id="req-sync-new-asset-no-clear-owner",
             reason="before_task_switch",
             query="Create docs/technical-risk-note.md with a compact risk note and preserve it as an asset.",
-            work_signal={"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+            work_signal={
+                "phase": "switching",
+                "work_kind": "authoring",
+                "intended_action": "preserve",
+                "concerns": ["uncertain_task_boundary"],
+            },
         )
 
         self.assertEqual(response["workroot_view"]["focus"], "workroot_capture")
@@ -686,7 +947,12 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
             request_id="req-sync-cross-task-summary-asset",
             reason="before_task_switch",
             query="Create results/executive-summary.md with the final cross-task summary and preserve it as an asset.",
-            work_signal={"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+            work_signal={
+                "phase": "switching",
+                "work_kind": "authoring",
+                "intended_action": "preserve",
+                "concerns": ["uncertain_task_boundary"],
+            },
         )
 
         self.assertEqual(response["workroot_view"]["focus"], "workroot_capture")
@@ -717,7 +983,7 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
             request_id="req-sync-close-inbox-focus",
             reason="continue",
             query="Continue the temporary inbox thread and preserve one lightweight checkpoint.",
-            work_signal={"work_kind": "continuation", "intended_action": "plan"},
+            work_signal={"phase": "recovering", "work_kind": "inbox", "intended_action": "plan"},
         )
 
         self.assertEqual(response["workroot_view"]["focus"], "continuation")
@@ -751,12 +1017,48 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
             request_id="req-sync-close-asset-focus",
             reason="before_task_switch",
             query="Create results/customer-interview-plan.md with a short plan and preserve it as an asset.",
-            work_signal={"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+            work_signal={
+                "phase": "switching",
+                "work_kind": "authoring",
+                "intended_action": "preserve",
+                "focus": "customer interview plan",
+            },
         )
 
         self.assertEqual(response["workroot_view"]["focus"], "continuation")
         self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-operating")
         self.assertIn("asset", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+
+    def test_asset_language_without_path_does_not_open_new_task_when_task_focus_matches(self) -> None:
+        self.insert_task_graph(
+            task_id="task-founder",
+            run_id="run-founder",
+            title="Founder Operating Thread: Pricing, Onboarding Risk, Context Continuity",
+            summary="Founder operating task for pricing, onboarding risk, and context continuity.",
+            handoff_next_action="Use the operating brief when pricing work resumes.",
+            run_goal=(
+                "Durable long-cycle operating task to track pricing decisions, onboarding-risk reduction, "
+                "and continuity of founder context across sessions."
+            ),
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-pathless-asset-language",
+            reason="before_task_switch",
+            query="create operating brief asset",
+            work_signal={
+                "phase": "switching",
+                "work_kind": "task",
+                "intended_action": "plan",
+                "focus": "create operating brief asset",
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-founder")
+        allowed = response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"]
+        self.assertIn("asset", allowed)
+        self.assertNotIn("intent", allowed)
 
     def test_engineering_decision_uses_task_run_goal_when_handoff_candidates_are_close(self) -> None:
         self.insert_task_graph(
@@ -919,7 +1221,7 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
                     request_id=f"req-sync-compressed-{index}",
                     query="short intent",
                     work_signal={
-                        "phase": "planning",
+                        "phase": "starting",
                         "work_kind": work_kind,
                         "intended_action": intended_action,
                     },
@@ -983,7 +1285,386 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
         self.assertNotEqual(response["workroot_contract"]["state_refs"].get("task_ref"), "task-missing")
         self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
 
-    def test_ambiguous_focus_defaults_to_continue_without_persistence(self) -> None:
+    def test_work_signal_task_ref_selects_task_without_query_language_match(self) -> None:
+        self.insert_task_graph(
+            task_id="task-founder",
+            run_id="run-founder",
+            title="Founder operating task",
+            summary="Founder operating task summary.",
+            handoff_next_action="Continue founder work.",
+        )
+        self.insert_task_graph(
+            task_id="task-engineering",
+            run_id="run-engineering",
+            title="Engineering continuity task",
+            summary="Engineering continuity summary.",
+            handoff_next_action="Continue engineering work.",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-ref-task",
+            reason="continue",
+            query="irrelevant compressed user-language follow up",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "refs": ["task:task-engineering"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-engineering")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["run_ref"], "run-engineering")
+        self.assertTrue(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+
+    def test_work_signal_run_ref_selects_run_without_query_language_match(self) -> None:
+        self.insert_task_graph(
+            task_id="task-founder",
+            run_id="run-founder",
+            title="Founder operating task",
+            summary="Founder operating task summary.",
+            handoff_next_action="Continue founder work.",
+        )
+        self.insert_task_graph(
+            task_id="task-engineering",
+            run_id="run-engineering",
+            title="Engineering continuity task",
+            summary="Engineering continuity summary.",
+            handoff_next_action="Continue engineering work.",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-ref-run",
+            reason="continue",
+            query="compressed follow up",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "refs": ["run:run-founder"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-founder")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["run_ref"], "run-founder")
+
+    def test_work_signal_asset_ref_selects_owning_task_without_path_or_language_match(self) -> None:
+        self.insert_task_graph(
+            task_id="task-founder",
+            run_id="run-founder",
+            title="Founder operating task",
+            summary="Founder operating task summary.",
+            handoff_next_action="Continue founder work.",
+        )
+        self.insert_task_graph(
+            task_id="task-engineering",
+            run_id="run-engineering",
+            title="Engineering continuity task",
+            summary="Engineering continuity summary.",
+            handoff_next_action="Continue engineering work.",
+        )
+        self.insert_task_asset(
+            task_id="task-engineering",
+            asset_id="asset-technical-note",
+            title="Technical Note",
+            path="workroot-output/technical-note.md",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-ref-asset",
+            reason="continue",
+            query="that file",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "refs": ["asset:asset-technical-note"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-engineering")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["run_ref"], "run-engineering")
+
+    def test_work_signal_decision_ref_selects_owning_task_without_query_language_match(self) -> None:
+        self.insert_task_graph(
+            task_id="task-founder",
+            run_id="run-founder",
+            title="Founder operating task",
+            summary="Founder operating task summary.",
+            handoff_next_action="Continue founder work.",
+        )
+        self.insert_task_graph(
+            task_id="task-engineering",
+            run_id="run-engineering",
+            title="Engineering continuity task",
+            summary="Engineering continuity summary.",
+            handoff_next_action="Continue engineering work.",
+        )
+        self.insert_task_decision(
+            task_id="task-founder",
+            decision_id="decision-pricing",
+            title="Pricing Decision",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-ref-decision",
+            reason="continue",
+            query="expand that prior choice",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "refs": ["decision:decision-pricing"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-founder")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["run_ref"], "run-founder")
+
+    def test_work_signal_multiple_refs_to_different_tasks_are_recall_scope_not_owner(self) -> None:
+        self.insert_task_graph(
+            task_id="task-founder",
+            run_id="run-founder",
+            title="Founder operating task",
+            summary="Founder operating task summary.",
+            handoff_next_action="Continue founder work.",
+        )
+        self.insert_task_graph(
+            task_id="task-engineering",
+            run_id="run-engineering",
+            title="Engineering continuity task",
+            summary="Engineering continuity summary.",
+            handoff_next_action="Continue engineering work.",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-ref-ambiguous-multiple",
+            reason="continue",
+            query="continue with the relevant prior item",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "refs": ["task:task-founder", "task:task-engineering"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "ambiguous")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(response["workroot_contract"]["commit_contract"]["lease_id"], None)
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], None)
+        self.assertCountEqual(
+            [item["ref"] for item in response["workroot_contract"]["context_refs"]],
+            ["task:task-founder", "task:task-engineering"],
+        )
+
+    def test_work_signal_multiple_refs_to_same_task_bind_shared_owner(self) -> None:
+        self.insert_task_graph(
+            task_id="task-engineering",
+            run_id="run-engineering",
+            title="Engineering continuity task",
+            summary="Engineering continuity summary.",
+            handoff_next_action="Continue engineering work.",
+        )
+        self.insert_task_asset(
+            task_id="task-engineering",
+            asset_id="asset-technical-note",
+            title="Technical Note",
+            path="workroot-output/technical-note.md",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-ref-shared-owner",
+            reason="continue",
+            query="continue the item behind these refs",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "refs": ["task:task-engineering", "asset:asset-technical-note"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-engineering")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["run_ref"], "run-engineering")
+        self.assertTrue(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+
+    def test_non_inbox_continuation_ignores_single_inbox_ref_when_normal_task_is_active(self) -> None:
+        self.insert_task_graph(
+            task_id="task-main",
+            run_id="run-main",
+            title="Main operating task",
+            summary="Main operating task summary.",
+            handoff_next_action="Continue the main operating task.",
+        )
+        self.insert_task_graph(
+            task_id="task-side-inbox",
+            run_id="run-side-inbox",
+            title="Temporary side idea",
+            summary="Temporary inbox summary.",
+            handoff_next_action="Continue the temporary side idea.",
+            role="inbox",
+            process_level="L0",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-single-inbox-ref-protects-main",
+            reason="continue",
+            query="Record what is decided and where to resume next time.",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "refs": ["task:task-side-inbox"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-main")
+        self.assertIn("progress", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+
+    def test_non_inbox_continuation_prefers_normal_owner_when_refs_mix_normal_and_inbox(self) -> None:
+        self.insert_task_graph(
+            task_id="task-main",
+            run_id="run-main",
+            title="Main operating task",
+            summary="Main operating task summary.",
+            handoff_next_action="Continue the main operating task.",
+        )
+        self.insert_task_graph(
+            task_id="task-side-inbox",
+            run_id="run-side-inbox",
+            title="Temporary side idea",
+            summary="Temporary inbox summary.",
+            handoff_next_action="Continue the temporary side idea.",
+            role="inbox",
+            process_level="L0",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-mixed-normal-inbox-refs-protects-main",
+            reason="continue",
+            query="Return to the operating work and plan the next low-effort action.",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "refs": ["task:task-side-inbox", "task:task-main"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-main")
+        self.assertIn("progress", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+
+    def test_inbox_work_signal_allows_explicit_inbox_ref(self) -> None:
+        self.insert_task_graph(
+            task_id="task-main",
+            run_id="run-main",
+            title="Main operating task",
+            summary="Main operating task summary.",
+            handoff_next_action="Continue the main operating task.",
+        )
+        self.insert_task_graph(
+            task_id="task-side-inbox",
+            run_id="run-side-inbox",
+            title="Temporary side idea",
+            summary="Temporary inbox summary.",
+            handoff_next_action="Continue the temporary side idea.",
+            role="inbox",
+            process_level="L0",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-explicit-inbox-ref",
+            reason="continue",
+            query="Continue the temporary side idea.",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "inbox",
+                "intended_action": "inspect",
+                "refs": ["task:task-side-inbox"],
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-side-inbox")
+        self.assertIn("progress", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+
+    def test_non_inbox_continuation_defaults_to_single_normal_when_candidates_are_close(self) -> None:
+        self.insert_task_graph(
+            task_id="task-main",
+            run_id="run-main",
+            title="Main operating task",
+            summary="Recent normal task checkpoint.",
+            handoff_next_action="Continue from the latest normal checkpoint.",
+        )
+        self.insert_task_graph(
+            task_id="task-side-inbox",
+            run_id="run-side-inbox",
+            title="Temporary side idea",
+            summary="Recent temporary side checkpoint.",
+            handoff_next_action="Continue the temporary side checkpoint.",
+            role="inbox",
+            process_level="L0",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-weak-focus-single-normal-default",
+            reason="continue",
+            query="First day should stay low effort; preserve a checkpoint.",
+            work_signal={
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "focus": "low-effort first day action",
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "continuation")
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], "task-main")
+        self.assertIn("progress", response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"])
+
+    def test_handoff_request_with_ambiguous_owner_does_not_bind_first_candidate(self) -> None:
+        self.insert_task_graph(
+            task_id="task-main",
+            run_id="run-main",
+            title="Main operating task",
+            summary="Main operating task summary.",
+            handoff_next_action="Continue the main operating task.",
+        )
+        self.insert_task_graph(
+            task_id="task-supporting",
+            run_id="run-supporting",
+            title="Supporting normal task",
+            summary="Supporting normal task summary.",
+            handoff_next_action="Continue the supporting normal task.",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-handoff-ambiguous-no-first",
+            reason="before_task_switch",
+            query="Preserve a final continuation note for next time.",
+            work_signal={
+                "phase": "switching",
+                "work_kind": "task",
+                "intended_action": "plan",
+                "focus": "final continuation note",
+            },
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "ambiguous")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], None)
+
+    def test_ambiguous_focus_returns_actionable_ref_recovery_without_lease(self) -> None:
         self.insert_task_graph("task-one", "run-one", "One", "First task.", "")
         self.insert_task_graph("task-two", "run-two", "Two", "Second task.", "")
 
@@ -994,8 +1675,72 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
         )
 
         self.assertEqual(response["workroot_view"]["focus"], "ambiguous")
-        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "none")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["reason"], "focus_refinement_required")
         self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(response["workroot_contract"]["state_refs"]["task_ref"], None)
+        context_refs = response["workroot_contract"]["context_refs"]
+        self.assertEqual(
+            [item["ref"] for item in context_refs],
+            ["task:task-one", "task:task-two"],
+        )
+        self.assertEqual(
+            [item["run_ref"] for item in context_refs],
+            ["run-one", "run-two"],
+        )
+
+    def test_after_error_ambiguous_focus_returns_ref_recovery_without_lease(self) -> None:
+        self.insert_task_graph("task-one", "run-one", "One", "First task.", "")
+        self.insert_task_graph("task-two", "run-two", "Two", "Second task.", "")
+
+        response = self.sync_request(
+            request_id="req-sync-ambiguous-after-error",
+            reason="after_error",
+            query="Continue after a missing lease error.",
+            work_signal={"phase": "recovering", "work_kind": "continuation", "intended_action": "inspect"},
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "ambiguous")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["reason"], "focus_refinement_required")
+        self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(
+            [item["ref"] for item in response["workroot_contract"]["context_refs"]],
+            ["task:task-one", "task:task-two"],
+        )
+
+    def test_decision_continuation_with_ambiguous_owner_returns_ref_recovery(self) -> None:
+        self.insert_task_graph(
+            task_id="task-one",
+            run_id="run-one",
+            title="One",
+            summary="First task.",
+            handoff_next_action="Continue first task.",
+        )
+        self.insert_task_graph(
+            task_id="task-two",
+            run_id="run-two",
+            title="Two",
+            summary="Second task.",
+            handoff_next_action="Continue second task.",
+        )
+
+        response = self.sync_request(
+            request_id="req-sync-decision-ambiguous-owner",
+            reason="continue",
+            query="Record the important decision and the reason.",
+            work_signal={"phase": "deciding", "work_kind": "continuation", "intended_action": "decide"},
+        )
+
+        self.assertEqual(response["workroot_view"]["focus"], "ambiguous")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["reason"], "focus_refinement_required")
+        self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(response["workroot_contract"]["commit_contract"]["allowed_commit_kinds"], [])
+        self.assertEqual(
+            [item["ref"] for item in response["workroot_contract"]["context_refs"]],
+            ["task:task-one", "task:task-two"],
+        )
 
     def test_guarded_action_asks_user_and_mints_no_lease(self) -> None:
         response = self.sync_request(
@@ -1134,6 +1879,37 @@ class ProtocolSyncFocusV2Test(unittest.TestCase):
                 VALUES (?, 'wr_demo', ?, ?, 'produced_asset', 1.0, 'active')
                 """,
                 (f"edge-task-{task_id}-asset-{asset_id}", f"node-task-{task_id}", f"node-asset-{asset_id}"),
+            )
+            conn.commit()
+
+    def insert_task_decision(self, *, task_id: str, decision_id: str, title: str) -> None:
+        with sqlite3.connect(self.sqlite_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO relationship_nodes (
+                  node_id, workroot_id, node_type, title, target_type, target_id
+                )
+                VALUES (?, 'wr_demo', 'task', ?, 'task', ?)
+                """,
+                (f"node-task-{task_id}", task_id, task_id),
+            )
+            conn.execute(
+                """
+                INSERT INTO relationship_nodes (
+                  node_id, workroot_id, node_type, title, target_type, target_id
+                )
+                VALUES (?, 'wr_demo', 'decision', ?, 'decision', ?)
+                """,
+                (f"node-decision-{decision_id}", title, decision_id),
+            )
+            conn.execute(
+                """
+                INSERT INTO relationship_edges (
+                  edge_id, workroot_id, from_node_id, to_node_id, relationship_type, confidence, status
+                )
+                VALUES (?, 'wr_demo', ?, ?, 'made_decision', 1.0, 'active')
+                """,
+                (f"edge-task-{task_id}-decision-{decision_id}", f"node-task-{task_id}", f"node-decision-{decision_id}"),
             )
             conn.commit()
 

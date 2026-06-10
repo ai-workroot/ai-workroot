@@ -69,7 +69,7 @@ class AgentProtocolLoopTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Implement protocol P0 continuity.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
 
@@ -193,7 +193,7 @@ class AgentProtocolLoopTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Explore a temporary topic.",
-                "work_signal": {"phase": "planning", "work_kind": "inbox", "intended_action": "preserve"},
+                "work_signal": {"phase": "switching", "work_kind": "inbox", "intended_action": "preserve"},
             }
         )
         intent = commit(
@@ -293,7 +293,7 @@ class AgentProtocolLoopTest(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Implement recovery.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         intent = commit(

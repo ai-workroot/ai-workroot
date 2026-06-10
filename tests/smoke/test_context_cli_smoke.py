@@ -15,6 +15,9 @@ class ContextCliSmokeTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("--hard-token-limit", result.stdout)
         self.assertIn("--target-tokens", result.stdout)
+        self.assertIn("--work-signal", result.stdout)
+        self.assertIn("--reason", result.stdout)
+        self.assertIn("--transport", result.stdout)
 
     def test_context_hard_token_limit_has_final_estimator_fallback(self) -> None:
         from ai_workroot.capabilities.context.builder import _enforce_hard_token_limit, estimate_tokens
@@ -91,6 +94,10 @@ class ContextCliSmokeTest(unittest.TestCase):
                 "codex",
                 "--cwd",
                 str(user_dir),
+                "--reason",
+                "before_task_switch",
+                "--query",
+                "Review current work",
                 "--debug",
                 "--target-tokens",
                 "333",
@@ -102,6 +109,35 @@ class ContextCliSmokeTest(unittest.TestCase):
             self.assertIn("/444", context.stdout)
             self.assertIn("target=333 hard=444", context.stdout)
             self.assertIn("budgetSource: cli", context.stdout)
+
+    def test_context_accepts_generic_agent_and_transport(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            env = {"AI_WORKROOT_HOME": str(home)}
+            init = run_workroot_cli(
+                env, "init", "--name", "Generic Agent", "--directory", str(user_dir), "--no-native-agent-entry"
+            )
+            self.assertEqual(init.returncode, 0, init.stderr)
+
+            context = run_workroot_cli(
+                env,
+                "context",
+                "--agent",
+                "hermes",
+                "--transport",
+                "mcp",
+                "--cwd",
+                str(user_dir),
+                "--query",
+                "Continue current work",
+            )
+
+            self.assertEqual(context.returncode, 0, context.stderr)
+            self.assertIn("Agent: hermes", context.stdout)
+            self.assertIn("workroot agent sync --agent hermes", context.stdout)
+            self.assertIn("--transport mcp", context.stdout)
 
 
 if __name__ == "__main__":
