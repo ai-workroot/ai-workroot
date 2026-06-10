@@ -25,7 +25,8 @@ class CleanCliWorkflowSmokeTest(unittest.TestCase):
 
             self.assertEqual(init.returncode, 0, init.stderr)
             self.assertIn("initialized", init.stdout)
-            self.assertEqual(sorted(path.name for path in user_dir.iterdir()), ["note.md"])
+            self.assertEqual(sorted(path.name for path in user_dir.iterdir()), ["note.md", "workroot-output"])
+            self.assertTrue((user_dir / "workroot-output" / "START_HERE.txt").is_file())
             self.assertTrue((home / "registry/workroots.jsonl").is_file())
             self.assertFalse((user_dir / ".workroot").exists())
             self.assertFalse((user_dir / ".ai-workroot").exists())
@@ -76,13 +77,98 @@ class CleanCliWorkflowSmokeTest(unittest.TestCase):
                 "--query",
                 "Clean Mode",
                 "--work-signal",
-                '{"phase":"planning","work_kind":"task","intended_action":"plan","focus":"Clean Mode"}',
+                '{"phase":"starting","work_kind":"task","intended_action":"plan","focus":"Clean Mode"}',
             )
             self.assertEqual(agent_sync.returncode, 0, agent_sync.stderr)
             sync_response = json.loads(agent_sync.stdout)
             self.assertTrue(sync_response["agent_may_continue"])
             self.assertEqual(sync_response["workroot_contract"]["next_exchange"]["action"], "commit")
             self.assertIn("Workroot Guidance", sync_response["workroot_guidance"])
+            self.assertEqual(sync_response["workroot_view"]["output_rules"][0]["path"], "workroot-output")
+
+            packet_sync = run_workroot_cli(
+                env,
+                "agent",
+                "sync",
+                "--agent",
+                "codex",
+                "--cwd",
+                str(user_dir),
+                "--reason",
+                "before_work",
+                "--query",
+                "Clean Mode",
+                "--format",
+                "packet",
+                "--work-signal",
+                '{"phase":"starting","work_kind":"task","intended_action":"plan","focus":"Clean Mode"}',
+            )
+            self.assertEqual(packet_sync.returncode, 0, packet_sync.stderr)
+            self.assertIn('"output": {', packet_sync.stdout)
+            self.assertIn('"default_path": "workroot-output"', packet_sync.stdout)
+            self.assertIn('"asset_path_required": true', packet_sync.stdout)
+
+            rule_sync = run_workroot_cli(
+                env,
+                "agent",
+                "sync",
+                "--agent",
+                "codex",
+                "--cwd",
+                str(user_dir),
+                "--reason",
+                "before_work",
+                "--query",
+                "Remember that future reports should go in reports.",
+                "--work-signal",
+                '{"phase":"planning","work_kind":"operations","intended_action":"preserve","refs":["output_rule:report"]}',
+            )
+            self.assertEqual(rule_sync.returncode, 0, rule_sync.stderr)
+            rule_sync_response = json.loads(rule_sync.stdout)
+            rule_commit = run_workroot_cli(
+                env,
+                "agent",
+                "commit",
+                "--shape",
+                "state-update",
+                "--lease",
+                rule_sync_response["workroot_contract"]["commit_contract"]["lease_id"],
+                "--cwd",
+                str(user_dir),
+                "--target",
+                "output-rule:report",
+                "--change",
+                "path reports",
+            )
+            self.assertEqual(rule_commit.returncode, 0, rule_commit.stderr)
+            rule_commit_response = json.loads(rule_commit.stdout)
+            self.assertTrue(rule_commit_response["ok"])
+            self.assertIn(
+                {"asset_kind": "report", "path": "reports", "role": "declared_output"},
+                rule_commit_response["workroot_view"]["output_rules"],
+            )
+
+            agent_sync_after_rule = run_workroot_cli(
+                env,
+                "agent",
+                "sync",
+                "--agent",
+                "codex",
+                "--cwd",
+                str(user_dir),
+                "--reason",
+                "before_work",
+                "--query",
+                "Clean Mode",
+                "--work-signal",
+                '{"phase":"starting","work_kind":"task","intended_action":"plan","focus":"Clean Mode"}',
+            )
+            self.assertEqual(agent_sync_after_rule.returncode, 0, agent_sync_after_rule.stderr)
+            sync_after_rule_response = json.loads(agent_sync_after_rule.stdout)
+            self.assertIn(
+                {"asset_kind": "report", "path": "reports", "role": "declared_output"},
+                sync_after_rule_response["workroot_view"]["output_rules"],
+            )
 
             intent = run_workroot_cli(
                 env,
@@ -91,7 +177,7 @@ class CleanCliWorkflowSmokeTest(unittest.TestCase):
                 "--shape",
                 "start-work",
                 "--lease",
-                sync_response["workroot_contract"]["commit_contract"]["lease_id"],
+                sync_after_rule_response["workroot_contract"]["commit_contract"]["lease_id"],
                 "--cwd",
                 str(user_dir),
                 "--title",
@@ -188,10 +274,12 @@ class CleanCliWorkflowSmokeTest(unittest.TestCase):
             )
             self.assertEqual(with_entry.returncode, 0, with_entry.stderr)
             self.assertIn(
-                "workroot context --agent codex --cwd .", (second_user_dir / "AGENTS.md").read_text(encoding="utf-8")
+                'workroot agent sync --agent codex --cwd . --query "<current user request>" --format packet',
+                (second_user_dir / "AGENTS.md").read_text(encoding="utf-8"),
             )
             self.assertIn(
-                "workroot context --agent claude --cwd .", (second_user_dir / "CLAUDE.md").read_text(encoding="utf-8")
+                'workroot agent sync --agent claude --cwd . --query "<current user request>" --format packet',
+                (second_user_dir / "CLAUDE.md").read_text(encoding="utf-8"),
             )
 
 

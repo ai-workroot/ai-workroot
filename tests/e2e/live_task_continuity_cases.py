@@ -62,6 +62,206 @@ class LiveTaskContinuityHarnessTest(unittest.TestCase):
         self.assertGreaterEqual(sum(1 for round_script in rounds if not round_script.expected_shapes), 4)
         self.assertTrue(any("--persistence temporary" in round_script.user_request for round_script in rounds))
 
+    def test_mixed_complexity_round_metadata_uses_typed_tuple_fields(self) -> None:
+        from tests.e2e.live_task_continuity import live_task_continuity_scenarios
+
+        scenario = live_task_continuity_scenarios(round_count=30, role_slug="live-mixed-complexity")[0]
+
+        for round_script in scenario.rounds:
+            with self.subTest(round=round_script.index, label=round_script.label):
+                self.assertIsInstance(round_script.expected_shapes, tuple)
+                self.assertIsInstance(round_script.expected_asset_paths, tuple)
+                self.assertIsInstance(round_script.expected_asset_owners, tuple)
+
+    def test_chinese_founder_operator_role_has_progressive_rounds(self) -> None:
+        from tests.e2e.live_task_continuity import live_task_continuity_scenarios
+
+        scenario = live_task_continuity_scenarios(round_count=20, role_slug="live-chinese-founder-operator")[0]
+
+        self.assertEqual(scenario.slug, "live-chinese-founder-operator")
+        self.assertEqual(scenario.mode, "long_cycle")
+        self.assertEqual(len(scenario.rounds), 20)
+        self.assertTrue(all(round_script.user_request for round_script in scenario.rounds))
+        self.assertTrue(any("试点" in round_script.user_request for round_script in scenario.rounds))
+        self.assertTrue(any("--persistence temporary" in round_script.user_request for round_script in scenario.rounds))
+        self.assertGreaterEqual(
+            sum(1 for round_script in scenario.rounds if "asset" in round_script.expected_shapes), 4
+        )
+        self.assertGreaterEqual(
+            sum(1 for round_script in scenario.rounds if "decision" in round_script.expected_shapes), 3
+        )
+        self.assertGreaterEqual(
+            sum(1 for round_script in scenario.rounds if "continuation" in round_script.expected_shapes), 3
+        )
+
+    def test_novice_roles_use_natural_user_requests_without_protocol_terms(self) -> None:
+        from tests.e2e.live_task_continuity import live_task_continuity_scenarios
+
+        protocol_terms = (
+            "workroot",
+            "commit",
+            "sync",
+            "lease",
+            "packet",
+            "handoff",
+            "task",
+            "asset",
+            "refs",
+            "protocol",
+            "persistence",
+            "任务",
+            "协议",
+            "上下文",
+            "接力",
+        )
+        role_expectations = {
+            "live-novice-chinese-shop-owner": 20,
+            "live-novice-english-community-builder": 10,
+        }
+        for role_slug, round_count in role_expectations.items():
+            with self.subTest(role_slug=role_slug):
+                scenario = live_task_continuity_scenarios(round_count=round_count, role_slug=role_slug)[0]
+                self.assertEqual(len(scenario.rounds), round_count)
+                self.assertEqual(scenario.mode, "long_cycle")
+                self.assertGreaterEqual(
+                    sum(1 for round_script in scenario.rounds if "asset" in round_script.expected_shapes), 2
+                )
+                self.assertTrue(any("decision" in round_script.expected_shapes for round_script in scenario.rounds))
+                self.assertTrue(any(not round_script.expected_shapes for round_script in scenario.rounds))
+                joined = "\n".join(round_script.user_request.lower() for round_script in scenario.rounds)
+                for term in protocol_terms:
+                    self.assertNotIn(term, joined)
+
+    def test_novice_prompt_does_not_expose_white_box_expected_answers(self) -> None:
+        from tests.e2e.live_task_continuity import _round_prompt, live_task_continuity_scenarios
+
+        scenario = live_task_continuity_scenarios(round_count=20, role_slug="live-novice-chinese-shop-owner")[0]
+        scripted_round = next(round_script for round_script in scenario.rounds if round_script.expected_shapes)
+
+        prompt = _round_prompt(role=scenario, round_script=scripted_round)
+
+        self.assertIn(scripted_round.user_request, prompt)
+        self.assertIn("workroot agent sync", prompt)
+        self.assertIn("--format packet", prompt)
+        self.assertNotIn("Expected Workroot capture shape", prompt)
+        self.assertNotIn("Expected user-visible asset path", prompt)
+        self.assertNotIn(", ".join(scripted_round.expected_shapes), prompt)
+        for path in scripted_round.expected_asset_paths:
+            self.assertNotIn(path, prompt)
+        self.assertNotIn("phase=switching, work_kind=task", prompt)
+        self.assertNotIn("new normal work uses", prompt)
+
+    def test_round_validation_requires_packet_format_for_agent_sync(self) -> None:
+        from tests.e2e.live_task_continuity import _validate_agent_sync_format
+
+        failures = _validate_agent_sync_format(
+            [
+                {
+                    "argv": [
+                        "agent",
+                        "sync",
+                        "--agent",
+                        "codex",
+                        "--cwd",
+                        ".",
+                        "--query",
+                        "current request",
+                    ]
+                }
+            ]
+        )
+
+        self.assertEqual(failures, ["agent sync did not request packet format"])
+        self.assertEqual(
+            _validate_agent_sync_format(
+                [
+                    {
+                        "argv": [
+                            "agent",
+                            "sync",
+                            "--agent",
+                            "codex",
+                            "--cwd",
+                            ".",
+                            "--query",
+                            "current request",
+                            "--format",
+                            "packet",
+                        ]
+                    }
+                ]
+            ),
+            [],
+        )
+
+    def test_chinese_novice_role_has_broad_twenty_round_user_journey(self) -> None:
+        from tests.e2e.live_task_continuity import live_task_continuity_scenarios
+
+        scenario = live_task_continuity_scenarios(round_count=20, role_slug="live-novice-chinese-shop-owner")[0]
+
+        self.assertEqual(len(scenario.rounds), 20)
+        joined = "\n".join(round_script.user_request for round_script in scenario.rounds)
+        for phrase in ("经营方向", "早高峰", "下午空档", "周末亲子", "朋友圈", "会员", "下周"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, joined)
+        self.assertGreaterEqual(
+            sum(1 for round_script in scenario.rounds if "asset" in round_script.expected_shapes), 4
+        )
+        self.assertGreaterEqual(
+            sum(1 for round_script in scenario.rounds if "decision" in round_script.expected_shapes), 3
+        )
+        self.assertGreaterEqual(
+            sum(1 for round_script in scenario.rounds if "continuation" in round_script.expected_shapes), 2
+        )
+
+    def test_complex_novice_chinese_service_owner_has_long_natural_twenty_round_journey(self) -> None:
+        from tests.e2e.live_task_continuity import live_task_continuity_scenarios
+
+        scenario = live_task_continuity_scenarios(
+            round_count=20,
+            role_slug="live-novice-chinese-service-owner",
+        )[0]
+
+        self.assertEqual(scenario.slug, "live-novice-chinese-service-owner")
+        self.assertEqual(scenario.mode, "long_cycle")
+        self.assertEqual(len(scenario.rounds), 20)
+        self.assertGreaterEqual(sum(1 for round_script in scenario.rounds if len(round_script.user_request) >= 100), 12)
+        self.assertGreaterEqual(
+            sum(1 for round_script in scenario.rounds if "asset" in round_script.expected_shapes), 5
+        )
+        self.assertGreaterEqual(
+            sum(1 for round_script in scenario.rounds if "decision" in round_script.expected_shapes), 4
+        )
+        self.assertGreaterEqual(
+            sum(1 for round_script in scenario.rounds if "continuation" in round_script.expected_shapes), 3
+        )
+        self.assertTrue(
+            any(round_script.expected_context_intent == "evidence_lookup" for round_script in scenario.rounds)
+        )
+        joined = "\n".join(round_script.user_request.lower() for round_script in scenario.rounds)
+        for term in (
+            "workroot",
+            "commit",
+            "sync",
+            "lease",
+            "packet",
+            "handoff",
+            "task",
+            "asset",
+            "refs",
+            "protocol",
+            "persistence",
+            "任务",
+            "协议",
+            "上下文",
+            "接力",
+        ):
+            with self.subTest(term=term):
+                self.assertNotIn(term, joined)
+        for phrase in ("家政", "培训", "阿姨", "客户", "现金流", "招聘", "社区活动", "下周"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, joined)
+
     def test_audited_wrapper_writes_outputs_under_transcript_artifacts(self) -> None:
         from tests.e2e.live_task_continuity import create_audited_workroot_wrapper, read_jsonl
 
@@ -130,6 +330,41 @@ class LiveTaskContinuityHarnessTest(unittest.TestCase):
             )
 
             self.assertEqual(artifacts, ["runtime", "workroot-command-log.jsonl"])
+
+    def test_protocol_query_validation_flags_context_and_sync_without_query(self) -> None:
+        from tests.e2e.live_task_continuity import _validate_context_and_sync_queries
+
+        failures = _validate_context_and_sync_queries(
+            [
+                {"argv": ["context", "--agent", "codex", "--cwd", "."]},
+                {"argv": ["agent", "sync", "--agent", "codex", "--cwd", ".", "--query", ""]},
+                {"argv": ["agent", "sync", "--agent", "codex", "--cwd", ".", "--query", "<short intent>"]},
+                {
+                    "argv": [
+                        "agent",
+                        "sync",
+                        "--agent",
+                        "codex",
+                        "--cwd",
+                        ".",
+                        "--query",
+                        "<current user request or short intent>",
+                    ]
+                },
+                {"argv": ["agent", "sync", "--help"]},
+                {"argv": ["agent", "sync", "--agent", "codex", "--cwd", ".", "--query", "real user request"]},
+            ]
+        )
+
+        self.assertEqual(
+            failures,
+            [
+                "context missing meaningful --query",
+                "agent sync missing meaningful --query",
+                "agent sync missing meaningful --query",
+                "agent sync missing meaningful --query",
+            ],
+        )
 
     def test_empty_database_summary_exposes_task_protocol_and_runtime_counts(self) -> None:
         from tests.e2e.live_task_continuity import summarize_role_database
@@ -237,6 +472,135 @@ class LiveTaskContinuityHarnessTest(unittest.TestCase):
             )
 
         self.assertIn("new quarantined protocol events found", failures)
+
+    def test_evidence_round_validation_requires_first_sync_work_signal(self) -> None:
+        from tests.e2e.live_task_continuity import LiveRoundScript, _validate_round
+
+        with tempfile.TemporaryDirectory() as tmp:
+            last_message = Path(tmp) / "last-message.txt"
+            last_message.write_text("LIVE_TASK_CONTINUITY_OK live-role round-14\nDone.\n", encoding="utf-8")
+            failures = _validate_round(
+                round_script=LiveRoundScript(
+                    14,
+                    "Evidence request",
+                    "这个判断主要是从哪些现有信息看出来的？",
+                    expected_context_intent="evidence_lookup",
+                ),
+                user_directory=Path(tmp),
+                returncode=0,
+                last_message_path=last_message,
+                commands=["agent sync"],
+                db_summary={"counts": {"protocolEvents": 1}, "protocolEventStatuses": {"applied": 1}},
+                before_db_summary={"counts": {"protocolEvents": 1}, "protocolEventStatuses": {"applied": 1}},
+                command_records=[
+                    {
+                        "argv": [
+                            "agent",
+                            "sync",
+                            "--agent",
+                            "codex",
+                            "--cwd",
+                            ".",
+                            "--query",
+                            "这个判断主要是从哪些现有信息看出来的？",
+                        ],
+                        "returncode": 0,
+                    }
+                ],
+            )
+
+        self.assertIn("evidence round sync missing needs_evidence WorkSignal", failures)
+
+    def test_evidence_round_validation_accepts_sync_work_signal(self) -> None:
+        from tests.e2e.live_task_continuity import LiveRoundScript, _validate_round
+
+        with tempfile.TemporaryDirectory() as tmp:
+            last_message = Path(tmp) / "last-message.txt"
+            last_message.write_text("LIVE_TASK_CONTINUITY_OK live-role round-14\nDone.\n", encoding="utf-8")
+            failures = _validate_round(
+                round_script=LiveRoundScript(
+                    14,
+                    "Evidence request",
+                    "这个判断主要是从哪些现有信息看出来的？",
+                    expected_context_intent="evidence_lookup",
+                ),
+                user_directory=Path(tmp),
+                returncode=0,
+                last_message_path=last_message,
+                commands=["agent sync"],
+                db_summary={"counts": {"protocolEvents": 1}, "protocolEventStatuses": {"applied": 1}},
+                before_db_summary={"counts": {"protocolEvents": 1}, "protocolEventStatuses": {"applied": 1}},
+                command_records=[
+                    {
+                        "argv": [
+                            "agent",
+                            "sync",
+                            "--agent",
+                            "codex",
+                            "--cwd",
+                            ".",
+                            "--query",
+                            "这个判断主要是从哪些现有信息看出来的？",
+                            "--work-signal",
+                            '{"intended_action":"inspect","concerns":["needs_evidence"],"focus":"判断依据"}',
+                        ],
+                        "returncode": 0,
+                    }
+                ],
+            )
+
+        self.assertNotIn("evidence round sync missing needs_evidence WorkSignal", failures)
+
+    def test_round_validation_rejects_context_without_sync(self) -> None:
+        from tests.e2e.live_task_continuity import LiveRoundScript, _validate_round
+
+        with tempfile.TemporaryDirectory() as tmp:
+            last_message = Path(tmp) / "last-message.txt"
+            last_message.write_text("LIVE_TASK_CONTINUITY_OK live-role round-01\nDone.\n", encoding="utf-8")
+            failures = _validate_round(
+                round_script=LiveRoundScript(1, "Start", "Please help me plan this."),
+                user_directory=Path(tmp),
+                returncode=0,
+                last_message_path=last_message,
+                commands=["context"],
+                db_summary={"counts": {"protocolEvents": 0}, "protocolEventStatuses": {}},
+                before_db_summary={"counts": {"protocolEvents": 0}, "protocolEventStatuses": {}},
+                command_records=[
+                    {
+                        "argv": [
+                            "context",
+                            "--agent",
+                            "codex",
+                            "--cwd",
+                            ".",
+                            "--query",
+                            "Please help me plan this.",
+                        ],
+                        "returncode": 0,
+                    }
+                ],
+            )
+
+        self.assertIn("round did not call agent sync", failures)
+        self.assertIn("context was used without agent sync", failures)
+
+    def test_role_protocol_usage_rejects_context_every_round(self) -> None:
+        from tests.e2e.live_task_continuity import _validate_role_protocol_usage
+
+        command_records_by_round = [
+            [
+                {"argv": ["context", "--agent", "codex", "--cwd", ".", "--query", "first"]},
+                {"argv": ["agent", "sync", "--agent", "codex", "--cwd", ".", "--query", "first"]},
+            ],
+            [
+                {"argv": ["context", "--agent", "codex", "--cwd", ".", "--query", "second"]},
+                {"argv": ["agent", "sync", "--agent", "codex", "--cwd", ".", "--query", "second"]},
+            ],
+        ]
+
+        failures = _validate_role_protocol_usage(command_records_by_round)
+
+        self.assertIn("context was used in every round; sync-first loop regressed", failures)
 
     def test_round_validation_requires_expected_assets_in_workroot_asset_index(self) -> None:
         from tests.e2e.live_task_continuity import LiveRoundScript, _validate_round
@@ -359,15 +723,19 @@ class LiveTaskContinuityHarnessTest(unittest.TestCase):
                 user_directory=user_dir,
                 returncode=0,
                 last_message_path=last_message,
-                commands=["agent commit"],
+                commands=["agent sync", "agent commit"],
                 db_summary={"protocolEventStatuses": {"applied": 1}, "assetPaths": []},
                 before_db_summary={"protocolEventStatuses": {"applied": 1}},
                 command_records=[
                     {
+                        "argv": ["agent", "sync", "--agent", "codex", "--cwd", ".", "--query", "Decide."],
+                        "returncode": 0,
+                    },
+                    {
                         "argv": ["agent", "commit", "--shape", "decision", "--format", "packet"],
                         "returncode": 0,
                         "stdoutPath": str(stdout_path),
-                    }
+                    },
                 ],
             )
 
@@ -397,10 +765,14 @@ class LiveTaskContinuityHarnessTest(unittest.TestCase):
                 user_directory=user_dir,
                 returncode=0,
                 last_message_path=last_message,
-                commands=["agent commit"],
+                commands=["agent sync", "agent commit"],
                 db_summary={"protocolEventStatuses": {"applied": 1}, "assetPaths": []},
                 before_db_summary={"protocolEventStatuses": {"applied": 1}},
                 command_records=[
+                    {
+                        "argv": ["agent", "sync", "--agent", "codex", "--cwd", ".", "--query", "Create asset."],
+                        "returncode": 0,
+                    },
                     {
                         "argv": ["agent", "commit", "--shape", "asset", "--format", "packet"],
                         "returncode": 0,
@@ -437,6 +809,38 @@ class LiveTaskContinuityHarnessTest(unittest.TestCase):
             failures = _validate_role_continuity(role=role, user_directory=user_dir, final_db=final_db)
 
         self.assertIn("task proliferation: active normal root tasks 40 exceeds 3", failures)
+
+    def test_novice_role_flags_final_handoff_owner_drift(self) -> None:
+        from tests.e2e.live_task_continuity import _validate_role_continuity, live_task_continuity_scenarios
+
+        role = live_task_continuity_scenarios(round_count=20, role_slug="live-novice-chinese-shop-owner")[0]
+        final_db = {
+            "counts": {
+                "tasks": 2,
+                "taskRuns": 2,
+                "protocolEvents": 20,
+                "handoffsCurrent": 1,
+                "taskSummariesCurrent": 1,
+            },
+            "taskProliferation": {"activeNormalRootTasks": 1, "duplicateTitleCount": 0},
+            "assetPaths": ["outputs/shop-month-plan.md", "outputs/朋友圈文案.md", "outputs/下周复盘表.md"],
+            "assetOwners": {},
+            "latestHandoff": {
+                "taskId": "task-inbox",
+                "taskTitle": "临时判断是否换桌",
+                "currentState": "主线经营方向已经完成本轮讨论。",
+                "nextAction": "下次先看经营结果。",
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            user_dir = Path(tmp)
+            (user_dir / "outputs").mkdir()
+            (user_dir / "outputs" / "shop-month-plan.md").write_text("# Plan\n", encoding="utf-8")
+            (user_dir / "outputs" / "朋友圈文案.md").write_text("# Copy\n", encoding="utf-8")
+            (user_dir / "outputs" / "下周复盘表.md").write_text("# Review\n", encoding="utf-8")
+            failures = _validate_role_continuity(role=role, user_directory=user_dir, final_db=final_db)
+
+        self.assertIn("latest handoff owner drifted away from expected owner: 咖啡", failures)
 
 
 class LiveTaskContinuityE2ETest(unittest.TestCase):

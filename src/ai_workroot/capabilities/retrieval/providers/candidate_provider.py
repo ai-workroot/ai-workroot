@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import sqlite3
 from typing import Any
 
+from ai_workroot.capabilities.retrieval.providers.sqlite_fts import compile_safe_fts_query, text_term_score
+
 
 BLOCKED_SAFETY_POLICIES = {"never-auto", "needs-confirmation", "sensitive"}
 
@@ -82,11 +84,11 @@ def upsert_context_candidate(conn: sqlite3.Connection, payload: dict[str, Any]) 
 
 
 def query_context_candidates(
-    conn: sqlite3.Connection, workroot_id: str, *, query: str = "", limit: int = 50
+    conn: sqlite3.Connection, workroot_id: str, *, query: str = "", scope: str = "", limit: int = 50
 ) -> list[CandidateMatch]:
     _ensure_candidate_columns(conn)
-    conn.row_factory = sqlite3.Row
-    safe_rows = conn.execute(
+    safe_rows = _fetch_rows(
+        conn,
         """
         SELECT *
         FROM context_candidates
@@ -95,10 +97,13 @@ def query_context_candidates(
           AND (safety_policy IS NULL OR safety_policy = '' OR safety_policy NOT IN ('never-auto', 'needs-confirmation', 'sensitive'))
         """,
         (workroot_id,),
-    ).fetchall()
+    )
     fts_ids = _candidate_fts_ids(conn, query) if query.strip() else set()
+    parsed_scope = _parse_scope(scope)
     matches: list[CandidateMatch] = []
     for row in safe_rows:
+        if not _candidate_visible_in_scope(row, parsed_scope):
+            continue
         reasons: list[str] = []
         score = _base_score(row)
         if row["context_policy"] == "always":
@@ -106,15 +111,65 @@ def query_context_candidates(
         if row["candidate_id"] in fts_ids:
             reasons.append("candidate-fts-match")
             score += 1.0
+        term_score = _candidate_text_term_score(row, query)
+        if term_score > 0 and row["candidate_id"] not in fts_ids:
+            reasons.append("candidate-term-match")
+            score += min(0.8, term_score * 0.2)
         if query and _text_contains(row["title"], query):
             reasons.append("title-query-match")
             score += 0.6
         if query and _text_contains(row["summary"], query):
             reasons.append("summary-query-match")
             score += 0.4
+        if _candidate_matches_scope(row, parsed_scope):
+            reasons.append("scope-match")
+            score += 0.3
+        if query.strip() and not reasons:
+            continue
         matches.append(_candidate_from_row(row, score, tuple(reasons or ("recent",))))
     matches.sort(key=lambda candidate: (-candidate.score, candidate.candidate_id))
     return matches[:limit]
+
+
+def query_context_candidates_by_refs(
+    conn: sqlite3.Connection, workroot_id: str, refs: tuple[str, ...], *, scope: str = "", limit: int = 20
+) -> list[CandidateMatch]:
+    _ensure_candidate_columns(conn)
+    if not refs:
+        return []
+    source_refs = _source_refs(refs)
+    if not source_refs:
+        return []
+    clauses = " OR ".join("(source_type = ? AND source_id = ?)" for _ in source_refs)
+    params: list[object] = [workroot_id]
+    for source_type, source_id in source_refs:
+        params.extend([source_type, source_id])
+    params.append(limit)
+    rows = _fetch_rows(
+        conn,
+        f"""
+        SELECT *
+        FROM context_candidates
+        WHERE workroot_id = ?
+          AND COALESCE(status, 'active') = 'active'
+          AND (safety_policy IS NULL OR safety_policy = '' OR safety_policy NOT IN ('never-auto', 'needs-confirmation', 'sensitive'))
+          AND ({clauses})
+        LIMIT ?
+        """,
+        tuple(params),
+    )
+    parsed_scope = _parse_scope(scope)
+    return [
+        _candidate_from_row(row, _base_score(row) + 1.2, _ref_reasons(row, parsed_scope))
+        for row in rows
+        if _candidate_visible_in_scope(row, parsed_scope)
+    ]
+
+
+def _fetch_rows(conn: sqlite3.Connection, query: str, params: tuple[object, ...]) -> list[sqlite3.Row]:
+    cursor = conn.cursor()
+    cursor.row_factory = sqlite3.Row
+    return cursor.execute(query, params).fetchall()
 
 
 def _ensure_candidate_columns(conn: sqlite3.Connection) -> None:
@@ -125,6 +180,7 @@ def _ensure_candidate_columns(conn: sqlite3.Connection) -> None:
         "confidence": "REAL",
         "status": "TEXT",
         "context_policy": "TEXT",
+        "safety_policy": "TEXT",
         "token_estimate": "INTEGER",
         "updatedAt": "TEXT",
         "lastUsedAt": "TEXT",
@@ -141,14 +197,74 @@ def _ensure_candidate_columns(conn: sqlite3.Connection) -> None:
 
 
 def _candidate_fts_ids(conn: sqlite3.Connection, query: str) -> set[str]:
+    compiled_query = compile_safe_fts_query(query)
+    if not compiled_query:
+        return set()
     try:
         rows = conn.execute(
             "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH ?",
-            (query,),
+            (compiled_query,),
         ).fetchall()
     except sqlite3.OperationalError:
         return set()
     return {str(row[0]) for row in rows}
+
+
+def _candidate_text_term_score(row: sqlite3.Row, query: str) -> int:
+    if not query.strip():
+        return 0
+    return text_term_score(f"{row['title']} {row['summary']} {row['domains']}", query)
+
+
+def _parse_scope(scope: str) -> tuple[str, str]:
+    value = str(scope or "").strip()
+    scope_type, separator, scope_id = value.partition(":")
+    if separator != ":" or not scope_type or not scope_id:
+        return "", ""
+    return scope_type, scope_id
+
+
+def _candidate_visible_in_scope(row: sqlite3.Row, parsed_scope: tuple[str, str]) -> bool:
+    scope_type, scope_id = parsed_scope
+    if scope_type != "task" or not scope_id:
+        return True
+    tokens = _domain_tokens(row)
+    task_tokens = {token.removeprefix("task:") for token in tokens if token.startswith("task:")}
+    legacy_task_tokens = {token for token in tokens if _looks_like_legacy_task_token(token)}
+    if task_tokens or legacy_task_tokens:
+        return scope_id in task_tokens or scope_id in legacy_task_tokens
+    return True
+
+
+def _candidate_matches_scope(row: sqlite3.Row, parsed_scope: tuple[str, str]) -> bool:
+    scope_type, scope_id = parsed_scope
+    if scope_type != "task" or not scope_id:
+        return False
+    tokens = _domain_tokens(row)
+    return f"task:{scope_id}" in tokens or scope_id in tokens
+
+
+def _domain_tokens(row: sqlite3.Row) -> set[str]:
+    return {token for token in str(row["domains"] or "").split() if token}
+
+
+def _looks_like_legacy_task_token(token: str) -> bool:
+    return token.startswith("task-") or token.startswith("task_")
+
+
+def _ref_reasons(row: sqlite3.Row, parsed_scope: tuple[str, str]) -> tuple[str, ...]:
+    if _candidate_matches_scope(row, parsed_scope):
+        return ("ref-match", "scope-match")
+    return ("ref-match",)
+
+
+def _source_refs(refs: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
+    values: list[tuple[str, str]] = []
+    for ref in refs:
+        source_type, separator, source_id = ref.partition(":")
+        if separator == ":" and source_type and source_id:
+            values.append((source_type, source_id))
+    return tuple(values)
 
 
 def _base_score(row: sqlite3.Row) -> float:

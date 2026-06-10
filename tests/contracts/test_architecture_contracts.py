@@ -72,7 +72,7 @@ class ArchitectureContractsTest(unittest.TestCase):
         retrieval = read("docs/specs/009-retrieval-index-control.spec.md")
         release = read("docs/specs/007-release-control.spec.md")
         parity = read("docs/specs/033-time-and-global-index-parity.spec.md")
-        matrix = read("docs/dev/0.9.530/matrix/legacy-capability-preservation-matrix.md")
+        matrix = read("docs/history/0.9.530/dev/matrix/legacy-capability-preservation-matrix.md")
 
         for phrase in ("TimeEvent", "TimeRange", "TemporalScope", "GlobalTimeIndex", "WorkrootTimeIndex"):
             with self.subTest(phrase=phrase):

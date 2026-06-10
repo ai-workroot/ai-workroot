@@ -8,6 +8,8 @@ import sqlite3
 from typing import Any, Optional
 import uuid
 
+from ai_workroot.capabilities.composition.configuration import compact_asset_output_rules
+from ai_workroot.capabilities.composition.projections import ProjectionError, ProjectionResult, apply_projection
 from ai_workroot.protocol.continuity import load_continuity_package
 from ai_workroot.protocol.preservation import (
     EVENT_APPLIED,
@@ -23,8 +25,8 @@ from ai_workroot.protocol.focus import FocusResolution, resolve_sync_focus
 from ai_workroot.protocol.lease import create_lease, decide_lease_safety
 from ai_workroot.protocol.location import locate_for_commit
 from ai_workroot.protocol.model import CommitRequest, SyncRequest
-from ai_workroot.capabilities.composition.projections import ProjectionError, ProjectionResult, apply_projection
 from ai_workroot.protocol.response import (
+    EVENT_KIND_TO_SHAPE,
     empty_workroot_contract,
     guidance_text,
     result_payload,
@@ -33,6 +35,7 @@ from ai_workroot.protocol.response import (
     workroot_view,
 )
 from ai_workroot.state.layout import workroot_sqlite_path
+from ai_workroot.state.protocol_friction import record_locatable_protocol_friction, record_protocol_friction
 from ai_workroot.state.registry import find_workroot_by_cwd, list_workroots
 from ai_workroot.state.runtime_views import refresh_runtime_views
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
@@ -46,7 +49,11 @@ def sync(request_data: dict[str, Any], *, ai_workroot_home: Path | str | None = 
 def startup_context(request_data: dict[str, Any], *, ai_workroot_home: Path | str | None = None) -> dict[str, Any]:
     """Build a read-only sync-shaped response for startup context rendering."""
 
-    return _sync(request_data, issue_lease=False, ai_workroot_home=ai_workroot_home)
+    response = _sync(request_data, issue_lease=False, ai_workroot_home=ai_workroot_home)
+    contract = response.get("workroot_contract")
+    if isinstance(contract, dict):
+        contract["exchange_mode"] = "read_only"
+    return response
 
 
 def _sync(
@@ -58,6 +65,13 @@ def _sync(
     try:
         request = SyncRequest.from_dict(request_data)
     except (ProjectionError, ProtocolError) as exc:
+        _record_validation_friction(
+            request_data,
+            action="sync",
+            code=exc.code,
+            details=exc.details,
+            ai_workroot_home=ai_workroot_home,
+        )
         return protocol_error_response(exc.code, details=exc.details)
     try:
         workroot = _resolve_workroot(request, ai_workroot_home=ai_workroot_home)
@@ -94,6 +108,7 @@ def _sync(
                 run_id=focus_resolution.run_id,
                 allowed_events=list(focus_resolution.allowed_events),
                 required_before_stop=list(focus_resolution.required_before_stop),
+                policy=focus_resolution.write_policy,
             )
 
     return _sync_response(workroot, directive_payload, lease, context=context, focus_resolution=focus_resolution)
@@ -103,8 +118,28 @@ def commit(request_data: dict[str, Any], *, ai_workroot_home: Path | str | None 
     try:
         request = CommitRequest.from_dict(request_data)
     except (ProjectionError, ProtocolError) as exc:
+        _record_validation_friction(
+            request_data,
+            action="commit",
+            code=exc.code,
+            details=exc.details,
+            ai_workroot_home=ai_workroot_home,
+        )
         return protocol_error_response(exc.code, details=exc.details)
     if not request.atomic_batch:
+        record_locatable_protocol_friction(
+            cwd=request.cwd,
+            workroot_id=request.workroot_id,
+            ai_workroot_home=ai_workroot_home,
+            action="commit",
+            source_layer="protocol_controller",
+            stage="validation",
+            code="unsupported_atomic_batch_mode",
+            result_status="rejected",
+            request_id=request.request_id,
+            lease_id=request.exchange_lease_id,
+            idempotency_key=request.idempotency_key,
+        )
         return protocol_error_response(
             "unsupported_atomic_batch_mode",
             next_action="Continue user-visible work. Sync before retrying with atomic_batch=true.",
@@ -137,9 +172,34 @@ def commit(request_data: dict[str, Any], *, ai_workroot_home: Path | str | None 
                     conn.rollback()
                     return response
                 response = _recovery_response("commit_batch_still_applying")
+                record_protocol_friction(
+                    state_directory=Path(workroot["stateDirectory"]),
+                    workroot_id=workroot["workrootId"],
+                    action="commit",
+                    source_layer="protocol_controller",
+                    stage="idempotency",
+                    code="commit_batch_still_applying",
+                    severity="info",
+                    result_status="recovered",
+                    request_id=request.request_id,
+                    lease_id=request.exchange_lease_id,
+                    idempotency_key=request.idempotency_key,
+                )
                 conn.rollback()
                 return response
             response = protocol_error_response("idempotency_key_conflict", result_status="rejected")
+            record_protocol_friction(
+                state_directory=Path(workroot["stateDirectory"]),
+                workroot_id=workroot["workrootId"],
+                action="commit",
+                source_layer="protocol_controller",
+                stage="idempotency",
+                code="idempotency_key_conflict",
+                result_status="rejected",
+                request_id=request.request_id,
+                lease_id=request.exchange_lease_id,
+                idempotency_key=request.idempotency_key,
+            )
             conn.rollback()
             return response
 
@@ -170,6 +230,7 @@ def commit(request_data: dict[str, Any], *, ai_workroot_home: Path | str | None 
             conn,
             request=request,
             workroot_id=workroot["workrootId"],
+            state_directory=Path(workroot["stateDirectory"]),
             user_directory=_user_directory_from_record(workroot),
             batch_id=batch_id,
             received_at=received_at,
@@ -182,11 +243,39 @@ def commit(request_data: dict[str, Any], *, ai_workroot_home: Path | str | None 
             workroot_id=workroot["workrootId"],
         )
         return response
-    except Exception:
+    except Exception as exc:
         conn.rollback()
-        raise
+        return _unexpected_commit_response(
+            exc,
+            state_directory=Path(workroot["stateDirectory"]),
+            recorded=False,
+        )
     finally:
         conn.close()
+
+
+def _record_validation_friction(
+    request_data: dict[str, Any],
+    *,
+    action: str,
+    code: str,
+    details: dict[str, Any],
+    ai_workroot_home: Path | str | None,
+) -> None:
+    record_locatable_protocol_friction(
+        cwd=request_data.get("cwd") if isinstance(request_data.get("cwd"), str) else None,
+        workroot_id=request_data.get("workroot_id") if isinstance(request_data.get("workroot_id"), str) else None,
+        ai_workroot_home=ai_workroot_home,
+        action=action,
+        source_layer="protocol_controller",
+        stage="validation",
+        code=f"{action}_validation_error",
+        result_status="rejected",
+        request_id=str(request_data.get("request_id") or ""),
+        lease_id=str(request_data.get("exchange_lease_id") or ""),
+        idempotency_key=str(request_data.get("idempotency_key") or ""),
+        details={"code": code, **details},
+    )
 
 
 def _refresh_runtime_views_best_effort(*, state_directory: Path, sqlite_path: Path, workroot_id: str) -> None:
@@ -294,6 +383,7 @@ def _apply_commit_batch(
     *,
     request: CommitRequest,
     workroot_id: str,
+    state_directory: Path,
     user_directory: Path | None,
     batch_id: str,
     received_at: str,
@@ -320,6 +410,7 @@ def _apply_commit_batch(
             directive_type="not_recorded",
             directive_next_action="Continue helping the user. Sync before retrying durable Workroot persistence.",
             warnings=[],
+            state_directory=state_directory,
         )
 
     if _quick_intent_batch(events):
@@ -332,9 +423,19 @@ def _apply_commit_batch(
             directive_goal="No persistent Workroot facts were created.",
             directive_next_action="Answer directly without creating persistent Workroot facts.",
             warnings=[],
+            state_directory=state_directory,
         )
 
     if not request.exchange_lease_id:
+        _record_commit_rejection_friction(
+            state_directory=state_directory,
+            workroot_id=workroot_id,
+            request=request,
+            events=events,
+            stage="lease_guard",
+            code="missing_exchange_lease_id",
+            result_status="rejected",
+        )
         return _commit_response(
             status="rejected",
             recorded=True,
@@ -343,6 +444,7 @@ def _apply_commit_batch(
             directive_type="resync_required",
             directive_next_action="Call sync before committing durable Workroot facts.",
             warnings=["missing_exchange_lease_id"],
+            state_directory=state_directory,
         )
 
     decision = decide_lease_safety(conn, request.exchange_lease_id, workroot_id=workroot_id, events=events)
@@ -362,6 +464,15 @@ def _apply_commit_batch(
                     status=EVENT_QUARANTINED,
                 )
         directive_type = "resync_required" if decision.status == "resync_required" else "not_recorded"
+        _record_commit_rejection_friction(
+            state_directory=state_directory,
+            workroot_id=workroot_id,
+            request=request,
+            events=events,
+            stage="lease_guard",
+            code=decision.error_code or decision.status,
+            result_status=decision.status,
+        )
         return _commit_response(
             status=decision.status,
             recorded=True,
@@ -373,6 +484,7 @@ def _apply_commit_batch(
             lease=lease,
             task_id=_text_or_none(lease.get("task_id")),
             run_id=_text_or_none(lease.get("run_id")),
+            state_directory=state_directory,
         )
 
     projection_result: Optional[ProjectionResult] = None
@@ -396,6 +508,7 @@ def _apply_commit_batch(
                 lease=lease,
                 event=event,
                 user_directory=user_directory,
+                state_directory=state_directory,
             )
             _append_event_effects(conn, event_id=event["event_id"], effects=projection_result.effects)
             bump_state_version(
@@ -423,6 +536,16 @@ def _apply_commit_batch(
                     received_at=received_at,
                     status=EVENT_QUARANTINED,
                 )
+        _record_commit_rejection_friction(
+            state_directory=state_directory,
+            workroot_id=workroot_id,
+            request=request,
+            events=events,
+            stage="projection",
+            code=exc.code,
+            result_status="rejected" if hard_error else "quarantined",
+            details=exc.details,
+        )
         return _commit_response(
             status="rejected" if hard_error else "quarantined",
             recorded=True,
@@ -435,6 +558,34 @@ def _apply_commit_batch(
             task_id=_text_or_none(lease.get("task_id")),
             run_id=_text_or_none(lease.get("run_id")),
             error={"code": exc.code, "message": exc.code, "details": exc.details} if hard_error else None,
+            state_directory=state_directory,
+        )
+    except Exception as exc:
+        conn.execute("ROLLBACK TO projection")
+        conn.execute("RELEASE projection")
+        code = _unexpected_commit_error_code(exc)
+        _record_commit_rejection_friction(
+            state_directory=state_directory,
+            workroot_id=workroot_id,
+            request=request,
+            events=events,
+            stage="projection",
+            code=code,
+            result_status="rejected",
+        )
+        return _commit_response(
+            status="rejected",
+            recorded=True,
+            projected=False,
+            accepted=False,
+            directive_type="resync_required",
+            directive_next_action="Call sync before retrying durable Workroot persistence.",
+            warnings=[code],
+            lease=lease,
+            task_id=_text_or_none(lease.get("task_id")),
+            run_id=_text_or_none(lease.get("run_id")),
+            error={"code": code, "message": code, "details": {}},
+            state_directory=state_directory,
         )
     else:
         conn.execute("RELEASE projection")
@@ -474,6 +625,7 @@ def _apply_commit_batch(
         run_id=next_run_id,
         allowed_events=list(next_allowed_events),
         required_before_stop=list(next_required_before_stop),
+        state_directory=state_directory,
     )
 
 
@@ -494,6 +646,43 @@ def _validate_commit_events(
     return events, invalid_events
 
 
+def _record_commit_rejection_friction(
+    *,
+    state_directory: Path,
+    workroot_id: str,
+    request: CommitRequest,
+    events: list[dict[str, Any]],
+    stage: str,
+    code: str,
+    result_status: str,
+    details: dict[str, Any] | None = None,
+) -> None:
+    record_protocol_friction(
+        state_directory=state_directory,
+        workroot_id=workroot_id,
+        action="commit",
+        source_layer="protocol_controller",
+        stage=stage,
+        code=code,
+        result_status=result_status,
+        request_id=request.request_id,
+        lease_id=request.exchange_lease_id,
+        idempotency_key=request.idempotency_key,
+        shape=_shape_for_events(events),
+        details=details,
+    )
+
+
+def _shape_for_events(events: list[dict[str, Any]]) -> str:
+    shapes = {EVENT_KIND_TO_SHAPE.get(str(event.get("kind") or ""), "") for event in events if isinstance(event, dict)}
+    shapes.discard("")
+    if len(shapes) == 1:
+        return next(iter(shapes))
+    if len(shapes) > 1:
+        return "batch"
+    return ""
+
+
 def _commit_response(
     *,
     status: str,
@@ -510,10 +699,17 @@ def _commit_response(
     allowed_events: Optional[list[str]] = None,
     required_before_stop: Optional[list[str]] = None,
     error: Optional[dict[str, Any]] = None,
+    state_directory: Optional[Path] = None,
 ) -> dict[str, Any]:
+    if not accepted and status in {"rejected", "resync_required", "quarantined"}:
+        lease = None
+        allowed_events = []
+        required_before_stop = []
+        task_id = None
+        run_id = None
     expected_events = list(allowed_events or (lease or {}).get("allowed_events") or [])
     required = list(required_before_stop or (lease or {}).get("required_before_stop") or [])
-    if directive_type == "resync_required":
+    if directive_type == "resync_required" or status in {"rejected", "resync_required", "quarantined"}:
         suggested_action = "sync"
         reason = "resync_required"
     elif expected_events:
@@ -536,6 +732,7 @@ def _commit_response(
         task_brief=directive_goal or directive_next_action,
         confidence="medium" if accepted else "low",
         why=f"commit result: {status}",
+        output_rules=_compact_output_rules_from_state_directory(state_directory),
         warnings=warnings,
     )
     payload = semantic_response(
@@ -610,6 +807,32 @@ def _recovery_response(reason: str) -> dict[str, Any]:
             recorded=True, projected=False, accepted=False, status="resync_required", warnings=[reason]
         ),
     )
+
+
+def _unexpected_commit_response(
+    exc: Exception,
+    *,
+    state_directory: Path,
+    recorded: bool,
+) -> dict[str, Any]:
+    code = _unexpected_commit_error_code(exc)
+    return _commit_response(
+        status="rejected",
+        recorded=recorded,
+        projected=False,
+        accepted=False,
+        directive_type="resync_required",
+        directive_next_action="Call sync before retrying durable Workroot persistence.",
+        warnings=[code],
+        error={"code": code, "message": code, "details": {}},
+        state_directory=state_directory,
+    )
+
+
+def _unexpected_commit_error_code(exc: Exception) -> str:
+    if isinstance(exc, sqlite3.Error):
+        return "storage_error"
+    return "projection_error"
 
 
 def _store_terminal_batch_response(
@@ -746,6 +969,12 @@ def _sync_response(
     elif focus_resolution.directive_type == "ask_user":
         suggested_action = "none"
         reason = "guarded_action"
+    elif focus_resolution.directive_type == "refine_focus":
+        suggested_action = "sync"
+        reason = "focus_refinement_required"
+    elif focus_resolution.kind == "ambiguous" and focus_resolution.candidate_refs:
+        suggested_action = "sync"
+        reason = "focus_refinement_required"
     else:
         suggested_action = "none"
         reason = "no_exchange_needed"
@@ -763,6 +992,7 @@ def _sync_response(
         open_items=list(context.get("open_items") or []),
         recent_done_items=list(context.get("recent_done_items") or []),
         refs=list(context.get("refs") or []),
+        output_rules=_compact_output_rules_from_record(workroot),
         warnings=list(context.get("warnings") or []),
     )
     contract = workroot_contract_from_lease(
@@ -773,7 +1003,8 @@ def _sync_response(
         required_before_stop=list(directive_payload.get("required_before_stop") or []),
         task_ref=focus_resolution.task_id,
         run_ref=focus_resolution.run_id,
-        context_refs=list(context.get("refs") or []),
+        context_refs=_sync_context_refs(context=context, focus_resolution=focus_resolution),
+        binding=_binding_from_focus(focus_resolution),
     )
     return semantic_response(
         ok=True,
@@ -792,3 +1023,63 @@ def _sync_response(
         workroot_view=view,
         result=result_payload(recorded=False, projected=False, accepted=False, status="not_recorded"),
     )
+
+
+def _compact_output_rules_from_record(workroot: dict[str, str]) -> list[dict[str, str]]:
+    state_directory = workroot.get("stateDirectory")
+    if not state_directory:
+        return []
+    try:
+        return compact_asset_output_rules(Path(state_directory))
+    except (OSError, ValueError):
+        return []
+
+
+def _sync_context_refs(*, context: dict[str, Any], focus_resolution: FocusResolution) -> list[dict[str, Any]]:
+    refs = [item for item in list(context.get("refs") or []) if isinstance(item, dict)]
+    for item in focus_resolution.candidate_refs:
+        refs.append(dict(item))
+    return refs
+
+
+def _binding_from_focus(focus_resolution: FocusResolution) -> dict[str, Any]:
+    mode = _binding_mode(focus_resolution)
+    if not mode:
+        return {}
+    binding: dict[str, Any] = {
+        "mode": mode,
+        "confidence": focus_resolution.confidence,
+        "reason": focus_resolution.why,
+    }
+    refs: dict[str, str] = {}
+    if focus_resolution.task_id:
+        refs["task"] = focus_resolution.task_id
+    if focus_resolution.run_id:
+        refs["run"] = focus_resolution.run_id
+    if refs:
+        binding["refs"] = refs
+    return binding
+
+
+def _binding_mode(focus_resolution: FocusResolution) -> str:
+    if focus_resolution.kind == "continuation" and focus_resolution.task_id:
+        return "continue_existing"
+    if focus_resolution.kind == "new_work":
+        policy = focus_resolution.write_policy or {}
+        if policy.get("expected_task_role") == "inbox":
+            return "temporary"
+        return "start_new"
+    if focus_resolution.kind == "workroot_capture":
+        return "capture_workroot"
+    if focus_resolution.kind == "ambiguous":
+        return "clarify"
+    return ""
+
+
+def _compact_output_rules_from_state_directory(state_directory: Optional[Path]) -> list[dict[str, str]]:
+    if not state_directory:
+        return []
+    try:
+        return compact_asset_output_rules(state_directory)
+    except (OSError, ValueError):
+        return []

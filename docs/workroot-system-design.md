@@ -47,9 +47,14 @@ The person remains the subject. AI agents are replaceable collaborators. The Wor
 
 ### Clean User Directories
 
-The user-selected directory is user asset space. AI Workroot must not create default generated folders, indexes, runtime state, logs, context files, or control files there.
+The user-selected directory is user asset space. AI Workroot must not create indexes, runtime state, logs, context files, or control files there.
 
-Native Agent Entry files are the only normal exception, and only after explicit authorization.
+Allowed user-space writes are explicit user-facing assets:
+
+- Native Agent Entry files, only after explicit authorization or bootstrap-dev dogfood behavior.
+- `workroot-output/START_HERE.txt` and the default output directory created by initialization as a user-visible guide and asset destination.
+
+`workroot-output/` is not managed runtime state.
 
 ### Managed State Outside User Content
 
@@ -227,11 +232,11 @@ Owns local index manifests, FTS, context candidates, retrieval providers, index 
 
 ### Context Control
 
-Owns final context selection, mode, confidence, budget trimming, package rendering, and debug traces.
+Owns internal context strategy, final context selection, mode, confidence, budget trimming, package rendering, and debug traces.
 
 ### Agent Interface
 
-Owns Native Agent Entry templates, managed blocks, authorization, startup contract, adapters, permission hints, output style, and routing.
+Owns Native Agent Entry templates, managed blocks, authorization, startup contract, Agent descriptors, transport metadata, adapters, permission hints, output style, and routing.
 
 ### System Health
 
@@ -243,10 +248,36 @@ Reserves future boundaries for capabilities, skills, agent adapters, MCP bridges
 
 ## Context Control
 
-Context Control builds an explainable Context Package from:
+Context Control builds an explainable Context Package from a strategy plan.
+
+Strategy runs before detailed retrieval:
+
+```text
+focus boundary
+-> context policy
+-> safety and budget constraints
+-> disclosure plan
+-> recall plan
+-> plan-constrained retrieval
+-> final budget fit
+-> rendering
+```
+
+The internal disclosure model is layered:
+
+- L1: orientation map, task/run/handoff metadata, and refs.
+- L2: summaries, decisions, assets, relationships, and handoff summaries.
+- L3: scoped evidence, indexed chunks, source snippets, and raw references.
+
+These layer names are internal implementation language. They should not appear
+as ordinary user-facing protocol vocabulary.
+
+Context Control consumes:
 
 - required rules
 - active Work records
+- protocol focus and WorkSignal
+- lease freshness as an internal strategy signal
 - materialized context candidates
 - SQLite FTS matches
 - indexed file chunks
@@ -255,6 +286,10 @@ Context Control builds an explainable Context Package from:
 - release/safety filters
 
 Output includes mode, confidence, latency, token usage, selected candidates, dropped candidates, scoring, timing, and debug details when requested.
+
+Context recall is non-blocking. Missing evidence, missing indexes, stale lease
+signals, or unclear focus should degrade to safe shallow context rather than
+blocking the user's work.
 
 ## Release Control
 
@@ -274,7 +309,18 @@ Tombstone is not `TombstoneMarker`. Release overlays recallable targets without 
 
 ## Agent Interface
 
-Native Agent Entry files are short launcher files. They should tell Codex or Claude how to ask `workroot context` for the current package. They must not embed absolute local managed-state paths or large context bodies.
+Native Agent Entry files are short launcher files. They should tell the Agent
+how to call `workroot agent sync` for state alignment and compact current
+context, passing the current user request as `--query`. `workroot context`
+remains a read-only auxiliary command for startup recovery, manual recall, and
+debugging.
+
+At the protocol level, `--agent` is an Agent descriptor string, not a fixed
+Codex/Claude enum. `--transport` is adapter metadata and defaults to `cli`.
+Future MCP or SDK entrypoints should preserve the same protocol semantics.
+
+Native Agent Entry files must not embed absolute local managed-state paths or
+large context bodies.
 
 ## Historical Public Seed
 

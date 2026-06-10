@@ -114,7 +114,18 @@ class ReleaseProtectionRelationshipsNegativeTest(unittest.TestCase):
                 conn.commit()
 
             package = build_context_package(
-                ContextRequest(agent="codex", cwd=user_dir, query="seed", debug=True),
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="seed",
+                    debug=True,
+                    work_signal={
+                        "phase": "orienting",
+                        "work_kind": "review",
+                        "intended_action": "review",
+                        "focus": "seed relationship review",
+                    },
+                ),
                 ai_workroot_home=home,
             )
 

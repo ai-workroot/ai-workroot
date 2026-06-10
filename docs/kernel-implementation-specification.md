@@ -150,6 +150,8 @@ Work keeps factual process continuity. Required concepts include:
 - Handoff
 - OperationTransaction
 
+Task process levels are distinct from Context Control disclosure levels. Task process levels describe persisted Work continuity depth; Context disclosure levels describe rendered recall depth inside a Context Package.
+
 Clean Workroot user flows center on `init`, `list`, `status`, `context`, `doctor`, and `bootstrap-dev`. Runnable legacy Public Seed commands are not part of the active implementation path.
 
 ## Asset

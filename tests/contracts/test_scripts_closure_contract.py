@@ -9,9 +9,10 @@ class ScriptsClosureContractTest(unittest.TestCase):
     def test_scripts_to_src_migration_closure_is_explicit(self) -> None:
         text = (ROOT / "docs/dev/runnable-legacy-compat-removal-architecture.md").read_text(encoding="utf-8")
         archive_manifest = (ROOT / "docs/history/public-seed/code-archive/MANIFEST.md").read_text(encoding="utf-8")
+        migration_doc = ROOT / "docs/history/0.9.530/dev/scripts-to-src-migration.md"
         script_rows = [
             [cell.strip() for cell in row.strip("|").split("|")]
-            for row in (ROOT / "docs/dev/0.9.530/scripts-to-src-migration.md").read_text(encoding="utf-8").splitlines()
+            for row in migration_doc.read_text(encoding="utf-8").splitlines()
             if row.startswith("| `scripts/")
         ]
 

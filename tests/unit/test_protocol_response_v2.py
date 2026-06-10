@@ -49,7 +49,7 @@ class ProtocolResponseV2Test(unittest.TestCase):
                 "reason": "before_work",
                 "query": "Implement the Workroot Agent Protocol v2.",
                 "work_signal": {
-                    "phase": "planning",
+                    "phase": "starting",
                     "work_kind": "implementation",
                     "intended_action": "plan",
                     "focus": "Workroot Agent Protocol v2",
@@ -108,7 +108,7 @@ class ProtocolResponseV2Test(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Create clean response task.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         response = commit(
@@ -180,6 +180,96 @@ class ProtocolResponseV2Test(unittest.TestCase):
         self.assertNotIn("target_ref", requirements)
         self.assertNotIn("state_change", requirements)
         self.assertNotIn("reason", requirements)
+
+    def test_contract_exposes_shape_specific_commit_contracts(self) -> None:
+        contract = workroot_contract_from_lease(
+            {
+                "lease_id": "lease-1",
+                "allowed_events": ["progress", "decision"],
+            },
+            next_action="commit",
+            reason="continue",
+        )
+
+        shape_contracts = contract["commit_contract"]["shape_contracts"]
+
+        self.assertEqual(shape_contracts["checkpoint"]["required"], ["summary"])
+        self.assertEqual(shape_contracts["checkpoint"]["optional"], ["done", "open", "blocked"])
+        self.assertIn("--shape checkpoint", shape_contracts["checkpoint"]["command_template"])
+        self.assertEqual(shape_contracts["decision"]["required"], ["title", "decision", "reason_text"])
+        self.assertEqual(shape_contracts["decision"]["optional"], ["scope"])
+        self.assertEqual(shape_contracts["decision"]["not_accepted"], ["summary"])
+        self.assertIn("--decision", shape_contracts["decision"]["command_template"])
+        self.assertIn("--reason-text", shape_contracts["decision"]["command_template"])
+        self.assertNotIn("--summary", shape_contracts["decision"]["command_template"])
+
+    def test_sync_contract_exposes_compact_binding_metadata_for_adapters(self) -> None:
+        start = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-binding-start",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "before_work",
+                "query": "Design a compact binding contract.",
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
+            }
+        )
+        start_binding = start["workroot_contract"]["binding"]
+        self.assertEqual(start_binding["mode"], "start_new")
+        self.assertEqual(start_binding["confidence"], "medium")
+        self.assertNotIn("owner_kind", start_binding)
+
+        created = commit(
+            build_commit_request_from_shape(
+                shape="start_work",
+                lease_id=str(start["workroot_contract"]["commit_contract"]["lease_id"]),
+                agent_name="codex",
+                title="Compact Binding Contract",
+                summary="Design compact machine binding metadata.",
+                event_id="event-compact-binding-contract",
+            )
+        )
+        task_id = str(created["workroot_contract"]["state_refs"]["task_ref"])
+        run_id = str(created["workroot_contract"]["state_refs"]["run_ref"])
+
+        continuation = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-binding-continue",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "continue",
+                "query": "Continue the compact binding contract.",
+                "known_state": {"task_id": task_id, "run_id": run_id},
+                "work_signal": {"phase": "orienting", "work_kind": "continuation", "intended_action": "inspect"},
+            }
+        )
+
+        binding = continuation["workroot_contract"]["binding"]
+        self.assertEqual(binding["mode"], "continue_existing")
+        self.assertEqual(binding["confidence"], "high")
+        self.assertEqual(binding["refs"], {"task": task_id, "run": run_id})
+        self.assertEqual(binding["reason"], "known_state matched an accepted task/run")
+
+    def test_inbox_sync_contract_binding_mode_is_temporary(self) -> None:
+        response = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-binding-inbox",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "before_work",
+                "query": "Capture a loose side note.",
+                "work_signal": {"phase": "switching", "work_kind": "inbox", "intended_action": "plan"},
+            }
+        )
+
+        self.assertEqual(response["workroot_contract"]["binding"]["mode"], "temporary")
+        self.assertEqual(
+            response["workroot_contract"]["commit_contract"]["write_policy"]["expected_task_role"],
+            "inbox",
+        )
 
 
 if __name__ == "__main__":

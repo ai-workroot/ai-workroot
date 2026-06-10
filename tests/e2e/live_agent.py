@@ -16,10 +16,11 @@ from tests.e2e.safety import ensure_not_real_repo_cwd_for_live_e2e, prepare_run_
 
 REMOTE_LLM_OPT_IN_ENV = "AI_WORKROOT_E2E_ALLOW_REMOTE_LLM"
 CODEX_HOME_FILE_ALLOWLIST = ("auth.json", "config.toml", "AGENTS.md")
-REQUIRED_CONTEXT_COMMAND = "python3 -m ai_workroot context --agent codex --cwd . --query 'Clean Mode' --debug"
+READ_ONLY_CONTEXT_SMOKE_COMMAND = "python3 -m ai_workroot context --agent codex --cwd . --query 'Clean Mode' --debug"
 LIVE_AGENT_PROMPT = (
-    "Live-agent E2E smoke. Do not modify files. First run exactly this command from cwd .: "
-    f"{REQUIRED_CONTEXT_COMMAND}. Do not inspect README.md directly. Then reply with exactly two short lines: "
+    "Live-agent read-only context smoke. Do not modify files. First run exactly this auxiliary command from cwd .: "
+    f"{READ_ONLY_CONTEXT_SMOKE_COMMAND}. Do not inspect README.md directly. "
+    "Then reply with exactly two short lines: "
     "LIVE_AGENT_E2E_OK, then one sentence describing the visible Context Package metadata from that command output."
 )
 

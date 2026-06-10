@@ -5,9 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from ai_workroot.capabilities.composition.projections import project_decision
+from ai_workroot.capabilities.retrieval.model import ContextRecallHint
+from ai_workroot.capabilities.retrieval.providers.context_recall_hint_provider import upsert_context_recall_hint
 from ai_workroot.state.environment import initialize_environment, register_workroot, unregister_workroot
 from ai_workroot.state.jsonl import read_jsonl
-from ai_workroot.state.sqlite import initialize_workroot_sqlite
+from ai_workroot.state.sqlite import SCHEMA, SQLITE_SCHEMA_MIGRATION_IDS, initialize_workroot_sqlite
 
 
 def _legacy_snake_time_key(prefix: str) -> str:
@@ -129,6 +132,36 @@ class EnvironmentStorageTest(unittest.TestCase):
                     self.assertIn(table, tables)
 
             self.assertNotIn("knowledge_items", tables)
+
+    def test_sqlite_schema_migrations_are_centralized_and_not_written_by_schema_text(self) -> None:
+        self.assertEqual(len(SQLITE_SCHEMA_MIGRATION_IDS), len(set(SQLITE_SCHEMA_MIGRATION_IDS)))
+        self.assertEqual(list(SQLITE_SCHEMA_MIGRATION_IDS), sorted(SQLITE_SCHEMA_MIGRATION_IDS))
+        self.assertIn("001-clean-workroot-schema", SQLITE_SCHEMA_MIGRATION_IDS)
+        self.assertIn("010-context-runtime-schema", SQLITE_SCHEMA_MIGRATION_IDS)
+        self.assertNotIn("INSERT OR IGNORE INTO schema_migrations", SCHEMA)
+
+    def test_initialize_workroot_sqlite_records_registered_migrations_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "workroot.sqlite"
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                first_rows = connection.execute(
+                    "SELECT migration_id, appliedAt FROM schema_migrations ORDER BY migration_id"
+                ).fetchall()
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                second_rows = connection.execute(
+                    "SELECT migration_id, appliedAt FROM schema_migrations ORDER BY migration_id"
+                ).fetchall()
+
+            self.assertEqual([row[0] for row in first_rows], list(SQLITE_SCHEMA_MIGRATION_IDS))
+            self.assertEqual(first_rows, second_rows)
+            for _migration_id, appliedAt in first_rows:
+                self.assertRegex(appliedAt, r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
     def test_initialize_workroot_sqlite_creates_release_lookup_indexes_and_index_source_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -340,6 +373,168 @@ class EnvironmentStorageTest(unittest.TestCase):
             self.assertIn("idx_relationship_nodes_workroot_target", indexes)
             self.assertIn("007-relationship-node-canonical-targets", migrations)
             self.assertEqual(row, ("graph-asset-node-1", "asset", None, None))
+
+    def test_initialize_workroot_sqlite_migrates_old_context_candidate_schema_for_projection_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "old-context-candidates.sqlite"
+            with sqlite3.connect(db_path) as connection:
+                connection.execute(
+                    """
+                    CREATE TABLE context_candidates (
+                      candidate_id TEXT PRIMARY KEY,
+                      workroot_id TEXT NOT NULL,
+                      source_type TEXT NOT NULL,
+                      source_id TEXT NOT NULL,
+                      title TEXT,
+                      summary TEXT
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE VIRTUAL TABLE context_candidates_fts
+                    USING fts5(candidate_id, title, summary)
+                    """
+                )
+                connection.commit()
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                project_decision(
+                    connection,
+                    workroot_id="wr_demo",
+                    lease={},
+                    event={
+                        "event_id": "event-decision-old-context",
+                        "payload": {
+                            "decision": "Preserve projection-compatible context candidates.",
+                            "title": "Projection compatibility",
+                            "reason": "Old databases must accept current projection writes.",
+                        },
+                    },
+                )
+                connection.commit()
+                candidate_columns = {
+                    row[1] for row in connection.execute("PRAGMA table_info(context_candidates)").fetchall()
+                }
+                fts_columns = {
+                    row[1] for row in connection.execute("PRAGMA table_info(context_candidates_fts)").fetchall()
+                }
+                row = connection.execute(
+                    """
+                    SELECT domains, importance, confidence, status, context_policy,
+                           safety_policy, token_estimate, updatedAt, lastUsedAt, use_count
+                    FROM context_candidates
+                    WHERE candidate_id LIKE 'decision:%'
+                    """
+                ).fetchone()
+                fts_row = connection.execute(
+                    """
+                    SELECT candidate_id
+                    FROM context_candidates_fts
+                    WHERE context_candidates_fts MATCH 'Projection'
+                    """
+                ).fetchone()
+
+            for column in (
+                "domains",
+                "importance",
+                "confidence",
+                "status",
+                "context_policy",
+                "safety_policy",
+                "token_estimate",
+                "updatedAt",
+                "lastUsedAt",
+                "use_count",
+            ):
+                with self.subTest(column=column):
+                    self.assertIn(column, candidate_columns)
+            self.assertEqual({"candidate_id", "title", "summary", "domains"}, fts_columns)
+            self.assertIsNotNone(row)
+            self.assertEqual(row[0], "workroot scope:task")
+            self.assertEqual(row[3], "active")
+            self.assertIsNotNone(fts_row)
+
+    def test_initialize_workroot_sqlite_migrates_old_context_recall_hint_schema_for_provider_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "old-context-hints.sqlite"
+            with sqlite3.connect(db_path) as connection:
+                connection.execute(
+                    """
+                    CREATE TABLE context_recall_hints (
+                      hint_id TEXT PRIMARY KEY,
+                      workroot_id TEXT NOT NULL,
+                      target_type TEXT NOT NULL,
+                      target_id TEXT NOT NULL
+                    )
+                    """
+                )
+                connection.commit()
+
+            initialize_workroot_sqlite(db_path)
+
+            with sqlite3.connect(db_path) as connection:
+                upsert_context_recall_hint(
+                    connection,
+                    ContextRecallHint(
+                        hint_id="hint-old-schema",
+                        workroot_id="wr_demo",
+                        target_type="task",
+                        target_id="task-demo",
+                        scope_type="task",
+                        scope_id="task-demo",
+                        kind="context-card",
+                        title="Old schema hint",
+                        summary="Old schema accepts current hint writes.",
+                        priority="high",
+                        recall_rule="task-related",
+                        lifecycle_status="active",
+                        origin="projection",
+                        source_ref="task:task-demo",
+                        created_at="2026-06-09T00:00:00Z",
+                        updated_at="2026-06-09T00:00:00Z",
+                    ),
+                )
+                hint_columns = {
+                    row[1] for row in connection.execute("PRAGMA table_info(context_recall_hints)").fetchall()
+                }
+                row = connection.execute(
+                    """
+                    SELECT scope_type, scope_id, kind, title, summary, priority, recall_rule,
+                           lifecycle_status, origin, source_ref, createdAt, updatedAt
+                    FROM context_recall_hints
+                    WHERE hint_id = 'hint-old-schema'
+                    """
+                ).fetchone()
+                fts_row = connection.execute(
+                    """
+                    SELECT hint_id
+                    FROM context_recall_hints_fts
+                    WHERE context_recall_hints_fts MATCH 'schema'
+                    """
+                ).fetchone()
+
+            for column in (
+                "scope_type",
+                "scope_id",
+                "kind",
+                "title",
+                "summary",
+                "priority",
+                "recall_rule",
+                "lifecycle_status",
+                "origin",
+                "source_ref",
+                "createdAt",
+                "updatedAt",
+            ):
+                with self.subTest(column=column):
+                    self.assertIn(column, hint_columns)
+            self.assertEqual(row[0], "task")
+            self.assertEqual(row[5], "high")
+            self.assertIsNotNone(fts_row)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -17,6 +18,7 @@ from ai_workroot.commands.agent_exchange import (
     run_sync_request,
 )
 from ai_workroot.entrypoints.cli.main import _json_object_arg, _sync_work_signal, main
+from ai_workroot.state.environment import initialize_environment, register_workroot
 
 
 class AgentExchangeCommandTest(unittest.TestCase):
@@ -94,6 +96,20 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(response, {"ok": True})
         self.assertEqual(sync.call_args.args[0]["work_signal"]["phase"], "executing")
 
+    def test_sync_helper_passes_agent_transport(self) -> None:
+        with patch("ai_workroot.commands.agent_exchange.controller.sync", return_value={"ok": True}) as sync:
+            response = run_sync_request(
+                request_id="req-sync",
+                agent_name="hermes",
+                agent_transport="mcp",
+                cwd=Path("/tmp/workspace"),
+                query="Continue task",
+                reason="before_work",
+            )
+
+        self.assertEqual(response, {"ok": True})
+        self.assertEqual(sync.call_args.args[0]["agent"], {"name": "hermes", "transport": "mcp"})
+
     def test_commit_helper_reads_commit_request(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             request_path = Path(tmp) / "commit.json"
@@ -153,6 +169,28 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(event["payload"]["intent_text"], "Review release readiness")
         self.assertEqual(event["payload"]["classification"]["persistence"], "normal")
         self.assertEqual(event["payload"]["task_hint"]["title"], "Release review")
+
+    def test_commit_shape_source_preserves_agent_descriptor_metadata(self) -> None:
+        request = build_commit_request_from_shape(
+            shape="checkpoint",
+            lease_id="lease-1",
+            agent_name="openclaw",
+            agent_transport="mcp",
+            client="desktop",
+            agent_version="1.2.3",
+            thread_id="thread-1",
+            channel_id="channel-1",
+            summary="Progress summary.",
+            occurred_at="2026-05-27T00:00:00Z",
+        )
+
+        source = request["events"][0]["source"]
+        self.assertEqual(source["actor_name"], "openclaw")
+        self.assertEqual(source["transport"], "mcp")
+        self.assertEqual(source["client"], "desktop")
+        self.assertEqual(source["agent_version"], "1.2.3")
+        self.assertEqual(source["thread_id"], "thread-1")
+        self.assertEqual(source["channel_id"], "channel-1")
 
     def test_commit_cli_accepts_protocol_shape_names_with_underscores(self) -> None:
         with patch("ai_workroot.commands.agent_exchange.controller.commit", return_value={"ok": True}) as commit:
@@ -324,6 +362,23 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(event["payload"]["from_status"], "active")
         self.assertEqual(event["payload"]["to_status"], "paused")
 
+    def test_state_update_shape_maps_output_rule_change(self) -> None:
+        request = build_commit_request_from_shape(
+            shape="state-update",
+            lease_id="lease-state",
+            agent_name="codex",
+            target="output-rule:report",
+            change="path reports",
+            occurred_at="2026-05-27T00:00:00Z",
+        )
+
+        event = request["events"][0]
+        self.assertEqual(event["kind"], "state")
+        self.assertEqual(event["payload"]["target_type"], "output_rule")
+        self.assertEqual(event["payload"]["target_id"], "report")
+        self.assertEqual(event["payload"]["path"], "reports")
+        self.assertIn("output rule", event["payload"]["reason"])
+
     def test_asset_shape_maps_to_internal_asset_event_payload(self) -> None:
         request = build_commit_request_from_shape(
             shape="asset",
@@ -348,6 +403,18 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(event["payload"]["status"], "current")
         self.assertEqual(event["payload"]["task_id"], "task-1")
         self.assertEqual(event["payload"]["run_id"], "run-1")
+
+    def test_asset_shape_still_requires_explicit_path(self) -> None:
+        with self.assertRaisesRegex(ValueError, "--path is required for asset"):
+            build_commit_request_from_shape(
+                shape="asset",
+                lease_id="lease-asset",
+                agent_name="codex",
+                title="Operating Plan",
+                asset_kind="plan",
+                summary="Generated operating plan.",
+                occurred_at="2026-06-05T00:00:00Z",
+            )
 
     def test_asset_shape_derives_title_from_path_when_missing(self) -> None:
         request = build_commit_request_from_shape(
@@ -451,11 +518,27 @@ class AgentExchangeCommandTest(unittest.TestCase):
         )
         self.assertEqual(
             _json_object_arg("new_work", "--work-signal"),
-            {"focus": "new_work", "intended_action": "plan", "phase": "switching", "work_kind": "task"},
+            {"focus": "new_work", "intended_action": "plan", "phase": "starting", "work_kind": "task"},
         )
         self.assertEqual(
             _json_object_arg("phase=switching, work_kind=task, intended_action=plan", "--work-signal"),
             {"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+        )
+        self.assertEqual(
+            _json_object_arg(
+                "reason=before_task_switch phase=switching work_kind=task intended_action=plan focus=未来一个月社区咖啡店经营方向",
+                "--work-signal",
+            ),
+            {
+                "phase": "switching",
+                "work_kind": "task",
+                "intended_action": "plan",
+                "focus": "未来一个月社区咖啡店经营方向",
+            },
+        )
+        self.assertEqual(
+            _json_object_arg("phase=orienting, refs=decision:dec_001|asset:asset_001", "--work-signal"),
+            {"phase": "orienting", "refs": ["decision:dec_001", "asset:asset_001"]},
         )
 
     def test_sync_persistence_hint_maps_to_work_signal_without_overriding_explicit_kind(self) -> None:
@@ -466,6 +549,15 @@ class AgentExchangeCommandTest(unittest.TestCase):
                 "intended_action": "preserve",
                 "phase": "switching",
                 "work_kind": "inbox",
+            },
+        )
+        self.assertEqual(
+            _sync_work_signal({"focus": "normal work"}, persistence="normal"),
+            {
+                "focus": "normal work",
+                "intended_action": "plan",
+                "phase": "starting",
+                "work_kind": "task",
             },
         )
         self.assertEqual(
@@ -585,6 +677,67 @@ class AgentExchangeCommandTest(unittest.TestCase):
             {"phase": "switching", "work_kind": "task", "intended_action": "plan"},
         )
 
+    def test_sync_cli_accepts_refs_in_work_signal_for_agent_tolerance(self) -> None:
+        with patch("ai_workroot.entrypoints.cli.main.run_sync_request", return_value={"ok": True}) as sync:
+            output = StringIO()
+            with redirect_stdout(output):
+                rc = main(
+                    [
+                        "agent",
+                        "sync",
+                        "--reason",
+                        "context_refresh",
+                        "--query",
+                        "Expand that decision.",
+                        "--work-signal",
+                        "phase=orienting,intended_action=inspect,refs=decision:dec_001|asset:asset_001",
+                    ]
+                )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(output.getvalue()), {"ok": True})
+        self.assertEqual(
+            sync.call_args.kwargs["work_signal"],
+            {
+                "phase": "orienting",
+                "intended_action": "inspect",
+                "refs": ["decision:dec_001", "asset:asset_001"],
+            },
+        )
+
+    def test_sync_cli_accepts_top_level_refs_for_agent_tolerance(self) -> None:
+        with patch("ai_workroot.entrypoints.cli.main.run_sync_request", return_value={"ok": True}) as sync:
+            output = StringIO()
+            with redirect_stdout(output):
+                rc = main(
+                    [
+                        "agent",
+                        "sync",
+                        "--reason",
+                        "context_refresh",
+                        "--query",
+                        "Continue the selected task.",
+                        "--refs",
+                        "task:task_001",
+                        "--refs",
+                        "asset:asset_001|decision:decision_001",
+                        "--work-signal",
+                        '{"phase":"orienting","work_kind":"continuation","intended_action":"inspect"}',
+                    ]
+                )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(output.getvalue()), {"ok": True})
+        self.assertEqual(
+            sync.call_args.kwargs["work_signal"],
+            {
+                "phase": "orienting",
+                "work_kind": "continuation",
+                "intended_action": "inspect",
+                "refs": ["task:task_001", "asset:asset_001", "decision:decision_001"],
+            },
+        )
+
     def test_run_commit_shape_missing_lease_reaches_controller_as_resyncable_protocol_request(self) -> None:
         with patch(
             "ai_workroot.commands.agent_exchange.controller.commit",
@@ -615,6 +768,60 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(response["error"]["code"], "missing_shape_fields")
         self.assertTrue(response["agent_may_continue"])
         self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+
+    def test_run_commit_shape_missing_fields_records_locatable_protocol_friction(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "ai-home"
+            user_dir = Path(tmp) / "workspace"
+            user_dir.mkdir()
+            initialize_environment(home)
+            registration = register_workroot(home, workroot_id="wr_demo", name="Demo", user_directory=user_dir)
+
+            with patch.dict(os.environ, {"AI_WORKROOT_HOME": str(home)}):
+                response = run_commit_shape(
+                    shape="continuation",
+                    lease_id="lease-1",
+                    agent_name="codex",
+                    cwd=user_dir,
+                    request_id="req-friction",
+                )
+
+            friction_log = Path(registration.state_directory) / "logs/protocol-friction.jsonl"
+            events = [
+                json.loads(line) for line in friction_log.read_text(encoding="utf-8").splitlines() if line.strip()
+            ]
+
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["error"]["code"], "missing_shape_fields")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["workrootId"], "wr_demo")
+        self.assertEqual(events[0]["action"], "commit")
+        self.assertEqual(events[0]["sourceLayer"], "cli_adapter")
+        self.assertEqual(events[0]["stage"], "pre_request")
+        self.assertEqual(events[0]["code"], "missing_shape_fields")
+        self.assertEqual(events[0]["resultStatus"], "rejected")
+        self.assertEqual(events[0]["requestId"], "req-friction")
+        self.assertEqual(events[0]["leaseId"], "lease-1")
+        self.assertEqual(events[0]["shape"], "continuation")
+
+    def test_run_commit_shape_missing_fields_does_not_record_unlocatable_friction(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "ai-home"
+            cwd = Path(tmp) / "outside"
+            cwd.mkdir()
+            initialize_environment(home)
+
+            with patch.dict(os.environ, {"AI_WORKROOT_HOME": str(home)}):
+                response = run_commit_shape(
+                    shape="continuation",
+                    lease_id="lease-1",
+                    agent_name="codex",
+                    cwd=cwd,
+                    request_id="req-friction-unlocatable",
+                )
+
+            self.assertFalse(response["ok"])
+            self.assertFalse(any(home.rglob("protocol-friction.jsonl")))
 
 
 if __name__ == "__main__":

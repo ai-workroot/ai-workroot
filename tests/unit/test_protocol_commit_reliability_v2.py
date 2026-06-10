@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 import os
 import sqlite3
 import tempfile
@@ -181,6 +182,49 @@ class ProtocolCommitReliabilityV2Test(unittest.TestCase):
             ).fetchone()
         self.assertIsNone(row)
 
+    def test_event_not_allowed_rejection_returns_sync_not_stale_commit(self) -> None:
+        intent_lease = self.sync_for_intent_lease()
+
+        response = commit(
+            self.progress_request(
+                lease_id=intent_lease,
+                task_id="task-missing",
+                run_id="run-missing",
+                summary="This event shape is not allowed by an intent lease.",
+            )
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["result"]["status"], "rejected")
+        self.assertEqual(response["result"]["warnings"], ["event_not_allowed"])
+        self.assertEqual(response["workroot_contract"]["next_exchange"]["action"], "sync")
+        self.assertEqual(response["workroot_contract"]["commit_contract"]["lease_id"], None)
+        self.assertFalse(response["workroot_contract"]["commit_contract"]["durable_commit_allowed"])
+        self.assertEqual(response["workroot_contract"]["commit_contract"]["accepted_shapes"], [])
+
+    def test_missing_lease_rejected_commit_records_protocol_friction(self) -> None:
+        request = self.progress_request(
+            lease_id="",
+            task_id="task-missing",
+            run_id="run-missing",
+            summary="This locatable durable commit has no lease.",
+        )
+        request["cwd"] = str(self.user_dir)
+
+        response = commit(request)
+
+        self.assertEqual(response["result"]["status"], "rejected")
+        self.assertIn("missing_exchange_lease_id", response["result"]["warnings"])
+        friction_log = Path(self.registration.state_directory) / "logs/protocol-friction.jsonl"
+        events = [json.loads(line) for line in friction_log.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["code"], "missing_exchange_lease_id")
+        self.assertEqual(events[0]["action"], "commit")
+        self.assertEqual(events[0]["stage"], "lease_guard")
+        self.assertEqual(events[0]["resultStatus"], "rejected")
+        self.assertEqual(events[0]["requestId"], "req-progress-This locatable durable commit has no lease.")
+        self.assertEqual(events[0]["shape"], "checkpoint")
+
     def test_state_versions_use_local_scopes_and_context_task_scope(self) -> None:
         intent = commit(self.intent_request(lease_id=self.sync_for_intent_lease()))
         task_id = self.task_id(intent)
@@ -215,7 +259,7 @@ class ProtocolCommitReliabilityV2Test(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": "Design a reliable protocol implementation plan.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         return str(response["workroot_contract"]["commit_contract"]["lease_id"])

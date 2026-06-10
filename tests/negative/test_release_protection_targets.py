@@ -127,7 +127,18 @@ class ReleaseProtectionTargetsNegativeTest(unittest.TestCase):
                 conn.commit()
 
             package = build_context_package(
-                ContextRequest(agent="codex", cwd=user_dir, query="needle", debug=True),
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="needle",
+                    debug=True,
+                    work_signal={
+                        "phase": "orienting",
+                        "work_kind": "investigation",
+                        "intended_action": "diagnose",
+                        "focus": "needle indexed evidence",
+                    },
+                ),
                 ai_workroot_home=home,
             )
 

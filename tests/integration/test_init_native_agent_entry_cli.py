@@ -33,9 +33,17 @@ class InitNativeAgentEntryCliTest(unittest.TestCase):
             claude = user_dir / "CLAUDE.md"
             self.assertTrue(agents.exists())
             self.assertTrue(claude.exists())
-            self.assertIn("<!-- AI_WORKROOT_BEGIN -->", agents.read_text(encoding="utf-8"))
-            self.assertIn("workroot context --agent codex --cwd .", agents.read_text(encoding="utf-8"))
-            self.assertIn("workroot context --agent claude --cwd .", claude.read_text(encoding="utf-8"))
+            agents_text = agents.read_text(encoding="utf-8")
+            claude_text = claude.read_text(encoding="utf-8")
+            self.assertIn("<!-- AI_WORKROOT_BEGIN -->", agents_text)
+            self.assertIn(
+                'workroot agent sync --agent codex --cwd . --query "<current user request>" --format packet',
+                agents_text,
+            )
+            self.assertIn(
+                'workroot agent sync --agent claude --cwd . --query "<current user request>" --format packet',
+                claude_text,
+            )
 
     def test_init_native_agent_entry_flags_are_mutually_exclusive(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

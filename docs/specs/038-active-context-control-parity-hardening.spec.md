@@ -122,7 +122,7 @@ docs/specs/010-context-control.spec.md
 Use existing command:
 
 ```bash
-workroot context --agent codex --cwd <dir> --mode fast|standard|quality|deep
+workroot context --agent codex --cwd <dir> --query "<current user request>" --mode fast|standard|quality|deep
 ```
 
 If `deep` is requested through CLI, it is explicit by definition. Runtime trace records `deepExplicitlyRequested=true`.

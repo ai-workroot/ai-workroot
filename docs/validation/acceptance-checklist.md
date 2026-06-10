@@ -97,7 +97,7 @@
 
 ## Context Control
 
-- [ ] CLI remains `workroot context`.
+- [ ] Agent loop uses `workroot agent sync --format packet`; auxiliary Context Control CLI remains `workroot context`.
 - [ ] docs/specs use Context Control.
 - [ ] ContextPackage generated.
 - [ ] ContextTrace generated.

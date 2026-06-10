@@ -12,6 +12,14 @@ from pathlib import Path
 import uuid
 
 from ai_workroot.capabilities.context.control import workroot_guidance_text
+from ai_workroot.capabilities.context.strategy import (
+    DisclosureLevel,
+    FocusBoundary,
+    LeaseFocusSignal,
+    RecallPlan,
+    StrategyRequest,
+    build_recall_plan,
+)
 from ai_workroot.capabilities.release.evaluation import evaluate_release_targets
 from ai_workroot.capabilities.release.filter import (
     FtsReleaseFilterReport,
@@ -27,13 +35,14 @@ from ai_workroot.capabilities.relationships.operations import relationship_signa
 from ai_workroot.capabilities.retrieval.model import ContextRecallHint
 from ai_workroot.capabilities.retrieval.providers.candidate_provider import (
     CandidateMatch,
+    query_context_candidates_by_refs,
     query_context_candidates,
     upsert_context_candidate,
 )
 from ai_workroot.capabilities.retrieval.providers.context_recall_hint_provider import (
     query_context_recall_hints,
 )
-from ai_workroot.capabilities.retrieval.providers.sqlite_fts import FtsMatch, search_fts
+from ai_workroot.capabilities.retrieval.providers.sqlite_fts import FtsMatch, search_fts, search_fts_by_refs
 from ai_workroot.state.environment import (
     ContextControlConfig,
     environment_now,
@@ -44,6 +53,7 @@ from ai_workroot.state.environment import (
 from ai_workroot.state.jsonl import append_jsonl
 from ai_workroot.state.registry import find_workroot_by_cwd
 from ai_workroot.state.runtime_views import context_rendered_preview, write_context_runtime_view
+from ai_workroot.state.versions import load_state_versions
 
 
 DEFAULT_TARGET_TOKENS = 1200
@@ -64,6 +74,7 @@ class ContextRequest:
     budget_source: str = "default"
     startup_response: dict[str, object] | None = None
     startup_guidance: str = ""
+    work_signal: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -125,6 +136,7 @@ class ContextRuntime:
     db_path: Path
     context_config: ContextControlConfig
     mode_plan: ModePlan
+    recall_plan: RecallPlan
     started: float
 
 
@@ -156,6 +168,7 @@ class SelectedContext:
     relationship_signals: list[RelationshipSignal]
     relationship_release_report: RelationshipReleaseFilterReport
     fallback_user_asset_candidates: dict[str, object]
+    budget_dropped_candidates: list[CandidateMatch] | None = None
 
 
 @dataclass(frozen=True)
@@ -191,6 +204,7 @@ def build_context_package(
     if runtime.db_path.is_file():
         with sqlite3.connect(runtime.db_path) as conn:
             loaded = _load_context_state(conn, runtime)
+            runtime = _with_recall_plan(conn, runtime, loaded)
             _prepare_recall_hints(conn, runtime)
             retrieved = _retrieve_context(conn, runtime)
             governed = _govern_context(conn, runtime, retrieved)
@@ -215,6 +229,7 @@ def _resolve_context_runtime(request: ContextRequest, ai_workroot_home: Path | s
         db_path=Path(record["stateDirectory"]) / "cache/workroot.sqlite",
         context_config=context_config,
         mode_plan=_resolve_mode_plan(request.mode),
+        recall_plan=_empty_recall_plan(record["workrootId"]),
         started=started,
     )
 
@@ -223,28 +238,236 @@ def _load_context_state(conn: sqlite3.Connection, runtime: ContextRuntime) -> Lo
     return _load_startup_context_state(runtime)
 
 
+def _with_recall_plan(conn: sqlite3.Connection, runtime: ContextRuntime, loaded: LoadedContext) -> ContextRuntime:
+    lease_signal = _resolve_lease_focus_signal(
+        conn,
+        workroot_id=runtime.record["workrootId"],
+        continuity=loaded.continuity,
+    )
+    plan = build_recall_plan(
+        StrategyRequest(
+            query=runtime.request.query,
+            mode=runtime.request.mode,
+            focus=FocusBoundary(
+                workroot_id=runtime.record["workrootId"],
+                task_ref=loaded.continuity.active_task_id,
+                run_ref=loaded.continuity.checkpoint_id,
+                confidence=loaded.continuity.confidence or "none",
+                reason=loaded.continuity.why,
+            ),
+            target_tokens=runtime.request.target_tokens,
+            hard_token_limit=runtime.request.hard_token_limit,
+            work_signal=_context_work_signal(runtime.request),
+            lease_signal=lease_signal,
+        )
+    )
+    return ContextRuntime(
+        record=runtime.record,
+        request=runtime.request,
+        db_path=runtime.db_path,
+        context_config=runtime.context_config,
+        mode_plan=runtime.mode_plan,
+        recall_plan=plan,
+        started=runtime.started,
+    )
+
+
+def _empty_recall_plan(workroot_id: str) -> RecallPlan:
+    return build_recall_plan(
+        StrategyRequest(
+            query="",
+            mode="standard",
+            focus=FocusBoundary(workroot_id=workroot_id, confidence="none"),
+            target_tokens=DEFAULT_TARGET_TOKENS,
+            hard_token_limit=DEFAULT_HARD_TOKEN_LIMIT,
+        )
+    )
+
+
+def _resolve_lease_focus_signal(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    continuity: ContinuityContext,
+) -> LeaseFocusSignal:
+    rows = _recent_lease_rows(conn, workroot_id=workroot_id, continuity=continuity)
+    if not rows:
+        return LeaseFocusSignal()
+    if not continuity.active_task_id:
+        task_ids = {str(row["task_id"] or "") for row in rows if row["task_id"]}
+        if len(task_ids) > 1:
+            return LeaseFocusSignal(
+                status="multiple_recent",
+                freshness="unknown",
+                debug_reason="several recent leases have different task focus",
+            )
+    row = rows[0]
+    observed_versions = _json_dict(row["observed_versions_json"])
+    current_versions = load_state_versions(conn, workroot_id, list(observed_versions.keys()))
+    if current_versions != observed_versions:
+        return LeaseFocusSignal(
+            status="state_conflict",
+            freshness="stale",
+            debug_reason="observed state versions differ from current versions",
+        )
+    if str(row["status"] or "") != "active" or str(row["expires_at"] or "") <= utc_now():
+        return LeaseFocusSignal(
+            status="expired",
+            freshness="stale",
+            debug_reason="recent lease is expired",
+        )
+    if not _lease_has_protocol_event(conn, workroot_id=workroot_id, lease_id=str(row["lease_id"] or "")):
+        return LeaseFocusSignal(
+            status="interrupted",
+            freshness="fresh",
+            debug_reason="recent lease has no applied protocol event",
+        )
+    return LeaseFocusSignal(
+        status="fresh_active",
+        freshness="fresh",
+        debug_reason="recent active lease has applied protocol event",
+    )
+
+
+def _recent_lease_rows(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    continuity: ContinuityContext,
+) -> list[dict[str, object]]:
+    if continuity.active_task_id:
+        rows = conn.execute(
+            """
+            SELECT lease_id, task_id, run_id, observed_versions_json, status, issued_at, expires_at
+            FROM exchange_leases
+            WHERE workroot_id = ?
+              AND (task_id = ? OR run_id = ?)
+            ORDER BY issued_at DESC
+            LIMIT 5
+            """,
+            (workroot_id, continuity.active_task_id, continuity.checkpoint_id),
+        ).fetchall()
+        if rows:
+            return [_lease_row_dict(row) for row in rows]
+    rows = conn.execute(
+        """
+        SELECT lease_id, task_id, run_id, observed_versions_json, status, issued_at, expires_at
+        FROM exchange_leases
+        WHERE workroot_id = ?
+        ORDER BY issued_at DESC
+        LIMIT 5
+        """,
+        (workroot_id,),
+    ).fetchall()
+    return [_lease_row_dict(row) for row in rows]
+
+
+def _lease_row_dict(row: tuple[object, ...]) -> dict[str, object]:
+    return dict(
+        zip(
+            ("lease_id", "task_id", "run_id", "observed_versions_json", "status", "issued_at", "expires_at"),
+            row,
+        )
+    )
+
+
+def _lease_has_protocol_event(conn: sqlite3.Connection, *, workroot_id: str, lease_id: str) -> bool:
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM protocol_events
+        WHERE workroot_id = ?
+          AND lease_id = ?
+          AND status = 'applied'
+        LIMIT 1
+        """,
+        (workroot_id, lease_id),
+    ).fetchone()
+    return row is not None
+
+
+def _json_dict(value: object) -> dict[str, int]:
+    try:
+        loaded = json.loads(str(value or "{}"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(loaded, dict):
+        return {}
+    result: dict[str, int] = {}
+    for key, item in loaded.items():
+        try:
+            result[str(key)] = int(item)
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
 def _prepare_recall_hints(conn: sqlite3.Connection, runtime: ContextRuntime) -> None:
+    if runtime.recall_plan.source_limit("context_recall_hints", default=0) <= 0:
+        return
     _materialize_context_recall_hints_for_release(
         conn,
         runtime.record["workrootId"],
         query=runtime.request.query,
-        limit=runtime.mode_plan.hint_limit,
+        scope=runtime.recall_plan.source_scope("context_recall_hints"),
+        limit=runtime.recall_plan.source_limit("context_recall_hints", default=0),
     )
 
 
 def _retrieve_context(conn: sqlite3.Connection, runtime: ContextRuntime) -> RetrievedContext:
-    candidates = query_context_candidates(
-        conn,
-        runtime.record["workrootId"],
-        query=runtime.request.query,
-        limit=max(runtime.mode_plan.candidate_limit * 3, runtime.mode_plan.hint_limit),
-    )
-    fts_matches, fts_error = search_fts(
-        conn,
-        runtime.record["workrootId"],
-        runtime.request.query,
-        limit=runtime.mode_plan.fts_limit,
-    )
+    candidates: list[CandidateMatch] = []
+    candidate_limit = runtime.recall_plan.source_limit("context_candidates", default=0)
+    if candidate_limit > 0:
+        candidates = query_context_candidates(
+            conn,
+            runtime.record["workrootId"],
+            query=runtime.request.query,
+            scope=runtime.recall_plan.source_scope("context_candidates"),
+            limit=max(candidate_limit * 3, runtime.recall_plan.source_limit("context_recall_hints", default=0)),
+        )
+    refs = _work_signal_refs(runtime)
+    ref_candidate_limit = runtime.recall_plan.source_limit("ref_candidates", default=0)
+    if refs and ref_candidate_limit > 0:
+        ref_candidates = query_context_candidates_by_refs(
+            conn,
+            runtime.record["workrootId"],
+            refs,
+            scope=runtime.recall_plan.source_scope("ref_candidates"),
+            limit=ref_candidate_limit,
+        )
+        candidates = _merge_candidates(ref_candidates, candidates)
+    if not runtime.recall_plan.allows(DisclosureLevel.L3):
+        return RetrievedContext(candidates=candidates, fts_matches=[], fts_error=None)
+    fts_matches: list[FtsMatch] = []
+    fts_error: str | None = None
+    fts_limit = runtime.recall_plan.source_limit("indexed_chunks", default=0)
+    if fts_limit > 0:
+        fts_matches, fts_error = search_fts(
+            conn,
+            runtime.record["workrootId"],
+            runtime.request.query,
+            limit=fts_limit,
+        )
+    ref_fts_limit = runtime.recall_plan.source_limit("ref_indexed_chunks", default=0)
+    if refs and ref_fts_limit > 0:
+        ref_matches, ref_error = search_fts_by_refs(
+            conn,
+            runtime.record["workrootId"],
+            refs,
+            limit=ref_fts_limit,
+        )
+        fts_matches = _merge_fts_matches(ref_matches, fts_matches)
+        fts_error = fts_error or ref_error
+    fts_candidate_refs = _fts_source_refs(fts_matches)
+    if fts_candidate_refs and candidate_limit > 0:
+        fts_candidates = query_context_candidates_by_refs(
+            conn,
+            runtime.record["workrootId"],
+            fts_candidate_refs,
+            scope=runtime.recall_plan.source_scope("context_candidates"),
+            limit=max(candidate_limit, len(fts_candidate_refs)),
+        )
+        candidates = _merge_candidates(fts_candidates, candidates)
     return RetrievedContext(candidates=candidates, fts_matches=fts_matches, fts_error=fts_error)
 
 
@@ -270,18 +493,25 @@ def _select_context(
     runtime: ContextRuntime,
     governed: GovernedContext,
 ) -> SelectedContext:
-    candidates = _select_candidates(governed.candidates, governed.fts_matches, limit=runtime.mode_plan.candidate_limit)
+    candidates, budget_dropped_candidates = _select_candidates(
+        governed.candidates,
+        governed.fts_matches,
+        limit=_candidate_selection_limit(runtime.recall_plan),
+    )
     source_refs = {
         (candidate.source_type, candidate.source_id)
         for candidate in candidates
         if candidate.source_type and candidate.source_id
     }
-    relationship_signals = relationship_signals_for_source_refs(
-        conn,
-        runtime.record["workrootId"],
-        source_refs,
-        limit=runtime.mode_plan.relationship_limit,
-    )
+    relationship_limit = runtime.recall_plan.source_limit("relationships", default=0)
+    relationship_signals = []
+    if relationship_limit > 0:
+        relationship_signals = relationship_signals_for_source_refs(
+            conn,
+            runtime.record["workrootId"],
+            source_refs,
+            limit=relationship_limit,
+        )
     relationship_release_report = filter_relationship_signals_for_release(
         conn,
         runtime.record["workrootId"],
@@ -294,6 +524,7 @@ def _select_context(
         relationship_signals=relationship_signals,
         relationship_release_report=relationship_release_report,
         fallback_user_asset_candidates={"attempted": False, "reason": "not_needed"},
+        budget_dropped_candidates=budget_dropped_candidates,
     )
 
 
@@ -317,12 +548,23 @@ def _apply_fallback_selection(
                 "attempted": False,
                 "reason": "disabled_due_to_release_protected_drop",
             },
+            budget_dropped_candidates=selected.budget_dropped_candidates,
+        )
+    fallback_limit = runtime.recall_plan.source_limit("fallback_user_assets", default=0)
+    if fallback_limit <= 0:
+        return SelectedContext(
+            candidates=[],
+            relationship_signals=selected.relationship_signals,
+            relationship_release_report=selected.relationship_release_report,
+            fallback_user_asset_candidates={"attempted": False, "reason": "not_in_recall_plan"},
+            budget_dropped_candidates=selected.budget_dropped_candidates,
         )
     return SelectedContext(
-        candidates=_fallback_user_asset_candidates(Path(runtime.record["userDirectory"])),
+        candidates=_fallback_user_asset_candidates(Path(runtime.record["userDirectory"]), limit=fallback_limit),
         relationship_signals=selected.relationship_signals,
         relationship_release_report=selected.relationship_release_report,
         fallback_user_asset_candidates={"attempted": True, "reason": "no_selected_candidates"},
+        budget_dropped_candidates=selected.budget_dropped_candidates,
     )
 
 
@@ -395,12 +637,14 @@ def _record_context_result(
                 request=runtime.request,
                 rendered=rendered.text,
                 selected=selected.candidates,
+                budget_dropped_candidates=selected.budget_dropped_candidates or [],
                 release_report=governed.release_report,
                 fts_release_report=governed.fts_release_report,
                 relationship_release_report=selected.relationship_release_report,
                 fallback_user_asset_candidates=selected.fallback_user_asset_candidates,
                 continuity=loaded.continuity,
                 mode_plan=runtime.mode_plan,
+                recall_plan=runtime.recall_plan,
                 trim_steps=rendered.trim_steps,
             )
     _write_context_runtime_view_best_effort(
@@ -414,6 +658,23 @@ def _record_context_result(
             "selectedCandidateIds": [candidate.candidate_id for candidate in selected.candidates],
             "continuity": loaded.continuity.trace_payload(),
             "modePlan": runtime.mode_plan.trace_payload(),
+            "recallPlan": runtime.recall_plan.trace_payload(),
+            "evidenceDecision": runtime.recall_plan.evidence_decision.trace_payload(),
+            "budgetPlan": _budget_plan_trace(
+                request=runtime.request,
+                rendered=rendered.text,
+                selected=selected.candidates,
+                budget_dropped_candidates=selected.budget_dropped_candidates or [],
+                fts_release_report=governed.fts_release_report,
+                relationship_release_report=selected.relationship_release_report,
+            ),
+            "retrievalStats": _retrieval_stats_trace(
+                selected=selected.candidates,
+                budget_dropped_candidates=selected.budget_dropped_candidates or [],
+                fts_release_report=governed.fts_release_report,
+                relationship_release_report=selected.relationship_release_report,
+                release_report=governed.release_report,
+            ),
             "trimSteps": rendered.trim_steps,
             "tokenUsage": estimate_tokens(rendered.text),
         },
@@ -428,6 +689,7 @@ def _record_context_result(
         relationship_release_report=selected.relationship_release_report,
         fallback_user_asset_candidates=selected.fallback_user_asset_candidates,
         mode_plan=runtime.mode_plan,
+        recall_plan=runtime.recall_plan,
         trim_steps=rendered.trim_steps,
         logging_config=runtime.context_config.diagnostic_logging,
     )
@@ -453,6 +715,7 @@ def _render_context_text(
         fallback_user_asset_candidates=selected.fallback_user_asset_candidates,
         continuity=loaded.continuity,
         mode_plan=runtime.mode_plan,
+        recall_plan=runtime.recall_plan,
         fts_error=governed.fts_error,
         started=runtime.started,
         trim_steps=trim_steps,
@@ -478,6 +741,7 @@ def _render_compact_debug_context_text(
         fallback_user_asset_candidates=selected.fallback_user_asset_candidates,
         continuity=loaded.continuity,
         mode_plan=runtime.mode_plan,
+        recall_plan=runtime.recall_plan,
         fts_error=governed.fts_error,
         started=runtime.started,
         trim_steps=trim_steps,
@@ -505,6 +769,7 @@ def _resolve_context_request_budget(request: ContextRequest, config: ContextCont
         budget_source=budget_source,
         startup_response=request.startup_response,
         startup_guidance=request.startup_guidance,
+        work_signal=request.work_signal,
     )
 
 
@@ -567,11 +832,12 @@ def _materialize_context_recall_hints_for_release(
     workroot_id: str,
     *,
     query: str = "",
+    scope: str = "",
     limit: int = 50,
 ) -> list[str]:
-    hints = query_context_recall_hints(conn, workroot_id, query=query, limit=limit)
-    if query.strip() and not hints:
-        hints = query_context_recall_hints(conn, workroot_id, query="", limit=min(limit, 10))
+    hints = query_context_recall_hints(conn, workroot_id, query=query, scope=scope, limit=limit)
+    if query.strip() and not hints and scope.startswith("task:"):
+        hints = query_context_recall_hints(conn, workroot_id, query="", scope=scope, limit=min(limit, 10))
     return [_materialize_context_recall_hint_for_release(conn, hint) for hint in hints]
 
 
@@ -587,7 +853,7 @@ def _materialize_context_recall_hint_for_release(conn: sqlite3.Connection, hint:
             "source_id": hint.hint_id,
             "title": title,
             "summary": summary,
-            "domains": hint.scope_id,
+            "domains": _hint_scope_domain(hint),
             "importance": hint.priority or "normal",
             "confidence": 0.9,
             "status": "active",
@@ -598,6 +864,14 @@ def _materialize_context_recall_hint_for_release(conn: sqlite3.Connection, hint:
         },
     )
     return candidate_id
+
+
+def _hint_scope_domain(hint: ContextRecallHint) -> str:
+    if hint.scope_type == "task" and hint.scope_id:
+        return f"task:{hint.scope_id}"
+    if hint.scope_type == "workroot":
+        return "workroot"
+    return hint.scope_id
 
 
 def _release_safe_hint_text(conn: sqlite3.Connection, hint: ContextRecallHint) -> tuple[str, str]:
@@ -624,7 +898,7 @@ def _select_candidates(
     fts_matches: list[FtsMatch],
     *,
     limit: int,
-) -> list[CandidateMatch]:
+) -> tuple[list[CandidateMatch], list[CandidateMatch]]:
     path_terms = {match.relative_path for match in fts_matches}
     selected = list(candidates)
     if path_terms:
@@ -649,7 +923,37 @@ def _select_candidates(
                 boosted.append(candidate)
         selected = boosted
     selected.sort(key=lambda candidate: (-candidate.score, candidate.candidate_id))
-    return selected[:limit]
+    return selected[:limit], selected[limit:]
+
+
+def _merge_candidates(primary: list[CandidateMatch], fallback: list[CandidateMatch]) -> list[CandidateMatch]:
+    merged: dict[str, CandidateMatch] = {}
+    for candidate in (*primary, *fallback):
+        existing = merged.get(candidate.candidate_id)
+        if existing is None or candidate.score > existing.score:
+            merged[candidate.candidate_id] = candidate
+    return list(merged.values())
+
+
+def _merge_fts_matches(primary: list[FtsMatch], fallback: list[FtsMatch]) -> list[FtsMatch]:
+    merged: dict[str, FtsMatch] = {}
+    for match in (*primary, *fallback):
+        merged.setdefault(match.chunk_id, match)
+    return list(merged.values())
+
+
+def _fts_source_refs(fts_matches: list[FtsMatch]) -> tuple[str, ...]:
+    refs: list[str] = []
+    seen: set[str] = set()
+    for match in fts_matches:
+        if not match.source_type or not match.source_id:
+            continue
+        ref = f"{match.source_type}:{match.source_id}"
+        if ref in seen:
+            continue
+        refs.append(ref)
+        seen.add(ref)
+    return tuple(refs)
 
 
 def _apply_release_filters(
@@ -723,6 +1027,14 @@ def _boost_relationship_candidates(
     return boosted
 
 
+def _candidate_selection_limit(recall_plan: RecallPlan) -> int:
+    explicit_limits = (
+        recall_plan.source_limit("context_candidates", default=0),
+        recall_plan.source_limit("ref_candidates", default=0),
+    )
+    return max(0, *explicit_limits)
+
+
 def _protected_drop_occurred(
     release_report: ReleaseFilterReport,
     fts_release_report: FtsReleaseFilterReport,
@@ -731,7 +1043,7 @@ def _protected_drop_occurred(
     return bool(release_report.dropped or fts_release_report.dropped or relationship_release_report.dropped)
 
 
-def _fallback_user_asset_candidates(user_directory: Path) -> list[CandidateMatch]:
+def _fallback_user_asset_candidates(user_directory: Path, *, limit: int) -> list[CandidateMatch]:
     if not user_directory.exists():
         return []
     candidates: list[CandidateMatch] = []
@@ -753,7 +1065,7 @@ def _fallback_user_asset_candidates(user_directory: Path) -> list[CandidateMatch
                     reasons=("user-asset",),
                 )
             )
-    return candidates[:10]
+    return candidates[:limit]
 
 
 def _load_startup_context_state(runtime: ContextRuntime) -> LoadedContext:
@@ -773,6 +1085,22 @@ def _startup_work_signal(request: ContextRequest) -> dict[str, object]:
         "focus": request.query,
         "concerns": [],
     }
+
+
+def _context_work_signal(request: ContextRequest) -> dict[str, object]:
+    if isinstance(request.work_signal, dict):
+        return request.work_signal
+    response = request.startup_response or {}
+    signal = response.get("request_work_signal")
+    return signal if isinstance(signal, dict) else {}
+
+
+def _work_signal_refs(runtime: ContextRuntime) -> tuple[str, ...]:
+    signal = _context_work_signal(runtime.request)
+    refs = signal.get("refs")
+    if not isinstance(refs, list):
+        return ()
+    return tuple(str(ref) for ref in refs if str(ref).strip())
 
 
 def _continuity_from_startup_response(response: dict[str, object]) -> ContinuityContext:
@@ -825,27 +1153,12 @@ def _render_package(
     fallback_user_asset_candidates: dict[str, object],
     continuity: ContinuityContext,
     mode_plan: ModePlan,
+    recall_plan: RecallPlan,
     fts_error: str | None,
     started: float,
     trim_steps: list[str],
     workroot_guidance: str,
 ) -> str:
-    body_for_tokens = _package_body_for_tokens(
-        record=record,
-        request=request,
-        selected=selected,
-        fts_matches=fts_matches,
-        relationship_signals=relationship_signals,
-        release_report=release_report,
-        fts_release_report=fts_release_report,
-        relationship_release_report=relationship_release_report,
-        fallback_user_asset_candidates=fallback_user_asset_candidates,
-        continuity=continuity,
-        mode_plan=mode_plan,
-        trim_steps=trim_steps,
-        workroot_guidance=workroot_guidance,
-    )
-    token_usage = estimate_tokens(body_for_tokens)
     latency_ms = int((time.perf_counter() - started) * 1000)
     lines = [
         "# AI Workroot Context Package",
@@ -855,11 +1168,14 @@ def _render_package(
         f"Mode: {request.mode}",
         "Confidence: 0.70" if selected else "Confidence: 0.30",
         f"LatencyMs: {latency_ms}",
-        f"TokenUsage: {token_usage}/{request.hard_token_limit}",
+        f"TokenUsage: {TOKEN_USAGE_PLACEHOLDER}/{request.hard_token_limit}",
     ]
     if request.query:
         lines.append(f"Query: {request.query}")
-    lines.extend(["", workroot_guidance.rstrip(), "", "## Task Context"])
+    lines.extend(["", workroot_guidance.rstrip(), "", "## Stable Guidance"])
+    for item in _stable_guidance_lines(request.startup_response):
+        lines.append(item)
+    lines.extend(["", "## Task Context"])
     if continuity.focus:
         lines.extend(["", "## Workroot View", f"- Focus: {continuity.focus}"])
         if continuity.confidence:
@@ -876,7 +1192,7 @@ def _render_package(
             [
                 "",
                 "## Current Task",
-                f"- {continuity.active_task_title} [{continuity.active_task_status}; {continuity.active_task_kind}; {continuity.active_task_process_level}]",
+                f"- {continuity.active_task_title}",
             ]
         )
     if continuity.checkpoint_id or continuity.handoff_id:
@@ -885,19 +1201,23 @@ def _render_package(
             lines.append(f"- Checkpoint: {continuity.checkpoint_status}")
         if continuity.handoff_id:
             lines.append(f"- Handoff: {continuity.handoff_title}")
-    lines.extend(["", "## Selected Context"])
+    lines.extend(["", "## Context Map"])
     if selected:
         for candidate in selected:
             reason_text = ", ".join(candidate.reasons)
-            lines.append(f"- {candidate.title} [{candidate.source_type}; {reason_text}]")
-            if candidate.summary:
-                lines.append(f"  {candidate.summary}")
+            ref = _semantic_ref(candidate)
+            lines.append(f"- {candidate.title} [{candidate.source_type}; {reason_text}; Ref: {ref}]")
     else:
         lines.append("- No context candidates selected.")
+    if selected:
+        lines.extend(["", "## Relevant Summaries"])
+        for candidate in selected:
+            if candidate.summary:
+                lines.append(f"- {candidate.title}: {candidate.summary}")
     if fts_matches:
-        lines.extend(["", "## FTS Matches"])
+        lines.extend(["", "## Evidence"])
         for match in fts_matches:
-            lines.append(f"- {match.relative_path}: {match.reason}")
+            lines.append(f"- {match.relative_path}: {match.reason}; Ref: chunk:{match.chunk_id}")
     if relationship_signals:
         lines.extend(["", "## Relationship Signals"])
         for signal in relationship_signals:
@@ -907,10 +1227,10 @@ def _render_package(
             [
                 "",
                 "## Debug Trace",
-                f"tokenUsage: estimated={token_usage} target={request.target_tokens} hard={request.hard_token_limit}",
+                f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
                 f"budgetSource: {request.budget_source}",
                 f"timing: totalMs={latency_ms}",
-                "candidateSources: context-candidates, indexed-chunks, relationship-network",
+                f"candidateSources: {','.join(source.name for source in recall_plan.sources)}",
                 f"filters: safety=default droppedSafetyPolicies={','.join(sorted({'never-auto', 'needs-confirmation', 'sensitive'}))}",
                 "scoring: importance + candidate-fts-match + file-fts-match + relationship-edge",
                 (
@@ -919,8 +1239,14 @@ def _render_package(
                     f"ftsLimit={mode_plan.fts_limit} relationshipLimit={mode_plan.relationship_limit} "
                     f"deepExplicitlyRequested={str(mode_plan.deep_explicitly_requested).lower()}"
                 ),
+                "contextStrategy: plan-driven",
+                f"contextIntent: {recall_plan.intent}",
+                f"semanticSource: {recall_plan.semantic_source}",
+                f"recallSources: {','.join(source.name for source in recall_plan.sources)}",
             ]
         )
+        if recall_plan.semantic_source == "conservative":
+            lines.append("semanticFallback: conservative")
         if continuity.has_content():
             lines.append(
                 "continuitySources: "
@@ -928,6 +1254,9 @@ def _render_package(
                 f"checkpoint={continuity.checkpoint_id or 'none'} "
                 f"handoff={continuity.handoff_id or 'none'}"
             )
+        lease_debug = _render_lease_signal(recall_plan)
+        if lease_debug:
+            lines.append(lease_debug)
         if fts_error:
             lines.append(f"ftsFallback: {fts_error}")
         if trim_steps:
@@ -955,7 +1284,7 @@ def _render_package(
             f"attempted={str(bool(fallback_user_asset_candidates.get('attempted'))).lower()} "
             f"reason={fallback_user_asset_candidates.get('reason')}"
         )
-    return "\n".join(lines) + "\n"
+    return _finalize_rendered_token_usage("\n".join(lines) + "\n")
 
 
 def _render_compact_debug_package(
@@ -969,6 +1298,7 @@ def _render_compact_debug_package(
     fallback_user_asset_candidates: dict[str, object],
     continuity: ContinuityContext,
     mode_plan: ModePlan,
+    recall_plan: RecallPlan,
     fts_error: str | None,
     started: float,
     trim_steps: list[str],
@@ -988,7 +1318,10 @@ def _render_compact_debug_package(
     ]
     if request.query:
         lines.append(f"Query: {request.query}")
-    lines.extend(["", workroot_guidance.rstrip(), "", "## Task Context"])
+    lines.extend(["", workroot_guidance.rstrip(), "", "## Stable Guidance"])
+    for item in _stable_guidance_lines(request.startup_response):
+        lines.append(item)
+    lines.extend(["", "## Task Context"])
     if continuity.focus:
         lines.extend(["", "## Workroot View", f"- Focus: {continuity.focus}"])
     if continuity.active_task_id:
@@ -996,14 +1329,14 @@ def _render_compact_debug_package(
     lines.extend(
         [
             "",
-            "## Selected Context",
+            "## Context Map",
             f"- {selected_titles}",
             "",
             "## Debug Trace",
             f"tokenUsage: estimated={TOKEN_USAGE_PLACEHOLDER} target={request.target_tokens} hard={request.hard_token_limit}",
             f"budgetSource: {request.budget_source}",
             f"timing: totalMs={latency_ms}",
-            "candidateSources: context-candidates, indexed-chunks, relationship-network",
+            f"candidateSources: {','.join(source.name for source in recall_plan.sources)}",
             f"filters: safety=default droppedSafetyPolicies={','.join(sorted({'never-auto', 'needs-confirmation', 'sensitive'}))}",
             "scoring: importance + candidate-fts-match + file-fts-match + relationship-edge",
             (
@@ -1012,11 +1345,20 @@ def _render_compact_debug_package(
                 f"ftsLimit={mode_plan.fts_limit} relationshipLimit={mode_plan.relationship_limit} "
                 f"deepExplicitlyRequested={str(mode_plan.deep_explicitly_requested).lower()}"
             ),
+            "contextStrategy: plan-driven",
+            f"contextIntent: {recall_plan.intent}",
+            f"semanticSource: {recall_plan.semantic_source}",
+            f"recallSources: {','.join(source.name for source in recall_plan.sources)}",
             f"trimSteps: {', '.join(trim_steps)}",
         ]
     )
+    if recall_plan.semantic_source == "conservative":
+        lines.append("semanticFallback: conservative")
     if fts_error:
         lines.append(f"ftsFallback: {fts_error}")
+    lease_debug = _render_lease_signal(recall_plan)
+    if lease_debug:
+        lines.append(lease_debug)
     if release_report.dropped or release_report.tombstone_source_ids:
         dropped = ", ".join(f"{candidate_id}:{reason}" for candidate_id, reason in release_report.dropped) or "none"
         annotations = ", ".join(sorted(release_report.tombstone_source_ids)) or "none"
@@ -1063,6 +1405,7 @@ def _minimal_debug_package(
         "candidateSources: context-candidates,indexed-chunks,relationship-network",
         "filters: safety=default",
         "scoring: compact-debug-hard-trim",
+        "contextStrategy: unavailable",
     ]
     return _finalize_rendered_token_usage("\n".join(lines) + "\n")
 
@@ -1132,58 +1475,115 @@ def _refresh_rendered_token_usage(rendered: str, hard_token_limit: int) -> str:
     )
 
 
-def _package_body_for_tokens(
+def _stable_guidance_lines(startup_response: dict[str, object] | None) -> list[str]:
+    output_rules = _output_rules_from_startup_response(startup_response)
+    lines = ["- New user-visible outputs default to workroot-output/ unless the user gives another path."]
+    declared = [rule for rule in output_rules if rule.get("role") == "declared_output"]
+    for rule in declared:
+        lines.append(f"- For {rule['asset_kind']} outputs, prefer {rule['path']}/ when it matches the user request.")
+    lines.append("- Register generated user-visible files with an asset commit that includes the final relative path.")
+    lines.append("- Existing folders are read or written only when the user asks.")
+    return lines
+
+
+def _output_rules_from_startup_response(startup_response: dict[str, object] | None) -> list[dict[str, str]]:
+    if not isinstance(startup_response, dict):
+        return []
+    view = startup_response.get("workroot_view")
+    if not isinstance(view, dict):
+        return []
+    rules = view.get("output_rules")
+    if not isinstance(rules, list):
+        return []
+    compact_rules: list[dict[str, str]] = []
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        asset_kind = str(rule.get("asset_kind") or "").strip()
+        path = str(rule.get("path") or "").strip()
+        role = str(rule.get("role") or "").strip()
+        if asset_kind and path and role:
+            compact_rules.append({"asset_kind": asset_kind, "path": path, "role": role})
+    return compact_rules[:5]
+
+
+def _semantic_ref(candidate: CandidateMatch) -> str:
+    if candidate.source_type and candidate.source_id:
+        return f"{candidate.source_type}:{candidate.source_id}"
+    return candidate.candidate_id
+
+
+def _render_lease_signal(recall_plan: RecallPlan) -> str:
+    signal = recall_plan.lease_signal
+    if not signal.status or signal.status == "missing":
+        return ""
+    return f"leaseSignal: status={signal.status} freshness={signal.freshness or 'unknown'}"
+
+
+def _budget_plan_trace(
     *,
-    record: dict[str, str],
     request: ContextRequest,
+    rendered: str,
     selected: list[CandidateMatch],
-    fts_matches: list[FtsMatch],
-    relationship_signals: list[RelationshipSignal],
-    release_report: ReleaseFilterReport,
+    budget_dropped_candidates: list[CandidateMatch],
     fts_release_report: FtsReleaseFilterReport,
     relationship_release_report: RelationshipReleaseFilterReport,
-    fallback_user_asset_candidates: dict[str, object],
-    continuity: ContinuityContext,
-    mode_plan: ModePlan,
-    trim_steps: list[str],
-    workroot_guidance: str,
-) -> str:
-    parts = [
-        record.get("name", ""),
-        record.get("workrootId", ""),
-        request.agent,
-        request.mode,
-        request.query,
-        workroot_guidance,
-        continuity.focus,
-        continuity.confidence,
-        continuity.task_brief,
-        continuity.current_state,
-        continuity.next_action,
-        continuity.active_task_title,
-        continuity.active_task_status,
-        continuity.active_task_kind,
-        continuity.active_task_process_level,
-        continuity.checkpoint_status,
-        continuity.handoff_title,
-        mode_plan.mode,
-        mode_plan.behavior,
-        str(mode_plan.candidate_limit),
-        str(mode_plan.hint_limit),
-        str(mode_plan.fts_limit),
-        str(mode_plan.relationship_limit),
-        "\n".join(f"{candidate.title}\n{candidate.summary}\n{','.join(candidate.reasons)}" for candidate in selected),
-        "\n".join(f"{match.relative_path}\n{match.body}" for match in fts_matches),
-        "\n".join(
-            f"{signal.edge_id}\n{signal.from_node_id}\n{signal.relationship_type}\n{signal.to_node_id}"
-            for signal in relationship_signals
-        ),
-        "\n".join(f"{candidate_id}:{reason}" for candidate_id, reason in release_report.dropped),
-        "\n".join(f"{chunk_id}:{reason}" for chunk_id, reason in fts_release_report.dropped),
-        "\n".join(f"{edge_id}:{reason}" for edge_id, reason in relationship_release_report.dropped),
-        "\n".join(trim_steps),
-    ]
-    return "\n".join(parts)
+) -> dict[str, object]:
+    token_usage = estimate_tokens(rendered)
+    target = max(int(request.target_tokens or DEFAULT_TARGET_TOKENS), 1)
+    hard = max(int(request.hard_token_limit or DEFAULT_HARD_TOKEN_LIMIT), 1)
+    context_map_used = sum(max(1, _candidate_token_estimate(candidate)) for candidate in selected)
+    evidence_used = len(fts_release_report.matches) * 24
+    relationships_used = len(relationship_release_report.signals) * 16
+    return {
+        "targetTokens": target,
+        "hardTokenLimit": hard,
+        "estimatedAfterBudget": token_usage,
+        "pressure": round(token_usage / hard, 4),
+        "sections": {
+            "core_continuity": {
+                "budget": max(80, int(target * 0.25)),
+                "status": "protected",
+            },
+            "context_map": {
+                "budget": max(120, int(target * 0.35)),
+                "used": context_map_used,
+                "status": "reduced" if budget_dropped_candidates else "selected",
+            },
+            "relationships": {
+                "budget": max(40, int(target * 0.15)),
+                "used": relationships_used,
+                "status": "selected" if relationship_release_report.signals else "empty",
+            },
+            "evidence": {
+                "budget": max(0, int(target * 0.20)),
+                "used": evidence_used,
+                "status": "selected" if fts_release_report.matches else "empty",
+            },
+        },
+    }
+
+
+def _candidate_token_estimate(candidate: CandidateMatch) -> int:
+    return estimate_tokens(f"{candidate.title} {candidate.summary}")
+
+
+def _retrieval_stats_trace(
+    *,
+    selected: list[CandidateMatch],
+    budget_dropped_candidates: list[CandidateMatch],
+    fts_release_report: FtsReleaseFilterReport,
+    relationship_release_report: RelationshipReleaseFilterReport,
+    release_report: ReleaseFilterReport,
+) -> dict[str, int]:
+    return {
+        "candidateCount": len(selected) + len(budget_dropped_candidates) + len(release_report.dropped),
+        "selectedCount": len(selected),
+        "ftsCount": len(fts_release_report.matches),
+        "relationshipCount": len(relationship_release_report.signals),
+        "droppedByBudget": len(budget_dropped_candidates),
+        "droppedByRelease": len(release_report.dropped) + len(fts_release_report.dropped),
+    }
 
 
 # Persistence.
@@ -1194,12 +1594,14 @@ def _persist_context_runtime_state(
     request: ContextRequest,
     rendered: str,
     selected: list[CandidateMatch],
+    budget_dropped_candidates: list[CandidateMatch],
     release_report: ReleaseFilterReport,
     fts_release_report: FtsReleaseFilterReport,
     relationship_release_report: RelationshipReleaseFilterReport,
     fallback_user_asset_candidates: dict[str, object],
     continuity: ContinuityContext,
     mode_plan: ModePlan,
+    recall_plan: RecallPlan,
     trim_steps: list[str],
 ) -> None:
     package_id = f"ctxpkg_{uuid.uuid4().hex}"
@@ -1227,6 +1629,23 @@ def _persist_context_runtime_state(
         "fallbackUserAssetCandidates": fallback_user_asset_candidates,
         "continuity": continuity.trace_payload(),
         "modePlan": mode_plan.trace_payload(),
+        "recallPlan": recall_plan.trace_payload(),
+        "evidenceDecision": recall_plan.evidence_decision.trace_payload(),
+        "budgetPlan": _budget_plan_trace(
+            request=request,
+            rendered=rendered,
+            selected=selected,
+            budget_dropped_candidates=budget_dropped_candidates,
+            fts_release_report=fts_release_report,
+            relationship_release_report=relationship_release_report,
+        ),
+        "retrievalStats": _retrieval_stats_trace(
+            selected=selected,
+            budget_dropped_candidates=budget_dropped_candidates,
+            fts_release_report=fts_release_report,
+            relationship_release_report=relationship_release_report,
+            release_report=release_report,
+        ),
         "trimSteps": trim_steps,
         "tokenUsage": estimate_tokens(rendered),
         "renderedPreview": rendered_preview_metadata,
@@ -1262,6 +1681,22 @@ def _persist_context_runtime_state(
             VALUES (?, ?, ?, ?)
             """,
             (f"sel_{uuid.uuid4().hex}", trace_id, candidate_id, f"dropped:{reason}"),
+        )
+    for candidate in budget_dropped_candidates:
+        conn.execute(
+            """
+            INSERT INTO candidate_selections (selection_id, trace_id, candidate_id, reason)
+            VALUES (?, ?, ?, ?)
+            """,
+            (f"sel_{uuid.uuid4().hex}", trace_id, candidate.candidate_id, "dropped:budget"),
+        )
+    if budget_dropped_candidates:
+        conn.execute(
+            """
+            INSERT INTO budget_trim_decisions (decision_id, trace_id, section, reason)
+            VALUES (?, ?, ?, ?)
+            """,
+            (f"trim_{uuid.uuid4().hex}", trace_id, "candidate-map", "budget-selection"),
         )
     for step in trim_steps:
         conn.execute(
@@ -1337,6 +1772,7 @@ def _write_context_diagnostic_log(
     relationship_release_report: RelationshipReleaseFilterReport,
     fallback_user_asset_candidates: dict[str, object],
     mode_plan: ModePlan,
+    recall_plan: RecallPlan,
     trim_steps: list[str],
     logging_config: object,
 ) -> None:
@@ -1366,6 +1802,7 @@ def _write_context_diagnostic_log(
         entry["trace"] = {
             "confidence": "0.70" if selected else "0.30",
             "modePlan": mode_plan.trace_payload(),
+            "recallPlan": recall_plan.trace_payload(),
             "trimSteps": trim_steps,
             "fallbackUserAssetCandidates": fallback_user_asset_candidates,
         }

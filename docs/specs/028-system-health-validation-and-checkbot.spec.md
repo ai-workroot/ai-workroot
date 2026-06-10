@@ -95,7 +95,7 @@ evidence
 src/ai_workroot/capabilities/system_health/doctor.py
 src/ai_workroot/capabilities/system_health/model.py
 scripts/dev/validate-release.sh
-docs/dev/0.9.530/checkbot.md
+docs/history/0.9.530/dev/checkbot.md
 tests/smoke/
 tests/negative/
 ```
@@ -174,7 +174,7 @@ T2: Harden checkbot wrapper
 
 T3: Add checkbot docs
 - Change: Document commands and non-release behavior.
-- Files likely affected: `docs/dev/0.9.530/checkbot.md`.
+- Files likely affected: `docs/history/0.9.530/dev/checkbot.md`.
 - Verification: docs scan.
 
 T4: Add Git surface fixtures

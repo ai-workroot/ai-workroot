@@ -407,6 +407,101 @@ class ProtocolTaskContinuityV2Test(unittest.TestCase):
         self.assertIn("Updated pricing cadence", indexed_chunks[0][0])
         self.assertEqual(fts_count, 1)
 
+    def test_asset_commit_rejects_existing_path_owner_conflict_without_relinking(self) -> None:
+        first = self.create_task(title="Service Month Plan")
+        task_a = self.task_id(first)
+        run_a = self.run_id(first)
+        asset_path = self.user_dir / "results" / "service-month-plan.md"
+        asset_path.parent.mkdir()
+        asset_path.write_text("# Service Month Plan\n\nMain operating plan.\n", encoding="utf-8")
+        first_asset = commit(
+            self.asset_request(
+                lease_id=self.lease_id(first),
+                event_id="evt-asset-owner-original",
+                task_id=task_a,
+                run_id=run_a,
+                path="results/service-month-plan.md",
+                summary="Main service operating plan.",
+            )
+        )
+        second = commit(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-owner-conflict-task-b",
+                "exchange_lease_id": self.create_workroot_intent_lease("lease-owner-conflict-task-b"),
+                "idempotency_key": "idem-owner-conflict-task-b",
+                "events": [
+                    {
+                        "event_id": "evt-owner-conflict-task-b",
+                        "kind": "intent",
+                        "schema_version": "intent.v1",
+                        "occurred_at": "2026-05-28T03:00:00Z",
+                        "source": {"actor_type": "agent", "actor_name": "codex", "session_id": "session-2"},
+                        "confirmation": {"status": "agent_observed", "confirmed_by": None},
+                        "payload": {
+                            "intent_text": "Prepare a separate hiring checklist.",
+                            "classification": {"persistence": "normal", "process_level": "L1"},
+                            "task_hint": {
+                                "title": "Hiring Checklist",
+                                "task_id": None,
+                                "parent_task_id": None,
+                            },
+                            "source_refs": [],
+                        },
+                        "evidence": [],
+                    }
+                ],
+            }
+        )
+        task_b = self.task_id(second)
+        run_b = self.run_id(second)
+
+        conflict = commit(
+            self.asset_request(
+                lease_id=self.lease_id(second),
+                event_id="evt-asset-owner-conflict",
+                task_id=task_b,
+                run_id=run_b,
+                path="results/service-month-plan.md",
+                summary="This commit carries the wrong task lease.",
+            )
+        )
+
+        self.assertEqual(first_asset["result"]["status"], "applied")
+        self.assertEqual(conflict["result"]["status"], "rejected")
+        self.assertIn("asset_owner_conflict", conflict["result"]["warnings"])
+        with sqlite3.connect(self.sqlite_path) as conn:
+            asset_id = conn.execute(
+                "SELECT asset_id FROM assets WHERE current_path = 'results/service-month-plan.md'"
+            ).fetchone()[0]
+            owners = conn.execute(
+                """
+                SELECT task_node.target_id
+                FROM relationship_edges edge
+                JOIN relationship_nodes task_node
+                  ON task_node.workroot_id = edge.workroot_id
+                 AND task_node.node_id = edge.from_node_id
+                 AND task_node.target_type = 'task'
+                JOIN relationship_nodes asset_node
+                  ON asset_node.workroot_id = edge.workroot_id
+                 AND asset_node.node_id = edge.to_node_id
+                 AND asset_node.target_type = 'asset'
+                 AND asset_node.target_id = ?
+                WHERE edge.workroot_id = 'wr_demo'
+                  AND edge.relationship_type = 'produced_asset'
+                  AND COALESCE(edge.status, 'active') = 'active'
+                ORDER BY task_node.target_id
+                """,
+                (asset_id,),
+            ).fetchall()
+        self.assertEqual(owners, [(task_a,)])
+        self.assertNotIn((task_b,), owners)
+        friction_log = Path(self.registration.state_directory) / "logs/protocol-friction.jsonl"
+        friction_events = [json.loads(line) for line in friction_log.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(friction_events[-1]["code"], "asset_owner_conflict")
+        self.assertEqual(friction_events[-1]["stage"], "projection")
+        self.assertEqual(friction_events[-1]["shape"], "asset")
+
     def test_asset_commit_indexes_text_with_explicit_ai_workroot_home(self) -> None:
         explicit_home = Path(self.tmp.name) / "explicit-home"
         explicit_user_dir = Path(self.tmp.name) / "explicit-workspace"
@@ -428,7 +523,7 @@ class ProtocolTaskContinuityV2Test(unittest.TestCase):
                 "cwd": str(explicit_user_dir),
                 "reason": "before_work",
                 "query": "Create explicit asset task.",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             },
             ai_workroot_home=explicit_home,
         )
@@ -558,7 +653,7 @@ class ProtocolTaskContinuityV2Test(unittest.TestCase):
                 "cwd": str(self.user_dir),
                 "reason": "before_work",
                 "query": f"Design {title}",
-                "work_signal": {"phase": "planning", "work_kind": "task", "intended_action": "plan"},
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
             }
         )
         return commit(

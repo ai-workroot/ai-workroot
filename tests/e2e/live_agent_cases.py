@@ -4,7 +4,7 @@ import os
 import unittest
 from pathlib import Path
 
-from tests.e2e.live_agent import REQUIRED_CONTEXT_COMMAND, run_codex_live_agent
+from tests.e2e.live_agent import READ_ONLY_CONTEXT_SMOKE_COMMAND, run_codex_live_agent
 from tests.e2e.personas import PERSONAS
 
 
@@ -27,7 +27,7 @@ class LiveAgentE2ETest(unittest.TestCase):
                 self.assertEqual(persona_result.returncode, 0, persona_result.stderr_path.read_text(encoding="utf-8"))
                 self.assertTrue(persona_result.last_message_path.is_file())
                 self.assertIn("LIVE_AGENT_E2E_OK", persona_result.last_message_path.read_text(encoding="utf-8"))
-                self.assertIn(REQUIRED_CONTEXT_COMMAND, persona_result.stderr_path.read_text(encoding="utf-8"))
+                self.assertIn(READ_ONLY_CONTEXT_SMOKE_COMMAND, persona_result.stderr_path.read_text(encoding="utf-8"))
         self.assertTrue(result.summary_path.is_file())
 
 

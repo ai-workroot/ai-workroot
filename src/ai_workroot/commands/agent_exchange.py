@@ -13,6 +13,7 @@ from ai_workroot.protocol.errors import protocol_error_response
 from ai_workroot.protocol.lease import now_utc
 from ai_workroot.protocol.model import PROTOCOL_VERSION, SYNC_REASONS
 from ai_workroot.protocol.packet import render_private_packet_markdown
+from ai_workroot.state.protocol_friction import record_locatable_protocol_friction
 
 
 SYNC_REASON_CHOICES = sorted(SYNC_REASONS)
@@ -44,6 +45,7 @@ def run_sync_request(
     *,
     request_id: str,
     agent_name: str,
+    agent_transport: str = "cli",
     cwd: Path,
     query: str,
     reason: str,
@@ -54,7 +56,7 @@ def run_sync_request(
     request: dict[str, Any] = {
         "protocol_version": PROTOCOL_VERSION,
         "request_id": request_id,
-        "agent": {"name": agent_name, "transport": "cli"},
+        "agent": {"name": agent_name, "transport": agent_transport.strip() or "cli"},
         "cwd": str(cwd),
         "reason": reason,
         "query": query,
@@ -75,6 +77,11 @@ def run_commit_shape(
     shape: str,
     lease_id: str,
     agent_name: str,
+    agent_transport: str = "cli",
+    client: str = "",
+    agent_version: str = "",
+    thread_id: str = "",
+    channel_id: str = "",
     cwd: Optional[Path] = None,
     workroot_id: Optional[str] = None,
     title: str = "",
@@ -109,6 +116,11 @@ def run_commit_shape(
             shape=shape,
             lease_id=lease_id,
             agent_name=agent_name,
+            agent_transport=agent_transport,
+            client=client,
+            agent_version=agent_version,
+            thread_id=thread_id,
+            channel_id=channel_id,
             cwd=cwd,
             workroot_id=workroot_id,
             title=title,
@@ -137,6 +149,19 @@ def run_commit_shape(
             occurred_at=occurred_at,
         )
     except ValueError as exc:
+        record_locatable_protocol_friction(
+            cwd=cwd,
+            workroot_id=workroot_id,
+            action="commit",
+            source_layer="cli_adapter",
+            stage="pre_request",
+            code="missing_shape_fields",
+            result_status="rejected",
+            request_id=request_id or "",
+            lease_id=lease_id,
+            shape=shape,
+            details={"message": str(exc)},
+        )
         return protocol_error_response(
             "missing_shape_fields",
             details={"message": str(exc), "shape": shape},
@@ -146,11 +171,13 @@ def run_commit_shape(
     return controller.commit(request)
 
 
-def render_agent_response(response: dict[str, Any], *, output_format: str = "json", agent: str = "codex") -> str:
+def render_agent_response(
+    response: dict[str, Any], *, output_format: str = "json", agent: str = "codex", transport: str = "cli"
+) -> str:
     if output_format == "guidance":
         return str(response.get("workroot_guidance") or "").rstrip() + "\n"
     if output_format == "packet":
-        return render_private_packet_markdown(response, adapter="cli", agent=agent).rstrip() + "\n"
+        return render_private_packet_markdown(response, adapter="cli", agent=agent, transport=transport).rstrip() + "\n"
     if output_format != "json":
         raise ValueError("--format must be json, guidance, or packet")
     return json.dumps(response, ensure_ascii=False, sort_keys=True) + "\n"
@@ -161,6 +188,11 @@ def build_commit_request_from_shape(
     shape: str,
     lease_id: str,
     agent_name: str,
+    agent_transport: str = "cli",
+    client: str = "",
+    agent_version: str = "",
+    thread_id: str = "",
+    channel_id: str = "",
     cwd: Optional[Path] = None,
     workroot_id: Optional[str] = None,
     title: str = "",
@@ -230,6 +262,14 @@ def build_commit_request_from_shape(
         "actor_type": "agent",
         "actor_name": agent_name.strip() or "agent",
     }
+    _add_source_metadata(
+        source,
+        transport=agent_transport,
+        client=client,
+        agent_version=agent_version,
+        thread_id=thread_id,
+        channel_id=channel_id,
+    )
     if session_id:
         source["session_id"] = session_id
     request: dict[str, Any] = {
@@ -372,6 +412,14 @@ def _state_update_payload(*, target: Optional[str], change: Optional[str]) -> di
     change_value = _clean_optional(change)
     if not change_value:
         raise ValueError("--change is required for state_update")
+    if target_type == "output_rule":
+        path = _parse_output_rule_change(change_value)
+        return {
+            "target_type": target_type,
+            "target_id": target_id,
+            "path": path,
+            "reason": f"User declared output rule for {target_id}.",
+        }
     compact = change_value.lower().strip()
     if compact == "close:completed":
         return {
@@ -393,6 +441,20 @@ def _state_update_payload(*, target: Optional[str], change: Optional[str]) -> di
             "reason": change_value,
         }
     raise ValueError("--change supports close:completed or status <from> -> <to>")
+
+
+def _parse_output_rule_change(value: str) -> str:
+    cleaned = value.strip()
+    lower = cleaned.lower()
+    if lower.startswith("path="):
+        path = cleaned[5:].strip()
+    elif lower.startswith("path "):
+        path = cleaned[5:].strip()
+    else:
+        raise ValueError("--change for output-rule targets supports path <relative-path> or path=<relative-path>")
+    if not path:
+        raise ValueError("--change for output-rule targets requires a relative path")
+    return path
 
 
 def _clean_item_values(values: tuple[str, ...]) -> tuple[str, ...]:
@@ -475,8 +537,10 @@ def _parse_target(value: Optional[str]) -> tuple[str, str]:
     else:
         target_type = "task"
         target_id = cleaned
-    if target_type != "task":
-        raise ValueError("--target currently supports task targets only")
+    if target_type == "output-rule":
+        target_type = "output_rule"
+    if target_type not in {"task", "output_rule"}:
+        raise ValueError("--target currently supports task or output-rule targets")
     if not target_id:
         raise ValueError("--target is required for state_update")
     return target_type, target_id
@@ -505,6 +569,27 @@ def _add_task_run_fields(payload: dict[str, Any], *, task_id: Optional[str], run
         payload["task_id"] = cleaned_task_id
     if cleaned_run_id:
         payload["run_id"] = cleaned_run_id
+
+
+def _add_source_metadata(
+    source: dict[str, Any],
+    *,
+    transport: str,
+    client: str,
+    agent_version: str,
+    thread_id: str,
+    channel_id: str,
+) -> None:
+    for key, value in (
+        ("transport", transport),
+        ("client", client),
+        ("agent_version", agent_version),
+        ("thread_id", thread_id),
+        ("channel_id", channel_id),
+    ):
+        cleaned = str(value or "").strip()
+        if cleaned:
+            source[key] = cleaned
 
 
 def _clean_optional(value: Optional[str]) -> Optional[str]:

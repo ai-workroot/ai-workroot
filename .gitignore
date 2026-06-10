@@ -29,3 +29,8 @@ config/*_servers.json
 /AGENTS.md
 /CLAUDE.md
 /.ai-workroot-local/
+docs/local/
+reports/
+*_docs_bundle/
+*_review_package/
+workroot_*_package/

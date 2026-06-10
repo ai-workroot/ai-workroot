@@ -1,7 +1,7 @@
 # AI Workroot 0.9.530 Final Codex Package — All In One
 
 > This is a raw imported package snapshot retained for traceability.
-> If this file conflicts with `docs/dev/0.9.530/final-architect-review-clarifications.md`, `docs/specs/`, `docs/architecture/`, `docs/adr/`, or `docs/history/0.9.530/plans/2026-05-20-0530-clean-workroot-domain-reset-plan.md`, the later clarified documents win.
+> If this file conflicts with `docs/history/0.9.530/dev/final-architect-review-clarifications.md`, `docs/specs/`, `docs/architecture/`, `docs/adr/`, or `docs/history/0.9.530/plans/2026-05-20-0530-clean-workroot-domain-reset-plan.md`, the later clarified documents win.
 > In particular: build replacement architecture first, then quarantine the old Public Seed active root.
 
 This file concatenates the final architecture, specs, execution plans, migration plans, test plans, acceptance checklist, and ADRs.

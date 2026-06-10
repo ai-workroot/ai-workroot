@@ -319,7 +319,7 @@ T5: Remove runnable legacy scripts
 
 T6: Migrate tests and docs
 - Change: Remove or rewrite tests that assert compatibility availability; update docs/release checklist.
-- Files likely affected: `tests/*`, `README.md`, `ROADMAP.md`, `docs/release-checklist.md`, `docs/architecture/*`, `docs/dev/0.9.530/*`.
+- Files likely affected: `tests/*`, `README.md`, `ROADMAP.md`, `docs/release-checklist.md`, `docs/architecture/*`, `docs/history/0.9.530/dev/*`.
 - Verification: Default unittest discovery passes.
 
 T7: Full validation
