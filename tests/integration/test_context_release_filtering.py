@@ -167,7 +167,8 @@ class ContextReleaseFilteringTest(unittest.TestCase):
             )
 
             self.assertIn("Tombstone target hint", package)
-            self.assertIn("annotated-release-state", package)
+            self.assertIn("Status: tombstone", package)
+            self.assertNotIn("annotated-release-state", package)
             self.assertIn("releaseFilters: dropped=none annotated=hint-tombstone-target", package)
 
 

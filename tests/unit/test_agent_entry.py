@@ -8,6 +8,7 @@ from ai_workroot.entrypoints.native_agent.native import (
     NativeAgentEntryError,
     apply_managed_block,
     codex_block,
+    render_native_agent_entry,
     validate_entry_content,
 )
 
@@ -21,7 +22,14 @@ class WorkrootAgentEntryTest(unittest.TestCase):
         )
         self.assertIn("Start each meaningful user turn", block)
         self.assertIn("Optional: add `--work-signal` with stable enum fields when clear", block)
-        self.assertIn("For new long-running work, use phase=starting, work_kind=task", block)
+        self.assertIn("Direct answer: work_kind=quick, intended_action=answer", block)
+        self.assertIn("Continuation, checkpoint, handoff, or continuing inbox: work_kind=continuation", block)
+        self.assertIn("Decision in current work: work_kind=decision", block)
+        self.assertIn("Current file: work_kind=authoring", block)
+        self.assertIn("Separate long-running work: phase=starting, work_kind=task", block)
+        self.assertIn("New loose side thought: phase=switching, work_kind=inbox", block)
+        self.assertIn("Do not use boundary=separate_work for quick answers", block)
+        self.assertIn("boundary=separate_work", block)
         self.assertIn("For recall inside a normal user turn, use sync", block)
         self.assertIn(
             "Use `workroot context` only for startup, recovery, or debugging outside the normal turn loop", block
@@ -36,7 +44,25 @@ class WorkrootAgentEntryTest(unittest.TestCase):
         self.assertLessEqual(len(block.splitlines()), 13)
         self.assertNotIn(str(Path.home()), block)
         self.assertNotIn(".ai-workroot/workroots", block)
-        self.assertLess(len(block.encode("utf-8")), 2 * 1024)
+        self.assertLess(len(block.encode("utf-8")), 3 * 1024)
+
+    def test_unknown_safe_agent_uses_generic_sync_first_entry(self) -> None:
+        block = render_native_agent_entry("cursor")
+
+        self.assertIn(
+            'workroot agent sync --agent cursor --cwd . --query "<current user request>" --format packet',
+            block,
+        )
+        self.assertIn("boundary=separate_work", block)
+        self.assertIn("Direct answer: work_kind=quick, intended_action=answer", block)
+        self.assertIn("Do not use boundary=separate_work for quick answers", block)
+        self.assertIn("Use Workroot guidance privately", block)
+        self.assertNotIn("unsupported Native Agent Entry", block)
+        self.assertLess(len(block.encode("utf-8")), 3 * 1024)
+
+    def test_unknown_unsafe_agent_descriptor_is_rejected(self) -> None:
+        with self.assertRaises(NativeAgentEntryError):
+            render_native_agent_entry("bad agent; rm -rf")
 
     def test_apply_block_preserves_user_content(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

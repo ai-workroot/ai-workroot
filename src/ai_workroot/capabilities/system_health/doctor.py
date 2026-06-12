@@ -43,6 +43,8 @@ def run_doctor(*, cwd: Path | str = ".", ai_workroot_home: Path | str | None = N
         findings.append(DoctorFinding("PASS", f"registered Workroot {record['workrootId']}"))
     except ValueError as exc:
         return DoctorResult("FAIL", (DoctorFinding("FAIL", str(exc)),))
+    if record.get("metadataWarning"):
+        findings.append(DoctorFinding("FAIL", str(record["metadataWarning"])))
 
     state_directory = Path(record["stateDirectory"])
     user_directory = Path(record["userDirectory"])

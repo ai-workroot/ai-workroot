@@ -6,8 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ai_workroot.state.environment import initialize_environment
 from ai_workroot.commands.init_workroot import initialize_workroot
+from ai_workroot.state.environment import initialize_environment as initialize_environment_state
+from ai_workroot.state.environment import register_workroot
+from ai_workroot.state.registry import find_workroot_by_cwd, list_workroots
 
 
 class WorkrootStateTest(unittest.TestCase):
@@ -15,7 +17,7 @@ class WorkrootStateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "home"
 
-            initialize_environment(home)
+            initialize_environment_state(home)
             config = json.loads((home / "config.json").read_text(encoding="utf-8"))
 
             self.assertEqual(config["kind"], "WorkrootEnvironment")
@@ -49,6 +51,23 @@ class WorkrootStateTest(unittest.TestCase):
                 tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
             self.assertIn("workroots", tables)
             self.assertIn("context_candidates", tables)
+
+    def test_registry_handles_malformed_workroot_json_with_binding_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            user_dir = Path(tmp) / "project"
+            user_dir.mkdir()
+            initialize_environment_state(home)
+            registration = register_workroot(home, "wr_demo", "Demo", user_dir)
+            Path(registration.state_directory, "workroot.json").write_text("{bad json", encoding="utf-8")
+
+            records = list_workroots(ai_workroot_home=home)
+            located = find_workroot_by_cwd(user_dir, ai_workroot_home=home)
+
+            self.assertEqual(records[0]["workrootId"], "wr_demo")
+            self.assertEqual(records[0]["userDirectory"], str(user_dir.resolve()))
+            self.assertIn("malformed_workroot_json", records[0]["metadataWarning"])
+            self.assertEqual(located["workrootId"], "wr_demo")
 
 
 if __name__ == "__main__":

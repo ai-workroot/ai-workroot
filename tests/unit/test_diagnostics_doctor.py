@@ -91,6 +91,24 @@ class RuntimeDoctorTest(unittest.TestCase):
             self.assertIn("context recall hint hint-missing-asset target asset:asset-missing-hint is missing", rendered)
             self.assertIn("context package ctxpkg-orphan has no trace", rendered)
 
+    def test_doctor_reports_malformed_workroot_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(
+                name="Malformed Metadata Workroot",
+                directory=user_dir,
+                workroot_id="wr_demo",
+                ai_workroot_home=home,
+            )
+            Path(init.registration.state_directory, "workroot.json").write_text("{bad json", encoding="utf-8")
+
+            result = run_doctor(cwd=user_dir, ai_workroot_home=home)
+
+            self.assertEqual(result.status, "FAIL")
+            self.assertIn("malformed_workroot_json", result.render_text())
+
     def test_doctor_fails_when_redacted_target_leaks_in_derived_candidate_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

@@ -27,6 +27,7 @@ DEFAULT_ROUND_COUNT = 10
 MAX_ROUND_COUNT = 20
 MAX_SINGLE_ROLE_ROUND_COUNT = 50
 SUITE_NAME = "live-task-continuity"
+SYNC_PACKET_MAX_BYTES = 3600
 
 
 @dataclass(frozen=True)
@@ -686,8 +687,14 @@ Expected Workroot capture shape(s): {expected_shapes}
 Expected user-visible asset path(s): {expected_assets}
 
 Protocol behavior:
-1. Start by using `workroot agent sync --format packet` from cwd ".". Do not call top-level `workroot sync`. For recall inside a normal user turn, use sync with `intended_action=inspect`; use `workroot context` only for startup, recovery, or debugging outside the normal turn loop. Every context or sync call must include `--query` with the current user request or a short intent.
-2. Sync with a structured Work Signal: new normal work uses `phase=starting, work_kind=task, intended_action=plan`; returning to an existing task uses `--reason continue` with `work_kind=continuation`; a new temporary inbox uses `--reason before_task_switch` with `phase=switching, work_kind=inbox`; decisions inside active work use `phase=deciding, work_kind=decision, intended_action=decide`.
+1. Start by using `workroot agent sync --format packet` from cwd ".". Do not call top-level `workroot sync`. For recall inside a normal user turn, use sync with `intended_action=inspect`. Use `workroot context` only for startup, recovery, or debugging outside the normal turn loop. Every context or sync call must include `--query` with the current user request or a short intent.
+2. Sync with a structured Work Signal:
+   - Direct answer: work_kind=quick, intended_action=answer. Do not use boundary=separate_work for quick answers.
+   - Continuation, checkpoint, handoff, or continuing an existing inbox: work_kind=continuation. Use intended_action=preserve for checkpoint or handoff; use intended_action=summarize only when summarizing.
+   - Decision inside active work: work_kind=decision, intended_action=decide.
+   - User-visible file for active work: work_kind=authoring, intended_action=preserve.
+   - Separate long-running work: phase=starting, work_kind=task, intended_action=plan, boundary=separate_work.
+   - New loose temporary side thought: phase=switching, work_kind=inbox, intended_action=plan.
 3. Follow the private packet. When it asks for commit, use `workroot agent commit --format packet --shape ... --lease ...` with concise stable facts.
 4. Use `--persistence temporary` only on `workroot agent commit` for inbox or adhoc temporary work. Use `--persistence normal` only on `workroot agent commit` for long-cycle work.
 5. If you create a user-visible file, create it first, then commit `--shape asset` with its relative path.
@@ -717,7 +724,7 @@ User request:
 Private operating rules:
 1. Start by using `workroot agent sync --format packet` from cwd "." with `--query` set to the current user request or a short intent.
 2. If the user's ordinary language clearly implies durable work, temporary side work, continuation, a decision, evidence lookup, or a user-visible file, include a compact `--work-signal` with stable enum fields and keep `focus` in the user's language.
-3. Use `phase=starting, work_kind=task, intended_action=plan` only when the user is starting a new long-running goal.
+3. Use `phase=starting, work_kind=task, intended_action=plan, boundary=separate_work` only when the user is starting a separate new long-running goal.
 4. Use `work_kind=continuation` when continuing the same direction, `phase=switching, work_kind=inbox` for loose temporary side thoughts, `work_kind=decision` for stable choices, and `intended_action=inspect` with `concerns=["needs_evidence"]` for source, proof, or rationale requests.
 5. Follow the private packet. When it asks for commit, use `workroot agent commit --format packet --shape ... --lease ...` with concise stable facts.
 6. If Workroot is unavailable or rejects a write, continue helping the user and mention only the user-facing result.
@@ -806,6 +813,8 @@ def _validate_round(
     failures.extend(_validate_agent_sync_format(command_records or []))
     failures.extend(_validate_context_usage(command_records or []))
     failures.extend(_validate_context_intent(round_script, command_records or []))
+    failures.extend(_validate_unexpected_start_work(round_script, command_records or []))
+    failures.extend(_validate_sync_packet_budget(command_records or []))
     if round_script.expected_shapes and "agent commit" not in commands:
         failures.append(f"expected commit for shapes {round_script.expected_shapes}")
     indexed_assets = {_normalize_relative_path(path) for path in db_summary.get("assetPaths", [])}
@@ -889,6 +898,32 @@ def _validate_context_intent(round_script: LiveRoundScript, command_records: lis
     return ["evidence round sync missing needs_evidence WorkSignal"]
 
 
+def _validate_unexpected_start_work(
+    round_script: LiveRoundScript,
+    command_records: list[dict[str, Any]],
+) -> list[str]:
+    if "start_work" in {_normalize_shape_name(shape) for shape in round_script.expected_shapes}:
+        return []
+    for record in command_records:
+        argv = record.get("argv")
+        if not isinstance(argv, list) or len(argv) < 2 or argv[:2] != ["agent", "commit"]:
+            continue
+        if _normalize_shape_name(_arg_value(argv, "--shape")) == "start_work":
+            return ["unexpected start-work commit in round without expected start_work"]
+    return []
+
+
+def _validate_sync_packet_budget(command_records: list[dict[str, Any]]) -> list[str]:
+    failures: list[str] = []
+    for record in command_records:
+        if not _record_is_agent_sync(record):
+            continue
+        stdout_bytes = int(record.get("stdoutBytes") or 0)
+        if stdout_bytes > SYNC_PACKET_MAX_BYTES:
+            failures.append(f"sync packet exceeded compact byte budget: {stdout_bytes} > {SYNC_PACKET_MAX_BYTES}")
+    return failures
+
+
 def _record_is_context(record: dict[str, Any]) -> bool:
     argv = record.get("argv")
     return isinstance(argv, list) and bool(argv) and argv[0] == "context"
@@ -897,6 +932,10 @@ def _record_is_context(record: dict[str, Any]) -> bool:
 def _record_is_agent_sync(record: dict[str, Any]) -> bool:
     argv = record.get("argv")
     return isinstance(argv, list) and len(argv) >= 2 and argv[:2] == ["agent", "sync"]
+
+
+def _normalize_shape_name(value: object) -> str:
+    return str(value or "").strip().replace("-", "_")
 
 
 def _json_arg(argv: list[object], flag: str) -> dict[str, Any]:

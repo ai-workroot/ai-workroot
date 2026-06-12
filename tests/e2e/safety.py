@@ -21,6 +21,7 @@ OWNED_SENTINEL = ".ai-workroot-owned"
 OWNED_CHILD_DIRS = ("ai-workroot-home", "home", "user-dirs", "reports", "transcripts")
 E2E_OPT_IN_ENV = "AI_WORKROOT_RUN_E2E"
 E2E_OPT_IN_VALUE = "1"
+E2E_RUNNER_ACTIVE_ENV = "AI_WORKROOT_E2E_RUNNER_ACTIVE"
 E2E_OPT_IN_MESSAGE = (
     "E2E tests are opt-in only. Set AI_WORKROOT_RUN_E2E=1 and run python3 -m tests.e2e.runner --suite <suite>."
 )
@@ -41,6 +42,17 @@ def require_e2e_opt_in() -> bool:
         return True
     print(E2E_OPT_IN_MESSAGE, file=sys.stderr)
     return False
+
+
+def e2e_runner_active_enabled() -> bool:
+    return os.environ.get(E2E_RUNNER_ACTIVE_ENV) == E2E_OPT_IN_VALUE
+
+
+def require_e2e_runner_active(testcase: object, suite_name: str) -> None:
+    if e2e_runner_active_enabled():
+        return
+    skip = getattr(testcase, "skipTest")
+    skip(f"{suite_name} E2E must run through tests.e2e.runner")
 
 
 def ensure_not_real_repo_cwd_for_live_e2e(cwd: str | Path, *, source_repo: Path = REPO_ROOT) -> None:

@@ -104,9 +104,9 @@ class CleanCliWorkflowSmokeTest(unittest.TestCase):
                 '{"phase":"starting","work_kind":"task","intended_action":"plan","focus":"Clean Mode"}',
             )
             self.assertEqual(packet_sync.returncode, 0, packet_sync.stderr)
-            self.assertIn('"output": {', packet_sync.stdout)
-            self.assertIn('"default_path": "workroot-output"', packet_sync.stdout)
-            self.assertIn('"asset_path_required": true', packet_sync.stdout)
+            self.assertIn("Output:", packet_sync.stdout)
+            self.assertIn("Default asset path: workroot-output", packet_sync.stdout)
+            self.assertIn("Asset commits must include the final relative path.", packet_sync.stdout)
 
             rule_sync = run_workroot_cli(
                 env,

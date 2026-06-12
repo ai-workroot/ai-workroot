@@ -6,14 +6,18 @@ from pathlib import Path
 
 from tests.e2e.live_agent import READ_ONLY_CONTEXT_SMOKE_COMMAND, run_codex_live_agent
 from tests.e2e.personas import PERSONAS
+from tests.e2e.safety import require_e2e_runner_active
 
 
 class LiveAgentE2ETest(unittest.TestCase):
     def test_codex_client_runs_inside_sandbox_workroot(self) -> None:
+        require_e2e_runner_active(self, "live-agent")
         run_root = os.environ.get("AI_WORKROOT_E2E_RUN_ROOT")
         sandbox_base = os.environ.get("AI_WORKROOT_E2E_SANDBOX_BASE")
         if not run_root or not sandbox_base:
-            self.fail("live-agent E2E must run through tests.e2e.runner")
+            self.skipTest("live-agent E2E requires runner roots")
+        if os.environ.get("AI_WORKROOT_E2E_ALLOW_REMOTE_LLM") != "1":
+            self.skipTest("remote LLM opt-in is required")
 
         result = run_codex_live_agent(run_root=Path(run_root), sandbox_base=Path(sandbox_base))
 

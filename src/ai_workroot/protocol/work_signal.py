@@ -65,6 +65,11 @@ INTENDED_ACTION_ALIASES = {
     "justify": "inspect",
 }
 EVIDENCE_INTENDED_ACTIONS = {"explain", "rationale", "evidence", "source", "proof", "justify"}
+BOUNDARIES = {
+    "continue_current",
+    "separate_work",
+    "uncertain",
+}
 CONCERNS = {
     "needs_evidence",
     "needs_user_decision",
@@ -95,6 +100,7 @@ class WorkSignal:
     phase: str = ""
     work_kind: str = ""
     intended_action: str = ""
+    boundary: str = ""
     focus: str = ""
     concerns: tuple[str, ...] = ()
     refs: tuple[str, ...] = ()
@@ -111,6 +117,7 @@ class WorkSignal:
             phase=_choice(data.get("phase"), PHASES, aliases=PHASE_ALIASES),
             work_kind=_choice(data.get("work_kind"), WORK_KINDS),
             intended_action=_choice(data.get("intended_action"), INTENDED_ACTIONS, aliases=INTENDED_ACTION_ALIASES),
+            boundary=_choice(data.get("boundary"), BOUNDARIES),
             focus=str(data.get("focus") or "").strip(),
             concerns=tuple(concerns),
             refs=_refs(data.get("refs")),
@@ -121,6 +128,7 @@ class WorkSignal:
             "phase": self.phase,
             "work_kind": self.work_kind,
             "intended_action": self.intended_action,
+            "boundary": self.boundary,
             "focus": self.focus,
             "concerns": list(self.concerns),
             "refs": list(self.refs),

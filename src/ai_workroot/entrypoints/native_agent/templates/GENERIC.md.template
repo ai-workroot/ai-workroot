@@ -1,6 +1,6 @@
 <!-- AI_WORKROOT_BEGIN -->
 # AI Workroot Agent Entry
-Start each meaningful user turn with: `workroot agent sync --agent codex --cwd . --query "<current user request>" --format packet`
+Start each meaningful user turn with: `workroot agent sync --agent {{agent}} --cwd . --query "<current user request>" --format packet`
 Optional: add `--work-signal` with stable enum fields when clear; keep `focus` in the user's language.
 Direct answer: work_kind=quick, intended_action=answer. Do not use boundary=separate_work for quick answers.
 Continuation, checkpoint, handoff, or continuing inbox: work_kind=continuation. Use intended_action=preserve for checkpoint or handoff; use intended_action=summarize only when summarizing.

@@ -128,6 +128,20 @@ Rules:
 - Do not add capability models, protocol policy, runtime orchestration, or business services.
 - Prefer the owning capability module when a helper has capability meaning.
 
+## Transaction Ownership
+
+Protocol `commit` is the transaction owner for protocol event projection.
+
+Rules:
+
+- `protocol/controller.py` opens the SQLite connection, records the commit batch, validates events, applies projections, stores the terminal response, and commits or rolls back that protocol exchange as one workflow.
+- `capabilities/composition/projections.py` may write across capability tables because it is the protocol projection coordinator.
+- Protocol projection code must not import capability `operations.py` modules. Those operation modules are user-command helpers and may commit internally.
+- Capability helpers used by projection code must be transaction-neutral or clearly documented as projection-safe.
+- If a capability operation needs to be reused by protocol projection later, extract a transaction-neutral helper first instead of calling the autocommit command helper directly.
+
+This keeps `protocol_events`, Task facts, TaskRun facts, Handoffs, Assets, Decisions, Relationships, runtime views, and state versions aligned under one commit boundary.
+
 ## Protocol Spec Objects Versus Runtime Implementation
 
 `protocol/` contains both protocol spec objects and runtime implementation because both are part of the Workroot Agent Protocol package.

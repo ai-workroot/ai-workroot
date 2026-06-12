@@ -195,6 +195,7 @@ def workroot_contract_from_lease(
     run_ref: Optional[str] = None,
     context_refs: Optional[list[dict[str, Any]]] = None,
     binding: Optional[dict[str, Any]] = None,
+    preferred_shape: str = "",
 ) -> dict[str, Any]:
     lease = lease or {}
     event_kinds = list(allowed_commit_kinds or lease.get("allowed_events") or [])
@@ -231,6 +232,9 @@ def workroot_contract_from_lease(
         "context_refs": list(context_refs or []),
         "recovery_contract": default_recovery(),
     }
+    clean_preferred_shape = _text_or_none(preferred_shape)
+    if clean_preferred_shape and clean_preferred_shape in accepted_shapes:
+        contract["commit_contract"]["preferred_shape"] = clean_preferred_shape
     clean_binding = _binding_contract(binding)
     if clean_binding:
         contract["binding"] = clean_binding

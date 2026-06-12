@@ -454,6 +454,32 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(event["payload"]["task_id"], "task-1")
         self.assertEqual(event["payload"]["run_id"], "run-1")
 
+    def test_decision_shape_accepts_rationale_as_reason_text_alias(self) -> None:
+        with patch("ai_workroot.commands.agent_exchange.controller.commit", return_value={"ok": True}) as commit:
+            output = StringIO()
+            with redirect_stdout(output):
+                rc = main(
+                    [
+                        "agent",
+                        "commit",
+                        "--shape",
+                        "decision",
+                        "--lease",
+                        "lease-decision",
+                        "--decision",
+                        "Choose founder interviews next.",
+                        "--rationale",
+                        "This tests onboarding risk with customer proof.",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(output.getvalue())["ok"], True)
+        event = commit.call_args.args[0]["events"][0]
+        self.assertEqual(event["payload"]["reason"], "This tests onboarding risk with customer proof.")
+
     def test_guidance_format_renders_only_model_guidance(self) -> None:
         rendered = render_agent_response(
             {
@@ -486,8 +512,10 @@ class AgentExchangeCommandTest(unittest.TestCase):
         )
 
         self.assertIn("## Workroot Private Packet", rendered)
-        self.assertIn('"v": "workroot.packet.v1"', rendered)
-        self.assertIn("--shape start-work --lease lease-1", rendered)
+        self.assertIn("--shape start-work", rendered)
+        self.assertIn("--lease lease-1", rendered)
+        self.assertNotIn("```json", rendered)
+        self.assertNotIn('"v": "workroot.packet.v1"', rendered)
         self.assertNotIn("workroot_contract", rendered)
         self.assertNotIn("do-not-render", rendered)
 
@@ -611,6 +639,8 @@ class AgentExchangeCommandTest(unittest.TestCase):
                         "task",
                         "--intended-action",
                         "plan",
+                        "--boundary",
+                        "separate_work",
                         "--focus",
                         "plan asset",
                     ]
@@ -624,6 +654,7 @@ class AgentExchangeCommandTest(unittest.TestCase):
                 "phase": "switching",
                 "work_kind": "task",
                 "intended_action": "plan",
+                "boundary": "separate_work",
                 "focus": "plan asset",
             },
         )
@@ -641,7 +672,7 @@ class AgentExchangeCommandTest(unittest.TestCase):
                         "--reason",
                         "before_task_switch",
                         "--signal",
-                        "phase=switching,work_kind=task,intended_action=plan",
+                        "phase=switching,work_kind=task,intended_action=plan,boundary=separate_work",
                     ]
                 )
 
@@ -649,7 +680,7 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue()), {"ok": True})
         self.assertEqual(
             sync.call_args.kwargs["work_signal"],
-            {"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+            {"phase": "switching", "work_kind": "task", "intended_action": "plan", "boundary": "separate_work"},
         )
 
     def test_sync_cli_accepts_trailing_key_value_work_signal_parts_for_agent_tolerance(self) -> None:
@@ -667,6 +698,7 @@ class AgentExchangeCommandTest(unittest.TestCase):
                         "phase=switching",
                         "work_kind=task",
                         "intended_action=plan",
+                        "boundary=separate_work",
                     ]
                 )
 
@@ -674,7 +706,7 @@ class AgentExchangeCommandTest(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue()), {"ok": True})
         self.assertEqual(
             sync.call_args.kwargs["work_signal"],
-            {"phase": "switching", "work_kind": "task", "intended_action": "plan"},
+            {"phase": "switching", "work_kind": "task", "intended_action": "plan", "boundary": "separate_work"},
         )
 
     def test_sync_cli_accepts_refs_in_work_signal_for_agent_tolerance(self) -> None:
@@ -755,6 +787,47 @@ class AgentExchangeCommandTest(unittest.TestCase):
         request = commit.call_args.args[0]
         self.assertEqual(request["exchange_lease_id"], "")
         self.assertEqual(request["cwd"], "/tmp/workspace")
+
+    def test_checkpoint_shape_recovers_state_next_as_summary_and_records_friction(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "ai-home"
+            user_dir = Path(tmp) / "workspace"
+            user_dir.mkdir()
+            initialize_environment(home)
+            registration = register_workroot(home, workroot_id="wr_demo", name="Demo", user_directory=user_dir)
+
+            with patch.dict(os.environ, {"AI_WORKROOT_HOME": str(home)}):
+                with patch(
+                    "ai_workroot.commands.agent_exchange.controller.commit", return_value={"ok": True}
+                ) as commit:
+                    response = run_commit_shape(
+                        shape="checkpoint",
+                        lease_id="lease-progress",
+                        agent_name="codex",
+                        cwd=user_dir,
+                        request_id="req-checkpoint-recovered",
+                        current_state="Pricing guardrail decision captured.",
+                        next_action="Validate the guardrail with interviews.",
+                    )
+
+            friction_log = Path(registration.state_directory) / "logs/protocol-friction.jsonl"
+            events = [
+                json.loads(line) for line in friction_log.read_text(encoding="utf-8").splitlines() if line.strip()
+            ]
+
+        self.assertEqual(response, {"ok": True})
+        request = commit.call_args.args[0]
+        event = request["events"][0]
+        self.assertEqual(event["kind"], "progress")
+        self.assertEqual(
+            event["payload"]["summary"],
+            "Current state: Pricing guardrail decision captured. Next action: Validate the guardrail with interviews.",
+        )
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["code"], "checkpoint_fields_recovered")
+        self.assertEqual(events[0]["resultStatus"], "recovered")
+        self.assertEqual(events[0]["shape"], "checkpoint")
+        self.assertEqual(events[0]["requestId"], "req-checkpoint-recovered")
 
     def test_run_commit_shape_missing_continuation_fields_returns_protocol_response(self) -> None:
         response = run_commit_shape(

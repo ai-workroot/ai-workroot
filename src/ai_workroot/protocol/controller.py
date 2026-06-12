@@ -25,6 +25,7 @@ from ai_workroot.protocol.focus import FocusResolution, resolve_sync_focus
 from ai_workroot.protocol.lease import create_lease, decide_lease_safety
 from ai_workroot.protocol.location import locate_for_commit
 from ai_workroot.protocol.model import CommitRequest, SyncRequest
+from ai_workroot.protocol.packet import build_private_packet, render_private_packet_markdown
 from ai_workroot.protocol.response import (
     EVENT_KIND_TO_SHAPE,
     empty_workroot_contract,
@@ -39,6 +40,7 @@ from ai_workroot.state.protocol_friction import record_locatable_protocol_fricti
 from ai_workroot.state.registry import find_workroot_by_cwd, list_workroots
 from ai_workroot.state.runtime_views import refresh_runtime_views
 from ai_workroot.state.sqlite import initialize_workroot_sqlite
+from ai_workroot.state.sync_trace import record_sync_packet_trace, sync_packet_trim_counts
 from ai_workroot.state.versions import bump_state_version, now_utc
 
 
@@ -111,7 +113,15 @@ def _sync(
                 policy=focus_resolution.write_policy,
             )
 
-    return _sync_response(workroot, directive_payload, lease, context=context, focus_resolution=focus_resolution)
+    response = _sync_response(workroot, directive_payload, lease, context=context, focus_resolution=focus_resolution)
+    _record_sync_packet_trace_best_effort(
+        response=response,
+        request=request,
+        state_directory=state_directory,
+        workroot_id=workroot["workrootId"],
+        focus_resolution=focus_resolution,
+    )
+    return response
 
 
 def commit(request_data: dict[str, Any], *, ai_workroot_home: Path | str | None = None) -> dict[str, Any]:
@@ -289,6 +299,52 @@ def _refresh_runtime_views_best_effort(*, state_directory: Path, sqlite_path: Pa
         return
 
 
+def _record_sync_packet_trace_best_effort(
+    *,
+    response: dict[str, Any],
+    request: SyncRequest,
+    state_directory: Path,
+    workroot_id: str,
+    focus_resolution: FocusResolution,
+) -> None:
+    try:
+        call = response.get("workroot_contract", {}).get("next_exchange", {})
+        packet = build_private_packet(
+            response,
+            adapter="cli",
+            agent=str(request.agent.get("name") or "agent"),
+            transport=str(request.agent.get("transport") or "cli"),
+        )
+        packet_call = packet.get("call") if isinstance(packet.get("call"), dict) else {}
+        shape = str(packet_call.get("shape") or "")
+        packet_text = render_private_packet_markdown(
+            response,
+            adapter="cli",
+            agent=str(request.agent.get("name") or "agent"),
+            transport=str(request.agent.get("transport") or "cli"),
+        )
+        trimmed_open, trimmed_done = sync_packet_trim_counts(response)
+        record_sync_packet_trace(
+            state_directory=state_directory,
+            workroot_id=workroot_id,
+            request_id=request.request_id,
+            agent=str(request.agent.get("name") or "agent"),
+            transport=str(request.agent.get("transport") or "cli"),
+            focus=str(response.get("workroot_view", {}).get("focus") or ""),
+            confidence=str(response.get("workroot_view", {}).get("confidence") or ""),
+            action=str(call.get("action") or ""),
+            shape=shape,
+            packet_bytes=len(packet_text.encode("utf-8")),
+            task_bound=bool(focus_resolution.task_id),
+            run_bound=bool(focus_resolution.run_id),
+            compact=True,
+            trimmed_open_items=trimmed_open,
+            trimmed_done_items=trimmed_done,
+        )
+    except Exception:
+        return
+
+
 def _user_directory_from_record(workroot: dict[str, str]) -> Path | None:
     value = workroot.get("userDirectory")
     if not value:
@@ -388,8 +444,8 @@ def _apply_commit_batch(
     batch_id: str,
     received_at: str,
 ) -> dict[str, Any]:
-    events, invalid_events = _validate_commit_events(request.events, received_at=received_at)
-    if invalid_events or len(events) != len(request.events):
+    events, invalid_events, invalid_items = _validate_commit_events(request.raw_events, received_at=received_at)
+    if invalid_items:
         for event in invalid_events:
             _append_protocol_event(
                 conn,
@@ -402,6 +458,16 @@ def _apply_commit_batch(
                 received_at=received_at,
                 status=EVENT_QUARANTINED,
             )
+        _record_commit_rejection_friction(
+            state_directory=state_directory,
+            workroot_id=workroot_id,
+            request=request,
+            events=request.raw_events,
+            stage="validation",
+            code="invalid_event_schema",
+            result_status="quarantined",
+            details={"invalid_events": invalid_items},
+        )
         return _commit_response(
             status="quarantined",
             recorded=True,
@@ -409,7 +475,8 @@ def _apply_commit_batch(
             accepted=False,
             directive_type="not_recorded",
             directive_next_action="Continue helping the user. Sync before retrying durable Workroot persistence.",
-            warnings=[],
+            warnings=["invalid_event_schema"],
+            invalid_events=invalid_items,
             state_directory=state_directory,
         )
 
@@ -630,20 +697,44 @@ def _apply_commit_batch(
 
 
 def _validate_commit_events(
-    raw_events: list[dict[str, Any]],
+    raw_events: list[Any],
     *,
     received_at: str,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     events: list[dict[str, Any]] = []
     invalid_events: list[dict[str, Any]] = []
-    for raw_event in raw_events:
+    invalid_items: list[dict[str, Any]] = []
+    for index, raw_event in enumerate(raw_events):
+        if not isinstance(raw_event, dict):
+            invalid_items.append(_invalid_event_item(index, raw_event, reason="event item must be an object"))
+            continue
         if not minimally_identifiable(raw_event):
+            invalid_items.append(
+                _invalid_event_item(index, raw_event, reason="event item is not minimally identifiable")
+            )
             continue
         try:
             events.append(validate_event_envelope(raw_event))
-        except ProtocolError:
+        except ProtocolError as exc:
             invalid_events.append(safe_event_for_storage(raw_event, occurred_at=received_at))
-    return events, invalid_events
+            invalid_items.append(_invalid_event_item(index, raw_event, reason=exc.code))
+    return events, invalid_events, invalid_items
+
+
+def _invalid_event_item(index: int, item: Any, *, reason: str) -> dict[str, Any]:
+    detail = {
+        "index": index,
+        "reason": reason,
+        "item_type": type(item).__name__,
+    }
+    if isinstance(item, dict):
+        event_id = str(item.get("event_id") or "").strip()
+        kind = str(item.get("kind") or "").strip()
+        if event_id:
+            detail["event_id"] = event_id
+        if kind:
+            detail["kind"] = kind
+    return detail
 
 
 def _record_commit_rejection_friction(
@@ -651,7 +742,7 @@ def _record_commit_rejection_friction(
     state_directory: Path,
     workroot_id: str,
     request: CommitRequest,
-    events: list[dict[str, Any]],
+    events: list[Any],
     stage: str,
     code: str,
     result_status: str,
@@ -673,7 +764,7 @@ def _record_commit_rejection_friction(
     )
 
 
-def _shape_for_events(events: list[dict[str, Any]]) -> str:
+def _shape_for_events(events: list[Any]) -> str:
     shapes = {EVENT_KIND_TO_SHAPE.get(str(event.get("kind") or ""), "") for event in events if isinstance(event, dict)}
     shapes.discard("")
     if len(shapes) == 1:
@@ -699,6 +790,7 @@ def _commit_response(
     allowed_events: Optional[list[str]] = None,
     required_before_stop: Optional[list[str]] = None,
     error: Optional[dict[str, Any]] = None,
+    invalid_events: Optional[list[dict[str, Any]]] = None,
     state_directory: Optional[Path] = None,
 ) -> dict[str, Any]:
     if not accepted and status in {"rejected", "resync_required", "quarantined"}:
@@ -735,6 +827,15 @@ def _commit_response(
         output_rules=_compact_output_rules_from_state_directory(state_directory),
         warnings=warnings,
     )
+    result = result_payload(
+        recorded=recorded,
+        projected=projected,
+        accepted=accepted,
+        status=status,
+        warnings=warnings,
+    )
+    if invalid_events:
+        result["invalid_events"] = list(invalid_events)
     payload = semantic_response(
         ok=error is None,
         agent_may_continue=True,
@@ -748,13 +849,7 @@ def _commit_response(
         ),
         workroot_contract=contract,
         workroot_view=view,
-        result=result_payload(
-            recorded=recorded,
-            projected=projected,
-            accepted=accepted,
-            status=status,
-            warnings=warnings,
-        ),
+        result=result,
         error=error,
     )
     return payload
@@ -843,7 +938,11 @@ def _store_terminal_batch_response(
     completed_at: str,
 ) -> None:
     status = str((response.get("result") or {}).get("status") or "rejected")
-    error_json = canonical_json(response.get("error")) if response.get("error") else None
+    result = response.get("result") if isinstance(response.get("result"), dict) else {}
+    error_payload = response.get("error") or (
+        {"invalid_events": result.get("invalid_events")} if result.get("invalid_events") else None
+    )
+    error_json = canonical_json(error_payload) if error_payload else None
     conn.execute(
         """
         UPDATE protocol_commit_batches
@@ -1005,6 +1104,7 @@ def _sync_response(
         run_ref=focus_resolution.run_id,
         context_refs=_sync_context_refs(context=context, focus_resolution=focus_resolution),
         binding=_binding_from_focus(focus_resolution),
+        preferred_shape=focus_resolution.preferred_shape,
     )
     return semantic_response(
         ok=True,

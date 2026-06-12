@@ -4,11 +4,14 @@ import tempfile
 import unittest
 from pathlib import Path
 import os
+import subprocess
 
-from tests.e2e.harness import REPO_ROOT, env_for
+from tests.e2e import harness
+from tests.e2e.harness import REPO_ROOT, env_for, run_cli
 from tests.e2e.personas import Persona
 from tests.e2e.harness import validate_user_directory
 from tests.e2e.safety import (
+    E2E_RUNNER_ACTIVE_ENV,
     classify_shell_command,
     default_sandbox_base,
     ensure_not_real_repo_cwd_for_live_e2e,
@@ -114,6 +117,47 @@ class E2ESafetyTest(unittest.TestCase):
 
             self.assertEqual(env["AI_WORKROOT_HOME"], str(run_root / "ai-workroot-home"))
             self.assertEqual(env["HOME"], str(run_root / "home"))
+
+    def test_run_cli_records_timeout_result_without_hanging(self) -> None:
+        original_run = harness.subprocess.run
+
+        def fake_run(*args: object, **kwargs: object) -> object:
+            raise subprocess.TimeoutExpired(cmd=("python", "-m", "ai_workroot"), timeout=0.01, output="partial")
+
+        harness.subprocess.run = fake_run
+        self.addCleanup(setattr, harness.subprocess, "run", original_run)
+
+        result = run_cli(("status",), env={}, timeout_seconds=0.01)
+
+        self.assertTrue(result.timed_out)
+        self.assertGreaterEqual(result.elapsed_ms, 0)
+        self.assertEqual(result.returncode, 124)
+        self.assertIn("partial", result.stdout)
+        self.assertTrue(result.as_dict()["timed_out"])
+
+    def test_persona_smoke_case_skips_without_explicit_runner_marker(self) -> None:
+        previous_marker = os.environ.pop(E2E_RUNNER_ACTIVE_ENV, None)
+        previous_run_root = os.environ.pop("AI_WORKROOT_E2E_RUN_ROOT", None)
+        previous_sandbox = os.environ.pop("AI_WORKROOT_E2E_SANDBOX_BASE", None)
+        try:
+            suite = unittest.defaultTestLoader.loadTestsFromName(
+                "tests.e2e.persona_smoke_cases.PersonaSmokeE2ETest."
+                "test_persona_smoke_creates_five_level2_workroots_and_reports_success"
+            )
+            result = unittest.TestResult()
+
+            suite.run(result)
+
+            self.assertEqual(len(result.skipped), 1)
+            self.assertEqual(result.failures, [])
+            self.assertEqual(result.errors, [])
+        finally:
+            if previous_marker is not None:
+                os.environ[E2E_RUNNER_ACTIVE_ENV] = previous_marker
+            if previous_run_root is not None:
+                os.environ["AI_WORKROOT_E2E_RUN_ROOT"] = previous_run_root
+            if previous_sandbox is not None:
+                os.environ["AI_WORKROOT_E2E_SANDBOX_BASE"] = previous_sandbox
 
     def test_user_directory_validation_allows_preexisting_user_owned_state_like_names(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

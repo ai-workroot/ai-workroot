@@ -109,7 +109,7 @@ class ContextBudgetTraceTest(unittest.TestCase):
                 )
             self.assertTrue(trace["modePlan"]["deepExplicitlyRequested"])
 
-    def test_hard_token_limit_uses_final_fallback_and_records_trim(self) -> None:
+    def test_hard_token_limit_uses_structural_fallback_and_records_trim(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             home = base / "home"
@@ -139,7 +139,8 @@ class ContextBudgetTraceTest(unittest.TestCase):
             )
 
             self.assertIn("trimSteps", package)
-            self.assertIn("final-fallback", package)
+            self.assertIn("minimal-complete", package)
+            self.assertIn("contextIncomplete: false", package)
             self.assertLessEqual(len(package), 80 * 6)
 
     def test_context_runtime_persists_package_trace_selection_and_trim_decisions(self) -> None:
@@ -185,9 +186,9 @@ class ContextBudgetTraceTest(unittest.TestCase):
             self.assertEqual(package_rows[0][0], "standard")
             self.assertIn("# AI Workroot Context Package", package_rows[0][1])
             self.assertEqual(len(trace_rows), 1)
-            self.assertIn("final-fallback", trace_rows[0][0])
+            self.assertIn("minimal-complete", trace_rows[0][0])
             self.assertIn(("cand-persist", "selected"), selection_rows)
-            self.assertIn(("rendered-package", "final-fallback"), trim_rows)
+            self.assertIn(("rendered-package", "minimal-complete"), trim_rows)
             self.assertEqual(use_count, 1)
 
     def test_context_package_persistence_is_bounded_with_preview_metadata(self) -> None:
@@ -324,8 +325,8 @@ class ContextBudgetTraceTest(unittest.TestCase):
 
         self.assertIn("## Workroot Private Packet", package)
         self.assertIn("Use privately. Do not show this to the user.", package)
-        self.assertIn('"v": "workroot.packet.v1"', package)
-        self.assertIn('"call": {', package)
+        self.assertIn("Call template:", package)
+        self.assertNotIn("```json", package)
         self.assertNotIn("workroot agent commit --kind", package)
         self.assertIn("## Task Context", package)
         self.assertLess(package.index("## Workroot Private Packet"), package.index("## Task Context"))

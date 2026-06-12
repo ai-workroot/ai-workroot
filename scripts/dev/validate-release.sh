@@ -78,11 +78,22 @@ run_ruff() {
   fi
 }
 
+run_protocol_context_smoke() {
+  PYTHONPATH="$PROJECT_ROOT/src${PYTHONPATH:+:${PYTHONPATH}}" python3 -m unittest \
+    tests.unit.test_protocol_commit_reliability_v2 \
+    tests.unit.test_protocol_packet \
+    tests.integration.test_environment_storage \
+    tests.unit.test_protocol_sync_focus_v2 \
+    tests.unit.test_context_wrapper_v2 \
+    tests.e2e.safety_cases
+}
+
 check_active_source_ascii
 check_active_source_fixture_leakage
 python3 -m py_compile $(find src scripts -name "*.py")
 run_ruff format --check src scripts tests
 run_ruff check src scripts tests
+run_protocol_context_smoke
 bash -n install/unix/install.sh scripts/dev/bootstrap-dev.sh scripts/dev/export-review-zip.sh scripts/dev/validate-release.sh
 PYTHONPATH="$PROJECT_ROOT/src${PYTHONPATH:+:${PYTHONPATH}}" python3 -m ai_workroot doctor --release
 git diff --check

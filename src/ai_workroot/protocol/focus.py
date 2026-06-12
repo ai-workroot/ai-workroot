@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
 import sqlite3
 from typing import Any, Optional
@@ -82,6 +82,7 @@ class FocusResolution:
     candidate_refs: tuple[dict[str, str], ...] = ()
     ask_user_when: tuple[str, ...] = ()
     write_policy: Optional[dict[str, str]] = None
+    preferred_shape: str = ""
 
 
 @dataclass(frozen=True)
@@ -134,6 +135,20 @@ def resolve_sync_focus(conn: sqlite3.Connection, *, workroot_id: str, request: S
             required_before_stop=[],
         )
 
+    if _false_separate_work_direct_answer(query=query, signal=signal):
+        return FocusResolution(
+            kind="quick",
+            confidence="low",
+            summary=query,
+            why="question-shaped request conflicts with separate-work signal",
+            directive_type="answer_without_persistence",
+            directive_goal="Answer directly without creating persistent Workroot facts.",
+            directive_next_action="Answer the user. If the discussion becomes durable work, call sync again.",
+            durable_commit_allowed=False,
+            allowed_events=[],
+            required_before_stop=[],
+        )
+
     if _is_explicit_new_work(signal, query=query):
         if _looks_like_handoff_request(query=query, signal=signal):
             resolution = _resolve_handoff_continuation(conn, workroot_id=workroot_id, request=request)
@@ -162,12 +177,21 @@ def resolve_sync_focus(conn: sqlite3.Connection, *, workroot_id: str, request: S
             resolution = _resolve_continuation(conn, workroot_id=workroot_id, request=request)
             if resolution is not None:
                 return resolution
+        protected_current = _protected_single_current_owner(
+            conn,
+            workroot_id=workroot_id,
+            query=query,
+            signal=signal,
+        )
+        if protected_current is not None:
+            return _continuation_resolution(protected_current, confidence="medium")
         declares_new_boundary = _declares_new_task_boundary(query=query, signal=signal)
-        if _looks_like_asset_request(query=query, signal=signal):
+        explicit_new_work = _looks_like_explicit_new_work_request(query=query, signal=signal)
+        if not explicit_new_work and _looks_like_asset_request(query=query, signal=signal):
             resolution = _resolve_asset_continuation(conn, workroot_id=workroot_id, request=request)
             if resolution is not None:
                 return resolution
-        if _looks_like_decision_request(query=query, signal=signal):
+        if not explicit_new_work and _looks_like_decision_request(query=query, signal=signal):
             resolution = _resolve_decision_continuation(conn, workroot_id=workroot_id, request=request)
             if resolution is not None:
                 return resolution
@@ -353,14 +377,20 @@ def _resolve_decision_continuation(
 ) -> FocusResolution | None:
     resolution = _resolve_continuation(conn, workroot_id=workroot_id, request=request)
     if resolution is None:
-        return _workroot_capture_resolution(request.query, allowed_events=["decision"])
+        return _prefer_shape(_workroot_capture_resolution(request.query, allowed_events=["decision"]), "decision")
     if resolution.kind != "ambiguous":
-        return resolution
+        return _prefer_shape(resolution, "decision")
     candidates = _focus_candidates(conn, workroot_id, query=request.query, signal=request.work_signal or {})
     candidate = _clear_top_candidate(candidates, min_gap=10)
     if candidate is None:
         return resolution
-    return _continuation_resolution(candidate, confidence="medium")
+    return _prefer_shape(_continuation_resolution(candidate, confidence="medium"), "decision")
+
+
+def _prefer_shape(resolution: FocusResolution, shape: str) -> FocusResolution:
+    if shape not in {"asset", "decision", "checkpoint", "continuation", "start_work", "state_update"}:
+        return resolution
+    return replace(resolution, preferred_shape=shape)
 
 
 def _resolve_handoff_continuation(
@@ -375,6 +405,55 @@ def _resolve_handoff_continuation(
     if resolution.kind != "ambiguous":
         return resolution
     return resolution
+
+
+def _protected_single_current_owner(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    query: str,
+    signal: dict[str, Any],
+) -> FocusCandidate | None:
+    if _signal_boundary(signal) != "separate_work":
+        return None
+    if signal.get("work_kind") == "inbox":
+        return None
+    if _looks_like_explicit_new_work_request(query=query, signal=signal):
+        return None
+    if not _looks_like_current_work_fact(query=query, signal=signal):
+        return None
+    return _single_active_role_candidate(conn, workroot_id=workroot_id, role="normal")
+
+
+def _looks_like_explicit_new_work_request(*, query: str, signal: dict[str, Any]) -> bool:
+    if _signal_boundary(signal) != "separate_work":
+        return False
+    work_kind = signal.get("work_kind")
+    if work_kind not in STARTABLE_DURABLE_WORK_KINDS:
+        return False
+    if signal.get("phase") not in {"starting", "switching"}:
+        return False
+    if signal.get("intended_action") not in DURABLE_INTENDED_ACTIONS:
+        return False
+    if work_kind != "task":
+        return True
+    tokens = _semantic_tokens(f"{query} {signal.get('focus') or ''}".lower())
+    start_terms = {"start", "begin", "create", "open", "launch", "initiate", "new"}
+    boundary_terms = {"separate", "independent", "separately"}
+    work_terms = {"task", "work", "project", "thread", "stream", "initiative", "investigation"}
+    return bool(tokens & start_terms) and bool(tokens & boundary_terms) and bool(tokens & work_terms)
+
+
+def _looks_like_current_work_fact(*, query: str, signal: dict[str, Any]) -> bool:
+    if _looks_like_decision_request(query=query, signal=signal):
+        return True
+    if _looks_like_asset_request(query=query, signal=signal):
+        return True
+    if _looks_like_handoff_request(query=query, signal=signal):
+        return True
+    if signal.get("intended_action") in {"preserve", "summarize", "review", "test"}:
+        return True
+    return _query_has_any(query, {"checkpoint", "progress", "handoff"})
 
 
 def _unbound_continuation_resolution(query: str) -> FocusResolution:
@@ -1051,6 +1130,13 @@ def _query_focus_boost(
             score += 10
         elif token in summary_tokens:
             score += 4
+    score += _unicode_similarity_focus_boost(
+        focus_text=focus_text,
+        title=title,
+        summary=summary,
+        goal=goal,
+        input_summary=input_summary,
+    )
     return min(score, 45) + min(qualifier_score, 100)
 
 
@@ -1093,6 +1179,61 @@ def _semantic_token_sequence(value: str) -> list[str]:
 
 def _semantic_tokens(value: str) -> set[str]:
     return set(_semantic_token_sequence(value))
+
+
+def _unicode_similarity_focus_boost(
+    *,
+    focus_text: str,
+    title: str,
+    summary: str,
+    goal: str,
+    input_summary: str,
+) -> int:
+    if not _has_non_ascii_alnum(focus_text):
+        return 0
+    focus_units = _similarity_units(focus_text)
+    if len(focus_units) < 2:
+        return 0
+    identity_similarity = max(
+        _overlap_similarity(focus_units, _similarity_units(title)),
+        _overlap_similarity(focus_units, _similarity_units(goal)),
+        _overlap_similarity(focus_units, _similarity_units(input_summary)),
+    )
+    summary_similarity = _overlap_similarity(focus_units, _similarity_units(summary))
+    if identity_similarity >= 0.35:
+        return 36
+    if identity_similarity >= 0.22:
+        return 24
+    if summary_similarity >= 0.28:
+        return 30
+    if summary_similarity >= 0.18:
+        return 18
+    return 0
+
+
+def _similarity_units(value: str) -> set[str]:
+    return _unicode_char_ngrams(value)
+
+
+def _has_non_ascii_alnum(value: str) -> bool:
+    return any(ord(char) >= 128 and char.isalnum() for char in value)
+
+
+def _overlap_similarity(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    return len(left & right) / min(len(left), len(right))
+
+
+def _unicode_char_ngrams(value: str) -> set[str]:
+    chars = [char.lower() for char in value if ord(char) >= 128 and char.isalnum()]
+    grams: set[str] = set()
+    for size in (2, 3, 4):
+        if len(chars) < size:
+            continue
+        for index in range(0, len(chars) - size + 1):
+            grams.add("".join(chars[index : index + size]))
+    return grams
 
 
 def _add_candidate(candidates: dict[tuple[str, str], FocusCandidate], candidate: FocusCandidate) -> None:
@@ -1230,8 +1371,7 @@ def _write_policy_for_signal(signal: dict[str, Any]) -> Optional[dict[str, str]]
 
 
 def _forces_new_root(signal: dict[str, Any]) -> bool:
-    concerns = _signal_concerns(signal)
-    return bool(concerns & {"new_root", "separate_root", "new_task_boundary"})
+    return _signal_boundary(signal) == "separate_work"
 
 
 def _is_quick(query: str, signal: dict[str, Any], reason: str) -> bool:
@@ -1258,7 +1398,18 @@ def _is_guarded(signal: dict[str, Any], reason: str) -> bool:
 
 
 def _is_explicit_new_work(signal: dict[str, Any], *, query: str) -> bool:
+    boundary = _signal_boundary(signal)
+    if boundary == "uncertain":
+        return False
     if signal.get("phase") == "switching" and signal.get("work_kind") == "inbox":
+        if _looks_like_existing_inbox_continuation(query=query, signal=signal):
+            return False
+        return True
+    if (
+        boundary == "separate_work"
+        and signal.get("work_kind") in STARTABLE_DURABLE_WORK_KINDS
+        and signal.get("intended_action") in DURABLE_INTENDED_ACTIONS
+    ):
         return True
     if (
         signal.get("phase") == "starting"
@@ -1285,11 +1436,13 @@ def _has_explicit_relative_file_path(query: str) -> bool:
 
 
 def _looks_like_handoff_request(*, query: str, signal: dict[str, Any]) -> bool:
-    return _signal_has_ref(signal, {"handoff"})
+    return _signal_has_ref(signal, {"handoff"}) or _query_has_any(query, {"handoff"})
 
 
 def _looks_like_decision_request(*, query: str, signal: dict[str, Any]) -> bool:
     if signal.get("work_kind") == "decision" or signal.get("intended_action") == "decide":
+        return True
+    if _query_has_any(query, {"decision", "decide", "decided", "deciding", "choice", "choose"}):
         return True
     return signal.get("intended_action") == "preserve" and _signal_has_ref(signal, {"decision"})
 
@@ -1326,6 +1479,41 @@ def _signal_concerns(signal: dict[str, Any]) -> set[str]:
     if not isinstance(concerns, list):
         return set()
     return {str(concern or "") for concern in concerns}
+
+
+def _signal_boundary(signal: dict[str, Any]) -> str:
+    return str(signal.get("boundary") or "").strip()
+
+
+def _query_has_any(query: str, markers: set[str]) -> bool:
+    tokens = _semantic_tokens(query.lower())
+    return bool(tokens & markers)
+
+
+def _looks_like_existing_inbox_continuation(*, query: str, signal: dict[str, Any]) -> bool:
+    if signal.get("work_kind") != "inbox":
+        return False
+    text = f"{query} {signal.get('focus') or ''}".lower()
+    tokens = _semantic_tokens(text)
+    if tokens & {"continue", "resume"}:
+        return bool(tokens & {"inbox", "thread"})
+    if tokens & {"checkpoint", "preserve"}:
+        return bool(tokens & {"current", "existing", "thread"})
+    return False
+
+
+def _false_separate_work_direct_answer(*, query: str, signal: dict[str, Any]) -> bool:
+    if _signal_boundary(signal) != "separate_work":
+        return False
+    if _looks_like_explicit_new_work_request(query=query, signal=signal):
+        return False
+    if _looks_like_current_work_fact(query=query, signal=signal):
+        return False
+    if signal.get("work_kind") == "inbox":
+        return False
+    if "?" in query or "\uff1f" in query:
+        return True
+    return False
 
 
 def _clean(value: object) -> Optional[str]:

@@ -17,7 +17,10 @@ For the current accepted architecture and protocol line, read:
 6. `043-continuity-owner-and-evidence-hardening.spec.md`
 7. `044-sqlite-schema-migrations.spec.md`
 8. `045-sync-owner-binding-and-lease-guard.spec.md`
-9. `docs/releases/0.9.531.md`
+9. `046-protocol-context-hardening-followup.spec.md`
+10. `047-compact-packet-focus-guard-sync-trace.spec.md`
+11. `048-model-first-protocol-teaching-and-owner-recovery.spec.md`
+12. `docs/releases/0.9.531.md`
 
 ## Current Specs
 
@@ -48,6 +51,9 @@ Workroot implementation line:
 - `043-continuity-owner-and-evidence-hardening.spec.md`
 - `044-sqlite-schema-migrations.spec.md`
 - `045-sync-owner-binding-and-lease-guard.spec.md`
+- `046-protocol-context-hardening-followup.spec.md`
+- `047-compact-packet-focus-guard-sync-trace.spec.md`
+- `048-model-first-protocol-teaching-and-owner-recovery.spec.md`
 
 When an older spec conflicts with the current architecture docs or Spec 042,
 the newer current document wins.

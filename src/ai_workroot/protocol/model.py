@@ -75,6 +75,7 @@ class CommitRequest:
     workroot_id: Optional[str]
     idempotency_key: str
     atomic_batch: bool
+    raw_events: list[Any]
     events: list[dict[str, Any]]
 
     @classmethod
@@ -93,5 +94,6 @@ class CommitRequest:
             workroot_id=data.get("workroot_id"),
             idempotency_key=data["idempotency_key"],
             atomic_batch=data.get("atomic_batch") is not False,
+            raw_events=list(events),
             events=[event for event in events if isinstance(event, dict)],
         )

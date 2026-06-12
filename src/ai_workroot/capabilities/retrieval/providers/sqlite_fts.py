@@ -32,7 +32,6 @@ def index_file_chunk(
     source_type: str = "asset",
     source_id: str = "",
 ) -> None:
-    _ensure_indexed_file_source_columns(conn)
     resolved_source_id = source_id or relative_path
     conn.execute(
         """
@@ -59,7 +58,6 @@ def index_file_chunk(
     )
     conn.execute("DELETE FROM indexed_chunks_fts WHERE chunk_id = ?", (chunk_id,))
     conn.execute("INSERT INTO indexed_chunks_fts (chunk_id, body) VALUES (?, ?)", (chunk_id, body))
-    conn.commit()
 
 
 def search_fts(
@@ -67,11 +65,11 @@ def search_fts(
 ) -> tuple[list[FtsMatch], str | None]:
     if not query.strip():
         return [], None
-    if _contains_cjk(query):
+    if _needs_fallback_scan(query):
         return _fallback_scan(conn, workroot_id, query, limit=limit), None
     compiled_query = _compile_match_query(query)
     if not compiled_query:
-        return [], "no_safe_fts_query"
+        return _fallback_scan(conn, workroot_id, query, limit=limit), None
     try:
         rows = _fetch_rows(
             conn,
@@ -148,15 +146,23 @@ def compile_safe_fts_query(query: str) -> str:
 
 def text_term_score(text: str, query: str) -> int:
     haystack = (text or "").lower()
-    return sum(1 for term in _fallback_terms(query) if term in haystack)
+    return sum(1 for term in fallback_text_terms(query) if term in haystack)
 
 
-def _ensure_indexed_file_source_columns(conn: sqlite3.Connection) -> None:
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(indexed_files)").fetchall()}
-    for name in ("source_type", "source_id"):
-        if name not in columns:
-            conn.execute(f"ALTER TABLE indexed_files ADD COLUMN {name} TEXT")
-    conn.commit()
+def fallback_text_terms(query: str, *, max_terms: int = 24) -> tuple[str, ...]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for term in _ascii_terms(query):
+        if term not in seen:
+            terms.append(term)
+            seen.add(term)
+    for term in _unicode_ngrams(query):
+        if term not in seen:
+            terms.append(term)
+            seen.add(term)
+        if len(terms) >= max_terms:
+            break
+    return tuple(terms)
 
 
 def _source_refs(conn: sqlite3.Connection, workroot_id: str, refs: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
@@ -224,7 +230,7 @@ def _ascii_terms(query: str) -> list[str]:
 
 
 def _fallback_scan(conn: sqlite3.Connection, workroot_id: str, query: str, *, limit: int) -> list[FtsMatch]:
-    terms = _fallback_terms(query)
+    terms = fallback_text_terms(query)
     if not terms:
         return []
     scored: list[tuple[int, sqlite3.Row]] = []
@@ -265,45 +271,29 @@ def _fallback_scan(conn: sqlite3.Connection, workroot_id: str, query: str, *, li
     ]
 
 
-def _fallback_terms(query: str) -> tuple[str, ...]:
-    terms: list[str] = []
-    seen: set[str] = set()
-    for term in _ascii_terms(query):
-        if term not in seen:
-            terms.append(term)
-            seen.add(term)
-    for term in _cjk_ngrams(query):
-        if term not in seen:
-            terms.append(term)
-            seen.add(term)
-        if len(terms) >= 24:
-            break
-    return tuple(terms)
+def _needs_fallback_scan(value: str) -> bool:
+    return bool(_unicode_ngrams(value))
 
 
-def _contains_cjk(value: str) -> bool:
-    return any(_is_cjk_char(char) for char in value)
-
-
-def _cjk_ngrams(value: str) -> list[str]:
-    chars = [char for char in value if _is_cjk_char(char)]
-    grams: list[str] = []
-    for size in (4, 3, 2):
-        if len(chars) < size:
+def _unicode_ngrams(value: str) -> list[str]:
+    runs: list[list[str]] = []
+    current: list[str] = []
+    for char in value:
+        if ord(char) >= 128 and char.isalnum():
+            current.append(char.lower())
             continue
-        for index in range(0, len(chars) - size + 1):
-            grams.append("".join(chars[index : index + size]))
-            if len(grams) >= 20:
-                return grams
+        if current:
+            runs.append(current)
+            current = []
+    if current:
+        runs.append(current)
+    grams: list[str] = []
+    for chars in runs:
+        for size in (4, 3, 2):
+            if len(chars) < size:
+                continue
+            for index in range(0, len(chars) - size + 1):
+                grams.append("".join(chars[index : index + size]))
+                if len(grams) >= 20:
+                    return grams
     return grams
-
-
-def _is_cjk_char(char: str) -> bool:
-    code = ord(char)
-    return (
-        0x3400 <= code <= 0x4DBF
-        or 0x4E00 <= code <= 0x9FFF
-        or 0xF900 <= code <= 0xFAFF
-        or 0x3040 <= code <= 0x30FF
-        or 0xAC00 <= code <= 0xD7AF
-    )

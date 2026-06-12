@@ -91,6 +91,7 @@ Fields:
 phase
 work_kind
 intended_action
+boundary
 focus
 concerns
 refs
@@ -101,6 +102,7 @@ Rules:
 - `focus` stays in the user's language.
 - Other semantic fields use stable enum values.
 - `refs` may carry Workroot refs returned by earlier context.
+- `boundary` may carry `continue_current`, `separate_work`, or `uncertain`.
 - Invalid or unknown values are dropped or downgraded without blocking.
 - Workroot must not use multilingual keyword dictionaries as the durable
   control mechanism.
@@ -140,7 +142,7 @@ referenced inbox instead.
 New durable work has one explicit boundary rule:
 
 ```text
-phase=starting + startable durable work_kind + durable intended_action
+phase=starting + startable durable work_kind + durable intended_action + boundary=separate_work
 ```
 
 Startable durable work kinds include goal-bearing work such as `task`,
@@ -150,9 +152,10 @@ Startable durable work kinds include goal-bearing work such as `task`,
 known state, refs, lease/state focus, or bounded matching; if no reliable owner
 is found, Workroot returns a non-blocking focus-refinement sync contract.
 
-`phase=planning` or `phase=switching + work_kind=task` is not enough to create
-a new root task. Without a reliable owner, Workroot returns a non-blocking
-focus-refinement sync contract instead of creating a task fact.
+`phase=starting` without `boundary=separate_work`, `phase=planning`, or
+`phase=switching + work_kind=task` is not enough to create a new root task when
+a reliable owner can be selected. Without a reliable owner, Workroot returns a
+non-blocking focus-refinement sync contract instead of creating a task fact.
 
 Evidence-oriented user intent is represented by stable semantics, not by
 matching the user's language. The Agent/LLM may use any language to understand

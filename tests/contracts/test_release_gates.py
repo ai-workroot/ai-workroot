@@ -79,6 +79,20 @@ class ReleaseGates0529Test(unittest.TestCase):
         self.assertIn("DEFAULT_TARGET_TOKENS", context_source)
         self.assertIn("DEFAULT_HARD_TOKEN_LIMIT", context_source)
 
+    def test_protocol_context_hotfix_smoke_suites_are_release_checked(self) -> None:
+        validate_release = (ROOT / "scripts/dev/validate-release.sh").read_text(encoding="utf-8")
+
+        for suite in (
+            "tests.unit.test_protocol_commit_reliability_v2",
+            "tests.unit.test_protocol_packet",
+            "tests.integration.test_environment_storage",
+            "tests.unit.test_protocol_sync_focus_v2",
+            "tests.unit.test_context_wrapper_v2",
+            "tests.e2e.safety_cases",
+        ):
+            with self.subTest(suite=suite):
+                self.assertIn(suite, validate_release)
+
 
 if __name__ == "__main__":
     unittest.main()

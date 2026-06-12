@@ -7,7 +7,7 @@ import os
 import unittest
 from pathlib import Path
 
-from tests.e2e.safety import default_sandbox_base, new_default_run_root, require_e2e_opt_in
+from tests.e2e.safety import E2E_RUNNER_ACTIVE_ENV, default_sandbox_base, new_default_run_root, require_e2e_opt_in
 
 
 SUITES = {
@@ -85,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
 
     os.environ["AI_WORKROOT_E2E_RUN_ROOT"] = str(run_root)
     os.environ["AI_WORKROOT_E2E_SANDBOX_BASE"] = str(sandbox_base)
+    os.environ[E2E_RUNNER_ACTIVE_ENV] = "1"
     if args.rounds is not None:
         os.environ["AI_WORKROOT_E2E_LIVE_TASK_ROUNDS"] = str(args.rounds)
     if args.role:

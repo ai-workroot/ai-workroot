@@ -27,7 +27,7 @@ def semantic_commit_request(request_data: dict[str, Any], *, workroot_id: str) -
         "workroot_id": workroot_id,
         "exchange_lease_id": request_data.get("exchange_lease_id") or "",
         "atomic_batch": request_data.get("atomic_batch") is not False,
-        "events": [_semantic_event(event) for event in request_data.get("events") or [] if isinstance(event, dict)],
+        "events": [_semantic_event_item(index, event) for index, event in enumerate(request_data.get("events") or [])],
     }
 
 
@@ -60,4 +60,15 @@ def _semantic_event(event: dict[str, Any]) -> dict[str, Any]:
         "payload": event.get("payload") if isinstance(event.get("payload"), dict) else {},
         "evidence": event.get("evidence") if isinstance(event.get("evidence"), list) else [],
         "confirmation": event.get("confirmation") if isinstance(event.get("confirmation"), dict) else {},
+    }
+
+
+def _semantic_event_item(index: int, event: Any) -> dict[str, Any]:
+    if isinstance(event, dict):
+        return _semantic_event(event)
+    return {
+        "invalid": True,
+        "index": index,
+        "item_type": type(event).__name__,
+        "fingerprint": request_hash({"invalid_event_item": event}),
     }

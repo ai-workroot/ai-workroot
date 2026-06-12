@@ -118,6 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
             sync_parser.add_argument("--phase")
             sync_parser.add_argument("--work-kind")
             sync_parser.add_argument("--intended-action")
+            sync_parser.add_argument("--boundary")
             sync_parser.add_argument("--focus")
             sync_parser.add_argument("--concern", action="append", default=[])
             sync_parser.add_argument("--refs", action="append", default=[], help=argparse.SUPPRESS)
@@ -164,7 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
             commit_parser.add_argument("--asset-kind", default="")
             commit_parser.add_argument("--status", default="")
             commit_parser.add_argument("--decision", default="")
-            commit_parser.add_argument("--reason-text", default="")
+            commit_parser.add_argument("--reason-text", "--rationale", dest="reason_text", default="")
             commit_parser.add_argument("--scope", default="")
             commit_parser.add_argument("--session-id")
             commit_parser.add_argument("--event-id")
@@ -295,6 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             phase=args.phase,
                             work_kind=args.work_kind,
                             intended_action=args.intended_action,
+                            boundary=args.boundary,
                             focus=args.focus,
                             concerns=tuple(args.concern),
                             refs=tuple(args.refs),
@@ -452,6 +454,7 @@ def _merge_split_work_signal_args(
     phase: str | None,
     work_kind: str | None,
     intended_action: str | None,
+    boundary: str | None,
     focus: str | None,
     concerns: tuple[str, ...],
     refs: tuple[str, ...] = (),
@@ -466,6 +469,8 @@ def _merge_split_work_signal_args(
         signal["work_kind"] = work_kind
     if intended_action:
         signal["intended_action"] = intended_action
+    if boundary:
+        signal["boundary"] = boundary
     if focus:
         signal["focus"] = focus
     if concerns:
@@ -518,8 +523,11 @@ def _plain_text_work_signal(text: str) -> dict[str, object]:
 
 
 def _plain_text_key_value_work_signal(text: str) -> dict[str, object]:
-    allowed_keys = {"phase", "work_kind", "intended_action", "focus", "concerns", "refs"}
-    key_pattern = re.compile(r"(?:^|[\s,;]+)(phase|work[-_]kind|intended[-_]action|focus|concerns|refs)\s*=", re.I)
+    allowed_keys = {"phase", "work_kind", "intended_action", "boundary", "focus", "concerns", "refs"}
+    key_pattern = re.compile(
+        r"(?:^|[\s,;]+)(phase|work[-_]kind|intended[-_]action|boundary|focus|concerns|refs)\s*=",
+        re.I,
+    )
     matches = list(key_pattern.finditer(text))
     if not matches:
         return {}

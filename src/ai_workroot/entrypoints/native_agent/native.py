@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from importlib import resources
 from pathlib import Path
+import re
 
 
 MANAGED_BLOCK_BEGIN = "<!-- AI_WORKROOT_BEGIN -->"
@@ -11,6 +12,7 @@ MANAGED_BLOCK_END = "<!-- AI_WORKROOT_END -->"
 BEGIN = MANAGED_BLOCK_BEGIN
 END = MANAGED_BLOCK_END
 TEMPLATE_PACKAGE = "ai_workroot.entrypoints.native_agent.templates"
+SAFE_AGENT_RE = re.compile(r"^[a-z0-9._-]{1,64}$")
 
 
 class NativeAgentEntryError(ValueError):
@@ -19,6 +21,7 @@ class NativeAgentEntryError(ValueError):
 
 def render_native_agent_entry(agent: str) -> str:
     normalized_agent = agent.strip().lower()
+    _validate_agent_descriptor(normalized_agent)
     template_name = _template_name(normalized_agent)
     template = resources.files(TEMPLATE_PACKAGE).joinpath(template_name).read_text(encoding="utf-8")
     rendered = template.replace("{{agent}}", normalized_agent)
@@ -96,7 +99,12 @@ def _template_name(agent: str) -> str:
         return "AGENTS.md.template"
     if agent == "claude":
         return "CLAUDE.md.template"
-    raise NativeAgentEntryError(f"unsupported Native Agent Entry agent: {agent}")
+    return "GENERIC.md.template"
+
+
+def _validate_agent_descriptor(agent: str) -> None:
+    if not SAFE_AGENT_RE.fullmatch(agent):
+        raise NativeAgentEntryError("Native Agent Entry agent descriptor must match [a-z0-9._-]{1,64}")
 
 
 def _managed_block_body(text: str) -> str:

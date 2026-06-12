@@ -121,6 +121,30 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
             self.assertIn("tokenUsage", package)
             self.assertIn("hard=900", package)
 
+            ordinary_package = build_context_package(
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="Clean Mode",
+                    debug=False,
+                    hard_token_limit=900,
+                    work_signal={
+                        "phase": "orienting",
+                        "work_kind": "investigation",
+                        "intended_action": "diagnose",
+                        "focus": "Clean Mode",
+                    },
+                ),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("Clean Mode Design", ordinary_package)
+            self.assertIn("Ref: candidate:", ordinary_package)
+            self.assertNotIn("candidate-fts-match", ordinary_package)
+            self.assertNotIn("file-fts-match", ordinary_package)
+            self.assertNotIn("relationship-edge", ordinary_package)
+            self.assertNotIn("scoring:", ordinary_package)
+
     def test_context_recall_hint_affects_active_context_selection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -241,6 +265,90 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
             self.assertIn("Relationship Signals", package)
             self.assertIn("edge-canonical-asset", package)
 
+    def test_relationship_derived_candidate_enters_selection_before_budget_cut(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            home = base / "home"
+            user_dir = base / "project"
+            init = initialize_workroot(name="Demo", directory=user_dir, ai_workroot_home=home)
+            workroot_id = init.registration.workroot_id
+            db_path = next((home / "workroots").glob("*/cache/workroot.sqlite"))
+            with sqlite3.connect(db_path) as conn:
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-seed",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-seed",
+                        "title": "Launch plan seed",
+                        "summary": "Launch plan mentions the board memo connection.",
+                        "importance": "normal",
+                    },
+                )
+                upsert_context_candidate(
+                    conn,
+                    {
+                        "candidate_id": "cand-board-memo",
+                        "workroot_id": workroot_id,
+                        "source_type": "asset",
+                        "source_id": "asset-board-memo",
+                        "title": "Board memo",
+                        "summary": "Investor constraints and approval notes.",
+                        "importance": "normal",
+                    },
+                )
+                create_relationship_node(
+                    conn,
+                    node_id="node-seed",
+                    workroot_id=workroot_id,
+                    node_type="asset",
+                    title="Launch plan seed",
+                    target_type="asset",
+                    target_id="asset-seed",
+                )
+                create_relationship_node(
+                    conn,
+                    node_id="node-board-memo",
+                    workroot_id=workroot_id,
+                    node_type="asset",
+                    title="Board memo",
+                    target_type="asset",
+                    target_id="asset-board-memo",
+                )
+                create_relationship_edge(
+                    conn,
+                    edge_id="edge-seed-board",
+                    workroot_id=workroot_id,
+                    from_node_id="node-seed",
+                    to_node_id="node-board-memo",
+                    relationship_type="supports",
+                    created_by="test",
+                    confidence=0.95,
+                )
+
+            package = build_context_package(
+                ContextRequest(
+                    agent="codex",
+                    cwd=user_dir,
+                    query="launch plan",
+                    debug=True,
+                    hard_token_limit=1200,
+                    work_signal={
+                        "phase": "orienting",
+                        "work_kind": "continuation",
+                        "intended_action": "inspect",
+                        "focus": "launch plan",
+                    },
+                ),
+                ai_workroot_home=home,
+            )
+
+            self.assertIn("Launch plan seed", package)
+            self.assertIn("Board memo", package)
+            self.assertIn("relationship-edge", package)
+            self.assertIn("edge-seed-board", package)
+
     def test_context_evidence_can_drill_down_from_candidate_ref_to_indexed_chunk(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -293,7 +401,8 @@ class ContextRetrievalSelectionTest(unittest.TestCase):
             self.assertIn("contextIntent: evidence_lookup", package)
             self.assertNotIn("disclosureLevels", package)
             self.assertNotRegex(package, r"\bL[123]\b")
-            self.assertIn("workroot-output/shop-plan.md: ref-scoped-evidence; Ref: chunk:chunk-shop-plan", package)
+            self.assertIn("Shop plan [Ref: candidate:candidate-shop-plan]", package)
+            self.assertIn("workroot-output/shop-plan.md [Ref: chunk:chunk-shop-plan]", package)
 
 
 if __name__ == "__main__":

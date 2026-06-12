@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import tempfile
@@ -392,6 +393,103 @@ class ProtocolControllerSyncTest(unittest.TestCase):
         self.assertEqual(response["result"]["status"], "quarantined")
         sqlite_path = workroot_sqlite_path(Path(self.registration.state_directory))
         with sqlite3.connect(sqlite_path) as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM protocol_events").fetchone()[0], 0)
+
+    def test_non_dict_event_batch_is_quarantined_and_never_applied(self) -> None:
+        sync_response = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-non-dict-event",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "before_work",
+                "query": "Create malformed event guard task.",
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
+            }
+        )
+
+        response = commit(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-non-dict-event",
+                "exchange_lease_id": self.lease_id(sync_response),
+                "cwd": str(self.user_dir),
+                "idempotency_key": "idem-non-dict-event",
+                "atomic_batch": True,
+                "events": ["bad_event"],
+            }
+        )
+
+        self.assertTrue(response["ok"])
+        self.assertTrue(response["agent_may_continue"])
+        self.assertEqual(response["result"]["status"], "quarantined")
+        self.assertTrue(response["result"]["recorded"])
+        self.assertFalse(response["result"]["projected"])
+        self.assertFalse(response["result"]["accepted"])
+        self.assertIn("invalid_event_schema", response["result"]["warnings"])
+        self.assertEqual(response["result"]["invalid_events"][0]["index"], 0)
+        sqlite_path = workroot_sqlite_path(Path(self.registration.state_directory))
+        with sqlite3.connect(sqlite_path) as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM protocol_events").fetchone()[0], 0)
+            row = conn.execute(
+                """
+                SELECT status, normalized_request_json, error_json
+                FROM protocol_commit_batches
+                WHERE idempotency_key = 'idem-non-dict-event'
+                """
+            ).fetchone()
+        self.assertEqual(row[0], "quarantined")
+        self.assertIn('"invalid":true', row[1])
+        self.assertIn('"index":0', row[2])
+        friction_path = Path(self.registration.state_directory) / "logs/protocol-friction.jsonl"
+        friction_events = [json.loads(line) for line in friction_path.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(len(friction_events), 1)
+        self.assertEqual(friction_events[0]["stage"], "validation")
+        self.assertEqual(friction_events[0]["code"], "invalid_event_schema")
+        self.assertEqual(friction_events[0]["resultStatus"], "quarantined")
+        self.assertEqual(friction_events[0]["requestId"], "req-non-dict-event")
+        self.assertEqual(friction_events[0]["idempotencyKey"], "idem-non-dict-event")
+
+    def test_mixed_valid_and_non_dict_atomic_batch_is_quarantined_without_projection(self) -> None:
+        sync_response = sync(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-sync-mixed-invalid",
+                "agent": {"name": "codex", "transport": "cli"},
+                "cwd": str(self.user_dir),
+                "reason": "before_work",
+                "query": "Create mixed invalid guard task.",
+                "work_signal": {"phase": "starting", "work_kind": "task", "intended_action": "plan"},
+            }
+        )
+        valid_event = build_commit_request_from_shape(
+            shape="start_work",
+            lease_id=self.lease_id(sync_response),
+            agent_name="codex",
+            title="Mixed invalid guard task",
+            summary="Mixed invalid guard task.",
+            cwd=str(self.user_dir),
+        )["events"][0]
+
+        response = commit(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-mixed-invalid",
+                "exchange_lease_id": self.lease_id(sync_response),
+                "cwd": str(self.user_dir),
+                "idempotency_key": "idem-mixed-invalid",
+                "atomic_batch": True,
+                "events": [valid_event, "bad_event"],
+            }
+        )
+
+        self.assertEqual(response["result"]["status"], "quarantined")
+        self.assertFalse(response["result"]["projected"])
+        sqlite_path = workroot_sqlite_path(Path(self.registration.state_directory))
+        with sqlite3.connect(sqlite_path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM tasks WHERE title = 'Mixed invalid guard task'").fetchone()[0], 0
+            )
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM protocol_events").fetchone()[0], 0)
 
     def test_event_disallowed_by_lease_is_rejected_without_recording_protocol_event(self) -> None:

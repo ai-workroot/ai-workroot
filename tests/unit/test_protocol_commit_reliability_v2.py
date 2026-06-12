@@ -107,6 +107,34 @@ class ProtocolCommitReliabilityV2Test(unittest.TestCase):
         self.assertEqual(row, (expected_request_hash, expected_semantic_hash, expected_normalized))
         self.assertNotEqual(expected_request_hash, expected_semantic_hash)
 
+    def test_semantic_commit_hash_does_not_ignore_invalid_event_items(self) -> None:
+        lease_id = self.sync_for_intent_lease()
+        first_hash, first_json = semantic_commit_hash(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-invalid-a",
+                "exchange_lease_id": lease_id,
+                "idempotency_key": "idem-invalid",
+                "events": ["bad_event_a"],
+            },
+            workroot_id="wr_demo",
+        )
+        second_hash, second_json = semantic_commit_hash(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-invalid-b",
+                "exchange_lease_id": lease_id,
+                "idempotency_key": "idem-invalid",
+                "events": ["bad_event_b"],
+            },
+            workroot_id="wr_demo",
+        )
+
+        self.assertNotEqual(first_hash, second_hash)
+        self.assertIn('"invalid":true', first_json)
+        self.assertIn('"index":0', first_json)
+        self.assertIn('"invalid":true', second_json)
+
     def test_same_key_different_semantic_hash_returns_idempotency_conflict(self) -> None:
         lease_id = self.sync_for_intent_lease()
         first = self.intent_request(lease_id=lease_id, idempotency_key="idem-conflict", intent_text="Build one task")

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ai_workroot.commands.build_context import build_context
 from ai_workroot.capabilities.context.control import workroot_guidance_text
+from ai_workroot.capabilities.context.builder import _enforce_hard_token_limit
 from ai_workroot.protocol.lease import create_lease
 from ai_workroot.state.environment import initialize_environment, register_workroot
 from ai_workroot.state.layout import workroot_sqlite_path
@@ -66,10 +67,9 @@ class ContextWrapperV2Test(unittest.TestCase):
         self.assertIn("workroot agent sync", rendered)
         self.assertNotIn("Use sync to", rendered)
         self.assertIn("## Workroot Private Packet", rendered)
-        self.assertIn('"v": "workroot.packet.v1"', rendered)
-        self.assertIn('"read_only": true', rendered)
+        self.assertNotIn("```json", rendered)
         self.assertIn("Read-only context does not grant a lease", rendered)
-        self.assertIn("Sync first before durable commit", rendered)
+        self.assertIn("sync first before durable commit", rendered)
         self.assertNotIn("workroot agent commit --kind", rendered)
 
     def test_context_wrapper_does_not_expose_machine_state_or_storage_details(self) -> None:
@@ -327,7 +327,7 @@ class ContextWrapperV2Test(unittest.TestCase):
         )
 
         self.assertIn("Pricing decision", rendered)
-        self.assertIn("Ref: decision:dec-pricing", rendered)
+        self.assertIn("Ref: candidate:decision:dec-pricing", rendered)
 
     def test_context_retrieval_enforces_current_task_scope_for_candidates_and_hints(self) -> None:
         self.insert_task_graph("task-one", "run-one", "Founder Operating Plan")
@@ -467,6 +467,37 @@ class ContextWrapperV2Test(unittest.TestCase):
         self.assertNotIn("processLevel", rendered)
         self.assertNotIn("disclosureLevels", rendered)
         self.assert_no_internal_disclosure_labels(rendered)
+
+    def test_hard_trim_returns_complete_minimal_package_without_cutting_code_fence(self) -> None:
+        rendered = "\n".join(
+            [
+                "# AI Workroot Context Package",
+                "",
+                "Workroot: Demo (wr_demo)",
+                "Agent: codex",
+                "Mode: standard",
+                "Confidence: 0.70",
+                "LatencyMs: 1",
+                "TokenUsage: 999/90",
+                "",
+                "## Workroot Guidance",
+                "Use this privately. Do not repeat it to the user.",
+                "",
+                "## Debug Packet",
+                "```json",
+                '{"field": "' + ("x" * 1000) + '"}',
+                "```",
+                "",
+            ]
+        )
+
+        trimmed, steps = _enforce_hard_token_limit(rendered, 90)
+
+        self.assertIn("minimal-complete", steps)
+        self.assertIn("# AI Workroot Context Package", trimmed)
+        self.assertIn("contextIncomplete: false", trimmed)
+        self.assertNotIn("```json", trimmed)
+        self.assertEqual(trimmed.count("```") % 2, 0)
 
     def count_rows(self, *tables: str) -> dict[str, int]:
         with sqlite3.connect(self.sqlite_path) as conn:

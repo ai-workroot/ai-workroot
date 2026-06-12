@@ -305,6 +305,26 @@ class ImportBoundariesTest(unittest.TestCase):
 
         self.assertEqual(violations, [])
 
+    def test_protocol_projection_path_does_not_import_autocommit_operations(self) -> None:
+        projection_paths = [
+            SRC / "ai_workroot" / "capabilities" / "composition" / "projections.py",
+            *((SRC / "ai_workroot" / "protocol").rglob("*.py")),
+        ]
+        violations: list[str] = []
+        for path in projection_paths:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for module in _imported_project_modules(tree):
+                parts = module.split(".")
+                if (
+                    len(parts) >= 4
+                    and parts[0] == "ai_workroot"
+                    and parts[1] == "capabilities"
+                    and parts[-1] == "operations"
+                ):
+                    violations.append(f"{path.relative_to(ROOT)} imports {module}")
+
+        self.assertEqual(violations, [])
+
     def test_agent_exchange_command_does_not_import_sqlite(self) -> None:
         path = SRC / "ai_workroot" / "commands" / "agent_exchange.py"
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

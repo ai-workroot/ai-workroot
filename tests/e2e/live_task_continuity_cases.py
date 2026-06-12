@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from tests.e2e.harness import REPO_ROOT, env_for, run_cli
-from tests.e2e.safety import new_default_run_root, prepare_run_root
+from tests.e2e.safety import new_default_run_root, prepare_run_root, require_e2e_runner_active
 
 
 class LiveTaskContinuityHarnessTest(unittest.TestCase):
@@ -150,6 +150,19 @@ class LiveTaskContinuityHarnessTest(unittest.TestCase):
             self.assertNotIn(path, prompt)
         self.assertNotIn("phase=switching, work_kind=task", prompt)
         self.assertNotIn("new normal work uses", prompt)
+
+    def test_non_novice_prompt_teaches_negative_work_signal_routes(self) -> None:
+        from tests.e2e.live_task_continuity import _round_prompt, live_task_continuity_scenarios
+
+        scenario = live_task_continuity_scenarios(round_count=20, role_slug="live-mixed-complexity")[0]
+        prompt = _round_prompt(role=scenario, round_script=scenario.rounds[0])
+
+        self.assertIn("Direct answer: work_kind=quick, intended_action=answer", prompt)
+        self.assertIn("Use intended_action=preserve for checkpoint or handoff", prompt)
+        self.assertIn("Decision inside active work: work_kind=decision", prompt)
+        self.assertIn("User-visible file for active work: work_kind=authoring", prompt)
+        self.assertIn("Do not use boundary=separate_work for quick answers", prompt)
+        self.assertIn("Use `workroot context` only for startup, recovery, or debugging", prompt)
 
     def test_round_validation_requires_packet_format_for_agent_sync(self) -> None:
         from tests.e2e.live_task_continuity import _validate_agent_sync_format
@@ -671,6 +684,86 @@ class LiveTaskContinuityHarnessTest(unittest.TestCase):
 
         self.assertIn("expected asset results/plan.md owner containing 'founder'", "\n".join(failures))
 
+    def test_round_validation_flags_unexpected_start_work_commit(self) -> None:
+        from tests.e2e.live_task_continuity import LiveRoundScript, _validate_round
+
+        with tempfile.TemporaryDirectory() as tmp:
+            user_dir = Path(tmp)
+            last_message = user_dir / "last-message.txt"
+            last_message.write_text("LIVE_TASK_CONTINUITY_OK live-role round-03\nDone.\n", encoding="utf-8")
+
+            failures = _validate_round(
+                round_script=LiveRoundScript(3, "Quick answer", "What is a durable summary?"),
+                user_directory=user_dir,
+                returncode=0,
+                last_message_path=last_message,
+                commands=["agent sync", "agent commit"],
+                db_summary={"protocolEventStatuses": {"applied": 1}, "assetPaths": []},
+                before_db_summary={"protocolEventStatuses": {"applied": 1}},
+                command_records=[
+                    {
+                        "argv": [
+                            "agent",
+                            "sync",
+                            "--agent",
+                            "codex",
+                            "--cwd",
+                            ".",
+                            "--query",
+                            "What is a durable summary?",
+                            "--format",
+                            "packet",
+                        ],
+                        "returncode": 0,
+                        "stdoutBytes": 1800,
+                    },
+                    {
+                        "argv": ["agent", "commit", "--shape", "start-work", "--format", "packet"],
+                        "returncode": 0,
+                    },
+                ],
+            )
+
+        self.assertIn("unexpected start-work commit in round without expected start_work", failures)
+
+    def test_round_validation_flags_sync_packet_size_budget(self) -> None:
+        from tests.e2e.live_task_continuity import LiveRoundScript, _validate_round
+
+        with tempfile.TemporaryDirectory() as tmp:
+            user_dir = Path(tmp)
+            last_message = user_dir / "last-message.txt"
+            last_message.write_text("LIVE_TASK_CONTINUITY_OK live-role round-04\nDone.\n", encoding="utf-8")
+
+            failures = _validate_round(
+                round_script=LiveRoundScript(4, "Checkpoint", "Preserve progress.", ("checkpoint",)),
+                user_directory=user_dir,
+                returncode=0,
+                last_message_path=last_message,
+                commands=["agent sync", "agent commit"],
+                db_summary={"protocolEventStatuses": {"applied": 1}, "assetPaths": []},
+                before_db_summary={"protocolEventStatuses": {"applied": 1}},
+                command_records=[
+                    {
+                        "argv": [
+                            "agent",
+                            "sync",
+                            "--agent",
+                            "codex",
+                            "--cwd",
+                            ".",
+                            "--query",
+                            "Preserve progress.",
+                            "--format",
+                            "packet",
+                        ],
+                        "returncode": 0,
+                        "stdoutBytes": 5200,
+                    }
+                ],
+            )
+
+        self.assertIn("sync packet exceeded compact byte budget: 5200 > 3600", failures)
+
     def test_round_validation_flags_workroot_asset_with_task_owner(self) -> None:
         from tests.e2e.live_task_continuity import LiveRoundScript, _validate_round
 
@@ -847,6 +940,7 @@ class LiveTaskContinuityE2ETest(unittest.TestCase):
     def test_codex_five_roles_task_continuity(self) -> None:
         from tests.e2e.live_task_continuity import ROLE_ENV, ROUNDS_ENV, run_live_task_continuity, resolve_round_count
 
+        require_e2e_runner_active(self, "live-task-continuity")
         run_root = os.environ.get("AI_WORKROOT_E2E_RUN_ROOT")
         sandbox_base = os.environ.get("AI_WORKROOT_E2E_SANDBOX_BASE")
         if not run_root or not sandbox_base:

@@ -436,6 +436,7 @@ def _retrieve_context(conn: sqlite3.Connection, runtime: ContextRuntime) -> Retr
             limit=ref_candidate_limit,
         )
         candidates = _merge_candidates(ref_candidates, candidates)
+    candidates = _expand_relationship_candidates(conn, runtime, candidates)
     if not runtime.recall_plan.allows(DisclosureLevel.L3):
         return RetrievedContext(candidates=candidates, fts_matches=[], fts_error=None)
     fts_matches: list[FtsMatch] = []
@@ -469,6 +470,42 @@ def _retrieve_context(conn: sqlite3.Connection, runtime: ContextRuntime) -> Retr
         )
         candidates = _merge_candidates(fts_candidates, candidates)
     return RetrievedContext(candidates=candidates, fts_matches=fts_matches, fts_error=fts_error)
+
+
+def _expand_relationship_candidates(
+    conn: sqlite3.Connection,
+    runtime: ContextRuntime,
+    candidates: list[CandidateMatch],
+) -> list[CandidateMatch]:
+    relationship_limit = runtime.recall_plan.source_limit("relationships", default=0)
+    candidate_limit = runtime.recall_plan.source_limit("context_candidates", default=0)
+    if relationship_limit <= 0 or candidate_limit <= 0 or not candidates:
+        return candidates
+    source_refs = _candidate_source_refs(candidates)
+    if not source_refs:
+        return candidates
+    relationship_signals = relationship_signals_for_source_refs(
+        conn,
+        runtime.record["workrootId"],
+        source_refs,
+        limit=relationship_limit,
+    )
+    related_refs = _relationship_candidate_refs(
+        conn,
+        workroot_id=runtime.record["workrootId"],
+        relationship_signals=relationship_signals,
+        exclude_refs=source_refs,
+    )
+    if not related_refs:
+        return candidates
+    related_candidates = query_context_candidates_by_refs(
+        conn,
+        runtime.record["workrootId"],
+        tuple(sorted(f"{source_type}:{source_id}" for source_type, source_id in related_refs)),
+        scope=runtime.recall_plan.source_scope("context_candidates"),
+        limit=max(candidate_limit, len(related_refs)),
+    )
+    return _merge_candidates(_mark_relationship_candidates(related_candidates), candidates)
 
 
 def _govern_context(
@@ -588,14 +625,14 @@ def _apply_context_budget(
     rendered: RenderedContext,
 ) -> RenderedContext:
     text, trim_steps = _enforce_hard_token_limit(rendered.text, runtime.request.hard_token_limit)
+    trim_steps = _unique_trim_steps(trim_steps)
     if not trim_steps:
         return RenderedContext(text=text, trim_steps=[])
 
     if runtime.request.debug:
         text = _render_compact_debug_context_text(runtime, loaded, governed, selected, trim_steps=trim_steps)
         text, fallback_steps = _enforce_hard_token_limit(text, runtime.request.hard_token_limit)
-        if fallback_steps and "final-fallback" not in trim_steps:
-            trim_steps.extend(fallback_steps)
+        trim_steps = _unique_trim_steps([*trim_steps, *fallback_steps])
         if fallback_steps and "## Debug Trace" not in text:
             text = _minimal_debug_package(
                 record=runtime.record, request=runtime.request, started=runtime.started, trim_steps=trim_steps
@@ -609,17 +646,17 @@ def _apply_context_budget(
             )
             text, _ = _enforce_hard_token_limit(text, runtime.request.hard_token_limit)
             text = _refresh_rendered_token_usage(text, runtime.request.hard_token_limit)
-        return RenderedContext(text=text, trim_steps=trim_steps)
+        return RenderedContext(text=text, trim_steps=_unique_trim_steps(trim_steps))
 
     text = _render_context_text(runtime, loaded, governed, selected, trim_steps=trim_steps)
     text = _append_trim_marker(text, trim_steps)
     text, fallback_steps = _enforce_hard_token_limit(text, runtime.request.hard_token_limit)
     if fallback_steps:
-        trim_steps.extend(step for step in fallback_steps if step not in trim_steps)
+        trim_steps = _unique_trim_steps([*trim_steps, *fallback_steps])
         text = _append_trim_marker(text, trim_steps)
         text, _ = _enforce_hard_token_limit(text, runtime.request.hard_token_limit)
         text = _refresh_rendered_token_usage(text, runtime.request.hard_token_limit)
-    return RenderedContext(text=text, trim_steps=trim_steps)
+    return RenderedContext(text=text, trim_steps=_unique_trim_steps(trim_steps))
 
 
 def _record_context_result(
@@ -956,6 +993,71 @@ def _fts_source_refs(fts_matches: list[FtsMatch]) -> tuple[str, ...]:
     return tuple(refs)
 
 
+def _candidate_source_refs(candidates: list[CandidateMatch]) -> set[tuple[str, str]]:
+    return {
+        (candidate.source_type, candidate.source_id)
+        for candidate in candidates
+        if candidate.source_type and candidate.source_id
+    }
+
+
+def _relationship_candidate_refs(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    relationship_signals: list[RelationshipSignal],
+    exclude_refs: set[tuple[str, str]],
+) -> set[tuple[str, str]]:
+    node_ids = {
+        node_id for signal in relationship_signals for node_id in (signal.from_node_id, signal.to_node_id) if node_id
+    }
+    if not node_ids:
+        return set()
+    placeholders = ",".join("?" for _ in node_ids)
+    rows = conn.execute(
+        f"""
+        SELECT node_id, node_type, target_type, target_id
+        FROM relationship_nodes
+        WHERE workroot_id = ?
+          AND node_id IN ({placeholders})
+        """,
+        (workroot_id, *sorted(node_ids)),
+    ).fetchall()
+    refs: set[tuple[str, str]] = set()
+    for row in rows:
+        node_type = str(row[1] or "")
+        target_type = str(row[2] or "")
+        target_id = str(row[3] or "")
+        source_type = target_type or node_type
+        source_id = target_id or str(row[0] or "")
+        if not source_type or not source_id:
+            continue
+        ref = (source_type, source_id)
+        if ref not in exclude_refs:
+            refs.add(ref)
+    return refs
+
+
+def _mark_relationship_candidates(candidates: list[CandidateMatch]) -> list[CandidateMatch]:
+    marked: list[CandidateMatch] = []
+    for candidate in candidates:
+        marked.append(
+            CandidateMatch(
+                candidate_id=candidate.candidate_id,
+                source_type=candidate.source_type,
+                source_id=candidate.source_id,
+                title=candidate.title,
+                summary=candidate.summary,
+                importance=candidate.importance,
+                context_policy=candidate.context_policy,
+                safety_policy=candidate.safety_policy,
+                score=candidate.score + 0.5,
+                reasons=tuple(dict.fromkeys((*candidate.reasons, "relationship-edge"))),
+            )
+        )
+    return marked
+
+
 def _apply_release_filters(
     candidates: list[CandidateMatch], release_report: ReleaseFilterReport
 ) -> list[CandidateMatch]:
@@ -981,7 +1083,7 @@ def _apply_release_filters(
                     context_policy=candidate.context_policy,
                     safety_policy=candidate.safety_policy,
                     score=candidate.score,
-                    reasons=tuple(dict.fromkeys((*candidate.reasons, "tombstone", "annotated-release-state"))),
+                    reasons=tuple(dict.fromkeys((*candidate.reasons, "tombstone"))),
                 )
             )
         else:
@@ -1204,9 +1306,8 @@ def _render_package(
     lines.extend(["", "## Context Map"])
     if selected:
         for candidate in selected:
-            reason_text = ", ".join(candidate.reasons)
             ref = _semantic_ref(candidate)
-            lines.append(f"- {candidate.title} [{candidate.source_type}; {reason_text}; Ref: {ref}]")
+            lines.append(f"- {candidate.title} [Ref: {ref}]{_status_label(candidate)}")
     else:
         lines.append("- No context candidates selected.")
     if selected:
@@ -1217,7 +1318,7 @@ def _render_package(
     if fts_matches:
         lines.extend(["", "## Evidence"])
         for match in fts_matches:
-            lines.append(f"- {match.relative_path}: {match.reason}; Ref: chunk:{match.chunk_id}")
+            lines.append(f"- {match.relative_path} [Ref: chunk:{match.chunk_id}]")
     if relationship_signals:
         lines.extend(["", "## Relationship Signals"])
         for signal in relationship_signals:
@@ -1305,7 +1406,7 @@ def _render_compact_debug_package(
     workroot_guidance: str,
 ) -> str:
     latency_ms = int((time.perf_counter() - started) * 1000)
-    selected_titles = "; ".join(candidate.title for candidate in selected[:3]) or "none"
+    selected_titles = "; ".join(f"{candidate.title}{_status_label(candidate)}" for candidate in selected[:3]) or "none"
     lines = [
         "# AI Workroot Context Package",
         "",
@@ -1426,24 +1527,71 @@ def _finalize_rendered_token_usage(rendered: str) -> str:
 def _enforce_hard_token_limit(rendered: str, hard_token_limit: int) -> tuple[str, list[str]]:
     if estimate_tokens(rendered) <= hard_token_limit:
         return rendered, []
-    char_limit = max(120, hard_token_limit * 4)
-    trimmed = rendered[:char_limit].rstrip() + "\n"
-    if estimate_tokens(trimmed) <= hard_token_limit:
-        return trimmed, ["final-fallback"]
-    final_limit = min(len(rendered), max(1, hard_token_limit * 3))
+
+    minimal = _minimal_complete_package_from_rendered(rendered, hard_token_limit)
+    if estimate_tokens(minimal) <= hard_token_limit:
+        return minimal, ["minimal-complete"]
+
+    emergency = _minimal_incomplete_package_from_rendered(rendered, hard_token_limit)
+    if estimate_tokens(emergency) <= hard_token_limit:
+        return emergency, ["final-fallback"]
+
+    final_limit = min(len(emergency), max(1, hard_token_limit * 3))
     while final_limit > 1:
-        trimmed = rendered[:final_limit].rstrip() + "\n"
+        trimmed = emergency[:final_limit].rstrip() + "\n"
         if estimate_tokens(trimmed) <= hard_token_limit:
             return trimmed, ["final-fallback"]
         final_limit -= 1
-    return rendered[:1].rstrip() + "\n", ["final-fallback"]
+    return emergency[:1].rstrip() + "\n", ["final-fallback"]
+
+
+def _minimal_complete_package_from_rendered(rendered: str, hard_token_limit: int) -> str:
+    lines = [
+        _line_or_default(rendered, "# AI Workroot Context Package", "# AI Workroot Context Package"),
+        _line_or_default(rendered, "Workroot:", "Workroot: unknown"),
+        _line_or_default(rendered, "Agent:", "Agent: unknown"),
+        _line_or_default(rendered, "Mode:", "Mode: standard"),
+        _line_or_default(rendered, "Confidence:", "Confidence: 0.30"),
+        f"TokenUsage: {TOKEN_USAGE_PLACEHOLDER}/{hard_token_limit}",
+        "contextIncomplete: false",
+        "trimSteps: minimal-complete",
+    ]
+    return _finalize_rendered_token_usage("\n".join(lines) + "\n")
+
+
+def _minimal_incomplete_package_from_rendered(rendered: str, hard_token_limit: int) -> str:
+    lines = [
+        _line_or_default(rendered, "# AI Workroot Context Package", "# AI Workroot Context Package"),
+        _line_or_default(rendered, "Workroot:", "Workroot: unknown"),
+        _line_or_default(rendered, "Agent:", "Agent: unknown"),
+        f"TokenUsage: {TOKEN_USAGE_PLACEHOLDER}/{hard_token_limit}",
+        "contextIncomplete: true",
+        "trimSteps: final-fallback",
+    ]
+    return _finalize_rendered_token_usage("\n".join(lines) + "\n")
+
+
+def _line_or_default(rendered: str, prefix: str, default: str) -> str:
+    for line in rendered.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(prefix):
+            return stripped
+    return default
 
 
 def _append_trim_marker(rendered: str, trim_steps: list[str]) -> str:
-    marker = "\ntrimSteps: " + ", ".join(trim_steps) + "\n"
+    marker = "\ntrimSteps: " + ", ".join(_unique_trim_steps(trim_steps)) + "\n"
     if "trimSteps:" in rendered:
         return rendered
     return rendered.rstrip() + marker
+
+
+def _unique_trim_steps(trim_steps: list[str]) -> list[str]:
+    unique: list[str] = []
+    for step in trim_steps:
+        if step and step not in unique:
+            unique.append(step)
+    return unique
 
 
 def _refresh_rendered_token_usage(rendered: str, hard_token_limit: int) -> str:
@@ -1508,9 +1656,13 @@ def _output_rules_from_startup_response(startup_response: dict[str, object] | No
 
 
 def _semantic_ref(candidate: CandidateMatch) -> str:
-    if candidate.source_type and candidate.source_id:
-        return f"{candidate.source_type}:{candidate.source_id}"
-    return candidate.candidate_id
+    return f"candidate:{candidate.candidate_id}"
+
+
+def _status_label(candidate: CandidateMatch) -> str:
+    if "tombstone" in candidate.reasons:
+        return " [Status: tombstone]"
+    return ""
 
 
 def _render_lease_signal(recall_plan: RecallPlan) -> str:
@@ -1604,6 +1756,7 @@ def _persist_context_runtime_state(
     recall_plan: RecallPlan,
     trim_steps: list[str],
 ) -> None:
+    trim_steps = _unique_trim_steps(trim_steps)
     package_id = f"ctxpkg_{uuid.uuid4().hex}"
     trace_id = f"ctxtrace_{uuid.uuid4().hex}"
     created_at = utc_now()

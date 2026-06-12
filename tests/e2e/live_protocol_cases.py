@@ -21,7 +21,7 @@ from tests.e2e.live_protocol import (
     summarize_workroot_database,
     write_live_protocol_summary,
 )
-from tests.e2e.safety import new_default_run_root, prepare_run_root
+from tests.e2e.safety import new_default_run_root, prepare_run_root, require_e2e_runner_active
 
 
 class LiveProtocolHarnessTest(unittest.TestCase):
@@ -296,6 +296,7 @@ class LiveProtocolE2ETest(unittest.TestCase):
         self.assertEqual(summary["classification"], result.classification)
 
     def require_live_runner(self) -> tuple[Path, Path]:
+        require_e2e_runner_active(self, "live-protocol")
         run_root = os.environ.get("AI_WORKROOT_E2E_RUN_ROOT")
         sandbox_base = os.environ.get("AI_WORKROOT_E2E_SANDBOX_BASE")
         if not run_root or not sandbox_base:

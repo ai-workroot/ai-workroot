@@ -58,6 +58,24 @@ class SqliteFtsProviderTest(unittest.TestCase):
         self.assertEqual([match.chunk_id for match in matches], ["chunk-shop"])
         self.assertEqual(matches[0].reason, "file-fallback-scan")
 
+    def test_unicode_query_uses_language_neutral_bounded_fallback_scan(self) -> None:
+        index_file_chunk(
+            self.conn,
+            workroot_id="wr_demo",
+            file_id="file-arabic",
+            chunk_id="chunk-arabic",
+            relative_path="workroot-output/customer.md",
+            body="تجربة العملاء تحتاج متابعة أسبوعية.",
+            source_type="asset",
+            source_id="asset-arabic",
+        )
+
+        matches, error = search_fts(self.conn, "wr_demo", "كيف نتابع تجربة العملاء؟")
+
+        self.assertIsNone(error)
+        self.assertEqual([match.chunk_id for match in matches], ["chunk-arabic"])
+        self.assertEqual(matches[0].reason, "file-fallback-scan")
+
     def test_cjk_fallback_finds_relevant_late_chunk_within_bounded_scan(self) -> None:
         for index in range(80):
             index_file_chunk(
@@ -132,6 +150,66 @@ class SqliteFtsProviderTest(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual([match.chunk_id for match in matches], ["chunk-shop-plan"])
         self.assertEqual(matches[0].reason, "ref-scoped-evidence")
+
+    def test_index_file_chunk_does_not_commit_caller_transaction(self) -> None:
+        self.conn.execute("BEGIN")
+        index_file_chunk(
+            self.conn,
+            workroot_id="wr_demo",
+            file_id="file-rollback",
+            chunk_id="chunk-rollback",
+            relative_path="workroot-output/rollback.md",
+            body="This chunk should be rolled back by the caller.",
+            source_type="asset",
+            source_id="asset-rollback",
+        )
+        self.conn.rollback()
+
+        count = self.conn.execute("SELECT COUNT(*) FROM indexed_chunks WHERE chunk_id = 'chunk-rollback'").fetchone()[0]
+        self.assertEqual(count, 0)
+
+    def test_index_file_chunk_does_not_migrate_old_indexed_files_schema_inside_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "old-indexed-files.sqlite"
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    """
+                    CREATE TABLE indexed_files (
+                      file_id TEXT PRIMARY KEY,
+                      workroot_id TEXT NOT NULL,
+                      relative_path TEXT NOT NULL
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE TABLE indexed_chunks (
+                      chunk_id TEXT PRIMARY KEY,
+                      file_id TEXT NOT NULL,
+                      workroot_id TEXT NOT NULL,
+                      body TEXT
+                    )
+                    """
+                )
+                conn.execute("CREATE VIRTUAL TABLE indexed_chunks_fts USING fts5(chunk_id, body)")
+                conn.commit()
+
+            with sqlite3.connect(db_path) as conn:
+                with self.assertRaises(sqlite3.OperationalError):
+                    index_file_chunk(
+                        conn,
+                        workroot_id="wr_demo",
+                        file_id="file-old",
+                        chunk_id="chunk-old",
+                        relative_path="workroot-output/old.md",
+                        body="Provider must not alter this schema.",
+                        source_type="asset",
+                        source_id="asset-old",
+                    )
+                columns = {row[1] for row in conn.execute("PRAGMA table_info(indexed_files)").fetchall()}
+
+        self.assertNotIn("source_type", columns)
+        self.assertNotIn("source_id", columns)
 
 
 if __name__ == "__main__":

@@ -143,8 +143,8 @@ The packet must not require the LLM to learn internal names such as
 
 `phase=starting, work_kind=task` is not enough by itself to create a new root
 when there is exactly one active normal root. In that case Workroot should bind
-to the active normal root unless an explicit selected ref or a future stable
-protocol field proves a separate root boundary.
+to the active normal root unless explicit refs/known state select another owner
+or `boundary=separate_work` proves a separate durable work boundary.
 
 When multiple active normal roots exist and no owner can be selected, a
 startable durable WorkSignal may create a new root only if it is safer than

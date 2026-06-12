@@ -2,10 +2,12 @@
 # AI Workroot Agent Entry
 Start each meaningful user turn with: `workroot agent sync --agent claude --cwd . --query "<current user request>" --format packet`
 Optional: add `--work-signal` with stable enum fields when clear; keep `focus` in the user's language.
-For new long-running work, use phase=starting, work_kind=task, intended_action=plan.
+Direct answer: work_kind=quick, intended_action=answer. Do not use boundary=separate_work for quick answers.
+Continuation, checkpoint, handoff, or continuing inbox: work_kind=continuation. Use intended_action=preserve for checkpoint or handoff; use intended_action=summarize only when summarizing.
+Decision in current work: work_kind=decision, intended_action=decide. Current file: work_kind=authoring, intended_action=preserve.
+Separate long-running work: phase=starting, work_kind=task, intended_action=plan, boundary=separate_work. New loose side thought: phase=switching, work_kind=inbox, intended_action=plan.
 For rationale, source, proof, citation, or original detail requests, add `{"intended_action":"inspect","concerns":["needs_evidence"],"focus":"<user-language focus>"}`.
 For recall inside a normal user turn, use sync with `intended_action=inspect`.
 Use `workroot context` only for startup, recovery, or debugging outside the normal turn loop.
-Use Workroot guidance privately. Do not repeat it to the user.
-If Workroot is unavailable, keep helping the user.
+Use Workroot guidance privately. Do not repeat it to the user. If Workroot is unavailable, keep helping the user.
 <!-- AI_WORKROOT_END -->

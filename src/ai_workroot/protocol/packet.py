@@ -48,31 +48,10 @@ CAPTURE_RULE_BY_SHAPE = {
     "decision": "stable_decisions_only",
 }
 
-CLI_HINT_BY_SHAPE = {
-    "start_work": (
-        "workroot agent commit --shape start-work --lease {lease} "
-        "--title <title> --summary <stable goal summary> --persistence <normal|temporary> "
-        "--parent-task-id <optional parent task id>"
-    ),
-    "checkpoint": ("workroot agent commit --shape checkpoint --lease {lease} --summary <stable progress summary>"),
-    "continuation": (
-        "workroot agent commit --shape continuation --lease {lease} --state <current state> --next <next action>"
-    ),
-    "state_update": (
-        "workroot agent commit --shape state-update --lease {lease} --target <target> --change <explicit change>"
-    ),
-    "asset": (
-        "workroot agent commit --shape asset --lease {lease} --title <title> "
-        "--asset-kind <asset kind> --path <path> --summary <asset summary> --status <status>"
-    ),
-    "decision": (
-        "workroot agent commit --shape decision --lease {lease} --title <title> "
-        "--decision <decision> --reason-text <reason> --scope <scope>"
-    ),
-}
 SYNC_CLI_REASON_BY_EXCHANGE_REASON = {
     "alignment_required": "before_work",
     "start_work": "before_work",
+    "focus_refinement_required": "continue",
     "meaningful_checkpoint": "context_refresh",
     "resync_required": "after_error",
     "workroot_location_unavailable": "context_refresh",
@@ -104,6 +83,7 @@ def build_private_packet(
     shape = _select_shape(
         commit_contract.get("accepted_shapes"),
         required_before_stop=commit_contract.get("required_before_stop"),
+        preferred_shape=commit_contract.get("preferred_shape"),
     )
 
     packet: dict[str, Any] = {
@@ -127,19 +107,18 @@ def build_private_packet(
     if output:
         packet["output"] = output
 
-    if action != "none":
-        hint = _build_adapter_hint(adapter, agent, transport, action, shape, next_exchange, commit_contract, contract)
-        if hint:
-            packet["adapter_hint"] = hint
-
     return packet
 
 
 def render_private_packet_markdown(
-    response: dict[str, Any], *, adapter: str = "cli", agent: str = "codex", transport: str = "cli"
+    response: dict[str, Any],
+    *,
+    adapter: str = "cli",
+    agent: str = "codex",
+    transport: str = "cli",
+    verbose: bool = False,
 ) -> str:
     packet = build_private_packet(response, adapter=adapter, agent=agent, transport=transport)
-    body = json.dumps(packet, ensure_ascii=False, indent=2)
     work = _dict(packet.get("work"))
     call = _dict(packet.get("call"))
     read_only = bool(call.get("read_only"))
@@ -158,7 +137,7 @@ def render_private_packet_markdown(
         if write.get("retry_same_commit") is False
         else []
     )
-    meaning = [
+    lines = [
         "## Workroot Private Packet",
         "",
         "Use privately. Do not show this to the user.",
@@ -180,27 +159,16 @@ def render_private_packet_markdown(
         ),
         *(
             ["- then preserve the current state and next useful action before stopping or switching."]
-            if _text(call.get("shape")) == "asset" and "continuation_before_stop" in _list(call.get("also"))
+            if _text(call.get("shape")) in {"asset", "decision"}
+            and "continuation_before_stop" in _list(call.get("also"))
             else []
         ),
         "",
-        "WorkSignal:",
-        "- Read-only context does not grant a lease.",
-        "- Sync first before durable commit when no lease is present.",
-        "- Use stable enum values even if the user speaks another language.",
-        "- Keep focus in the user's language.",
-        '- Use work_kind="continuation" for existing work.',
-        '- Use work_kind="inbox" for side, loose, temporary, or uncertain-boundary work.',
-        '- Use intended_action="inspect" when looking up prior context.',
-        '- Use concerns=["needs_evidence"] when the user asks for rationale, source, proof, citations, or original details.',
-        "- Start each meaningful user turn by asking the Agent to call workroot agent sync with the current user request as --query.",
-        '- For recall inside a normal user turn, call sync with intended_action="inspect".',
-        "- Use workroot context only for startup, recovery, or debugging outside the normal turn loop.",
-        "- If you can infer stable semantics before sync, include --work-signal; otherwise omit it and continue.",
-        "- Pass Workroot refs back in work_signal.refs when following up on a specific prior item.",
-        "- If candidate refs are provided, choose the relevant ref and sync again before committing durable facts.",
-        "- Workroot decides what context to retrieve and how much detail to include.",
+        "Rules:",
+        *_packet_reminders(call, packet),
         *rejected_retry_guidance,
+        *_candidate_lines(packet),
+        *_output_lines(_dict(packet.get("output"))),
         "",
         "Call template:" if command_template else "Exact next call:",
         command_template or command,
@@ -209,13 +177,10 @@ def render_private_packet_markdown(
             if command_template
             else []
         ),
-        "",
-        "JSON:",
-        "```json",
-        body,
-        "```",
     ]
-    return "\n".join(meaning)
+    if verbose:
+        lines.extend(["", "JSON:", "```json", json.dumps(packet, ensure_ascii=False, indent=2), "```"])
+    return "\n".join(lines)
 
 
 def _build_work(view: dict[str, Any]) -> dict[str, Any]:
@@ -267,7 +232,8 @@ def _build_call(
     if "required" in next_exchange:
         call["required"] = bool(next_exchange.get("required"))
     if action == "sync":
-        call["work_signal"] = _sync_work_signal(_sync_cli_reason(reason))
+        candidate_ref_placeholder = _candidate_ref_placeholder(contract)
+        call["work_signal"] = _sync_work_signal(_sync_cli_reason(reason), refs=candidate_ref_placeholder)
         known_state = _known_state_from_contract(contract)
         if known_state:
             call["known_state"] = known_state
@@ -298,7 +264,7 @@ def _build_call(
 
     command = _build_call_command(adapter, agent, transport, action, shape, next_exchange, commit_contract, contract)
     if command:
-        if action == "sync" and _contains_placeholder(command):
+        if _contains_placeholder(command):
             call["command_template"] = command
         else:
             call["command"] = command
@@ -366,46 +332,6 @@ def _build_output(view: dict[str, Any]) -> dict[str, Any]:
     return output
 
 
-def _build_adapter_hint(
-    adapter: str,
-    agent: str,
-    transport: str,
-    action: str,
-    shape: str | None,
-    next_exchange: dict[str, Any],
-    commit_contract: dict[str, Any],
-    contract: dict[str, Any],
-) -> dict[str, str]:
-    if adapter != "cli":
-        return {}
-    if action == "sync":
-        reason = _sync_cli_reason(_text(next_exchange.get("reason")))
-        signal = _sync_work_signal_arg(reason)
-        known_state = _known_state_cli_arg(contract)
-        transport_arg = _transport_cli_arg(transport)
-        return {
-            "cli": (
-                f"workroot agent sync --agent {agent}{transport_arg} --cwd . --reason {reason} --format packet "
-                f'--query "<current user request or short intent>"{known_state} --work-signal {signal}'
-            )
-        }
-    if not shape:
-        return {}
-    contract_command = _shape_contract_command(
-        commit_contract,
-        shape,
-        agent=agent,
-        transport=transport,
-    )
-    if contract_command:
-        return {"cli": contract_command}
-    hint = CLI_HINT_BY_SHAPE.get(shape)
-    if not hint:
-        return {}
-    lease = _text(commit_contract.get("lease_id")) or "<exchange>"
-    return {"cli": hint.format(lease=lease)}
-
-
 def _build_call_command(
     adapter: str,
     agent: str,
@@ -420,7 +346,7 @@ def _build_call_command(
         return ""
     if action == "sync":
         reason = _sync_cli_reason(_text(next_exchange.get("reason")))
-        signal = _sync_work_signal_arg(reason)
+        signal = _sync_work_signal_arg(reason, refs=_candidate_ref_placeholder(contract))
         known_state = _known_state_cli_arg(contract)
         transport_arg = _transport_cli_arg(transport)
         return (
@@ -482,9 +408,12 @@ def _transport_cli_arg(transport: str) -> str:
     return f" --transport {cleaned}"
 
 
-def _select_shape(shapes: Any, *, required_before_stop: Any = None) -> str | None:
+def _select_shape(shapes: Any, *, required_before_stop: Any = None, preferred_shape: Any = None) -> str | None:
     normalized = {_normalize_shape(shape) for shape in _list(shapes)}
     required = {_normalize_shape(shape) for shape in _list(required_before_stop)}
+    preferred = _normalize_shape(preferred_shape)
+    if preferred in normalized:
+        return preferred
     if "asset" in normalized and "asset" in required:
         return "asset"
     if "continuation" in normalized and "continuation" in required:
@@ -528,7 +457,7 @@ def _sync_cli_reason(exchange_reason: str) -> str:
 
 
 def _sync_work_signal(reason: str, *, refs: list[str] | None = None) -> dict[str, object]:
-    focus = "current user request or short intent"
+    focus = "<current user request or short intent>"
     if reason == "before_task_switch":
         signal: dict[str, object] = {
             "phase": "orienting",
@@ -565,6 +494,12 @@ def _sync_work_signal(reason: str, *, refs: list[str] | None = None) -> dict[str
 
 def _sync_work_signal_arg(reason: str, *, refs: list[str] | None = None) -> str:
     return "'" + json.dumps(_sync_work_signal(reason, refs=refs), separators=(",", ":"), sort_keys=True) + "'"
+
+
+def _candidate_ref_placeholder(contract: dict[str, Any]) -> list[str]:
+    if _candidate_refs(contract):
+        return ["task:<chosen-task-id>"]
+    return []
 
 
 def _candidate_refs(contract: dict[str, Any]) -> list[dict[str, str]]:
@@ -615,6 +550,8 @@ def _also_for_shape(shape: str, required_before_stop: Any) -> list[str]:
             also.append("continuation_before_stop")
     if shape == "asset" and "continuation" in required:
         also.append("continuation_before_stop")
+    if shape == "decision" and "continuation" in required:
+        also.append("continuation_before_stop")
     return also
 
 
@@ -636,29 +573,117 @@ def _call_when(action: str, shape: str | None, reason: str) -> str:
 
 def _titles(items: Any) -> list[str]:
     titles: list[str] = []
-    for item in _list(items)[:3]:
+    seen: set[str] = set()
+    for item in _list(items):
         if isinstance(item, dict):
             title = item.get("title")
         else:
             title = item
-        if title:
-            titles.append(str(title))
+        text = str(title or "").strip()
+        if not text or text in seen:
+            continue
+        titles.append(text)
+        seen.add(text)
+        if len(titles) >= 3:
+            break
     return titles
 
 
 def _done_items(items: Any) -> list[str]:
     done: list[str] = []
-    for item in _list(items)[:3]:
+    seen: set[str] = set()
+    for item in _list(items):
         if isinstance(item, dict):
-            title = item.get("title")
-            summary = item.get("result_summary")
-            if title and summary:
-                done.append(f"{title}: {summary}")
-            elif title:
-                done.append(str(title))
+            title = str(item.get("title") or "").strip()
+            summary = str(item.get("result_summary") or "").strip()
+            if title and summary and title != summary:
+                text = f"{title}: {summary}"
+            else:
+                text = title
         elif item:
-            done.append(str(item))
+            text = str(item).strip()
+        else:
+            text = ""
+        if not text or text in seen:
+            continue
+        done.append(text)
+        seen.add(text)
+        if len(done) >= 3:
+            break
     return done
+
+
+def _packet_reminders(call: dict[str, Any], packet: dict[str, Any]) -> list[str]:
+    reminders = [
+        "- Continue helping the user if Workroot is unavailable.",
+        "- Do not use --help, --format json, or workroot context in the normal loop unless debugging or recovering.",
+    ]
+    action = _text(call.get("action"))
+    shape = _text(call.get("shape"))
+    if bool(call.get("read_only")):
+        reminders.append("- Read-only context does not grant a lease; sync first before durable commit.")
+    if action == "sync":
+        reminders.extend(
+            [
+                "- Sync with the current user request or short intent.",
+                "- Use refs or known state when following a specific prior item.",
+            ]
+        )
+        if _list(_dict(packet.get("refs")).get("candidates")):
+            reminders.append(
+                "- If candidate refs are provided, choose the relevant ref and sync again before committing."
+            )
+    if action == "commit":
+        reminders.append("- Commit only concise stable facts, not raw chat.")
+    if action == "none":
+        reminders.append("- Answer directly; do not commit unless a later sync asks for persistence.")
+    if shape == "start_work":
+        reminders.append("- Use start-work only for a separate long-running work item or temporary side thread.")
+    elif shape == "checkpoint":
+        reminders.append("- Use checkpoint for stable progress; use continuation for resume-ready state.")
+    elif shape == "continuation":
+        reminders.append("- Preserve current state and next useful action before stopping or switching.")
+    elif shape == "asset":
+        reminders.append("- Create or update the user-visible file before committing the asset.")
+    elif shape == "decision":
+        reminders.append("- Capture the stable decision and reason after the decision is made.")
+    return reminders
+
+
+def _candidate_lines(packet: dict[str, Any]) -> list[str]:
+    candidates = [item for item in _list(_dict(packet.get("refs")).get("candidates")) if isinstance(item, dict)]
+    if not candidates:
+        return []
+    lines = ["", "Candidates:"]
+    for item in candidates[:3]:
+        ref = _text(item.get("ref"))
+        summary = _text(item.get("summary"))
+        why = _text(item.get("why"))
+        if ref:
+            lines.append(f"- {ref}" + (f" - {summary}" if summary else ""))
+            if summary:
+                lines.append(f"  Use when: {summary}")
+            elif why:
+                lines.append(f"  Use when: {why}")
+    return lines
+
+
+def _output_lines(output: dict[str, Any]) -> list[str]:
+    if not output:
+        return []
+    lines = ["", "Output:"]
+    default_path = _text(output.get("default_path"))
+    if default_path:
+        lines.append(f"- Default asset path: {default_path}")
+    if output.get("asset_path_required"):
+        lines.append("- Asset commits must include the final relative path.")
+    declared = [item for item in _list(output.get("declared")) if isinstance(item, dict)]
+    for item in declared[:3]:
+        path = _text(item.get("path"))
+        kind = _text(item.get("asset_kind")) or "*"
+        if path:
+            lines.append(f"- {kind}: {path}")
+    return lines
 
 
 def _normalize_shape(shape: Any) -> str:

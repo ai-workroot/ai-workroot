@@ -65,7 +65,6 @@ def upsert_context_recall_hint(conn: sqlite3.Connection, hint: ContextRecallHint
         "INSERT INTO context_recall_hints_fts (hint_id, title, summary) VALUES (?, ?, ?)",
         (hint.hint_id, hint.title, hint.summary),
     )
-    conn.commit()
 
 
 def query_context_recall_hints(

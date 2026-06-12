@@ -6,10 +6,28 @@ from dataclasses import dataclass
 import sqlite3
 from typing import Any
 
-from ai_workroot.capabilities.retrieval.providers.sqlite_fts import compile_safe_fts_query, text_term_score
+from ai_workroot.capabilities.retrieval.providers.sqlite_fts import (
+    compile_safe_fts_query,
+    fallback_text_terms,
+    text_term_score,
+)
 
 
 BLOCKED_SAFETY_POLICIES = {"never-auto", "needs-confirmation", "sensitive"}
+SAFE_CANDIDATE_FILTER = """
+  workroot_id = ?
+  AND COALESCE(status, 'active') = 'active'
+  AND (safety_policy IS NULL OR safety_policy = '' OR safety_policy NOT IN ('never-auto', 'needs-confirmation', 'sensitive'))
+"""
+IMPORTANCE_ORDER = """
+  CASE COALESCE(importance, 'normal')
+    WHEN 'critical' THEN 4
+    WHEN 'high' THEN 3
+    WHEN 'normal' THEN 2
+    WHEN 'low' THEN 1
+    ELSE 0
+  END DESC
+"""
 
 
 @dataclass(frozen=True)
@@ -27,7 +45,6 @@ class CandidateMatch:
 
 
 def upsert_context_candidate(conn: sqlite3.Connection, payload: dict[str, Any]) -> None:
-    _ensure_candidate_columns(conn)
     record = {
         "candidate_id": payload["candidate_id"],
         "workroot_id": payload["workroot_id"],
@@ -80,26 +97,22 @@ def upsert_context_candidate(conn: sqlite3.Connection, payload: dict[str, Any]) 
         "INSERT INTO context_candidates_fts (candidate_id, title, summary, domains) VALUES (?, ?, ?, ?)",
         (record["candidate_id"], record["title"], record["summary"], record["domains"]),
     )
-    conn.commit()
 
 
 def query_context_candidates(
     conn: sqlite3.Connection, workroot_id: str, *, query: str = "", scope: str = "", limit: int = 50
 ) -> list[CandidateMatch]:
-    _ensure_candidate_columns(conn)
-    safe_rows = _fetch_rows(
-        conn,
-        """
-        SELECT *
-        FROM context_candidates
-        WHERE workroot_id = ?
-          AND COALESCE(status, 'active') = 'active'
-          AND (safety_policy IS NULL OR safety_policy = '' OR safety_policy NOT IN ('never-auto', 'needs-confirmation', 'sensitive'))
-        """,
-        (workroot_id,),
-    )
-    fts_ids = _candidate_fts_ids(conn, query) if query.strip() else set()
+    pool_limit = max(limit * 4, 20)
+    fts_ids = _candidate_fts_ids(conn, query, limit=pool_limit) if query.strip() else set()
     parsed_scope = _parse_scope(scope)
+    safe_rows = _bounded_candidate_rows(
+        conn,
+        workroot_id=workroot_id,
+        candidate_ids=fts_ids,
+        parsed_scope=parsed_scope,
+        query=query,
+        pool_limit=pool_limit,
+    )
     matches: list[CandidateMatch] = []
     for row in safe_rows:
         if not _candidate_visible_in_scope(row, parsed_scope):
@@ -134,26 +147,30 @@ def query_context_candidates(
 def query_context_candidates_by_refs(
     conn: sqlite3.Connection, workroot_id: str, refs: tuple[str, ...], *, scope: str = "", limit: int = 20
 ) -> list[CandidateMatch]:
-    _ensure_candidate_columns(conn)
     if not refs:
         return []
-    source_refs = _source_refs(refs)
-    if not source_refs:
+    candidate_ids, source_refs = _candidate_and_source_refs(refs)
+    if not candidate_ids and not source_refs:
         return []
-    clauses = " OR ".join("(source_type = ? AND source_id = ?)" for _ in source_refs)
+    clauses: list[str] = []
     params: list[object] = [workroot_id]
+    if candidate_ids:
+        placeholders = ",".join("?" for _ in candidate_ids)
+        clauses.append(f"candidate_id IN ({placeholders})")
+        params.extend(candidate_ids)
+    if source_refs:
+        clauses.extend("(source_type = ? AND source_id = ?)" for _ in source_refs)
     for source_type, source_id in source_refs:
         params.extend([source_type, source_id])
     params.append(limit)
+    where_refs = " OR ".join(clauses)
     rows = _fetch_rows(
         conn,
         f"""
         SELECT *
         FROM context_candidates
-        WHERE workroot_id = ?
-          AND COALESCE(status, 'active') = 'active'
-          AND (safety_policy IS NULL OR safety_policy = '' OR safety_policy NOT IN ('never-auto', 'needs-confirmation', 'sensitive'))
-          AND ({clauses})
+        WHERE {SAFE_CANDIDATE_FILTER}
+          AND ({where_refs})
         LIMIT ?
         """,
         tuple(params),
@@ -172,42 +189,157 @@ def _fetch_rows(conn: sqlite3.Connection, query: str, params: tuple[object, ...]
     return cursor.execute(query, params).fetchall()
 
 
-def _ensure_candidate_columns(conn: sqlite3.Connection) -> None:
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(context_candidates)").fetchall()}
-    expected = {
-        "domains": "TEXT",
-        "importance": "TEXT",
-        "confidence": "REAL",
-        "status": "TEXT",
-        "context_policy": "TEXT",
-        "safety_policy": "TEXT",
-        "token_estimate": "INTEGER",
-        "updatedAt": "TEXT",
-        "lastUsedAt": "TEXT",
-        "use_count": "INTEGER DEFAULT 0",
-    }
-    for name, column_type in expected.items():
-        if name not in columns:
-            conn.execute(f"ALTER TABLE context_candidates ADD COLUMN {name} {column_type}")
-    fts_columns = {row[1] for row in conn.execute("PRAGMA table_info(context_candidates_fts)").fetchall()}
-    if not {"candidate_id", "title", "summary", "domains"}.issubset(fts_columns):
-        conn.execute("DROP TABLE IF EXISTS context_candidates_fts")
-        conn.execute("CREATE VIRTUAL TABLE context_candidates_fts USING fts5(candidate_id, title, summary, domains)")
-    conn.commit()
+def _bounded_candidate_rows(
+    conn: sqlite3.Connection,
+    *,
+    workroot_id: str,
+    candidate_ids: set[str],
+    parsed_scope: tuple[str, str],
+    query: str,
+    pool_limit: int,
+) -> list[sqlite3.Row]:
+    rows_by_id: dict[str, sqlite3.Row] = {}
+    for rows in (
+        _fetch_candidate_rows_by_ids(conn, workroot_id, candidate_ids, limit=pool_limit),
+        _fetch_always_candidate_rows(conn, workroot_id, limit=pool_limit),
+        _fetch_scope_candidate_rows(conn, workroot_id, parsed_scope, limit=pool_limit),
+        _fetch_query_term_candidate_rows(conn, workroot_id, query, limit=pool_limit),
+        _fetch_recent_candidate_rows(conn, workroot_id, limit=pool_limit),
+    ):
+        for row in rows:
+            rows_by_id.setdefault(str(row["candidate_id"]), row)
+    return list(rows_by_id.values())
 
 
-def _candidate_fts_ids(conn: sqlite3.Connection, query: str) -> set[str]:
+def _fetch_candidate_rows_by_ids(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    candidate_ids: set[str],
+    *,
+    limit: int,
+) -> list[sqlite3.Row]:
+    if not candidate_ids:
+        return []
+    sorted_ids = sorted(candidate_ids)[:limit]
+    placeholders = ",".join("?" for _ in sorted_ids)
+    return _fetch_rows(
+        conn,
+        f"""
+        SELECT *
+        FROM context_candidates
+        WHERE {SAFE_CANDIDATE_FILTER}
+          AND candidate_id IN ({placeholders})
+        LIMIT ?
+        """,
+        (workroot_id, *sorted_ids, limit),
+    )
+
+
+def _fetch_always_candidate_rows(conn: sqlite3.Connection, workroot_id: str, *, limit: int) -> list[sqlite3.Row]:
+    return _fetch_rows(
+        conn,
+        f"""
+        SELECT *
+        FROM context_candidates
+        WHERE {SAFE_CANDIDATE_FILTER}
+          AND context_policy = 'always'
+        ORDER BY {IMPORTANCE_ORDER}, updatedAt DESC, candidate_id ASC
+        LIMIT ?
+        """,
+        (workroot_id, limit),
+    )
+
+
+def _fetch_scope_candidate_rows(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    parsed_scope: tuple[str, str],
+    *,
+    limit: int,
+) -> list[sqlite3.Row]:
+    scope_type, scope_id = parsed_scope
+    if scope_type != "task" or not scope_id:
+        return []
+    return _fetch_rows(
+        conn,
+        f"""
+        SELECT *
+        FROM context_candidates
+        WHERE {SAFE_CANDIDATE_FILTER}
+          AND (domains LIKE ? OR domains LIKE ?)
+        ORDER BY {IMPORTANCE_ORDER}, updatedAt DESC, candidate_id ASC
+        LIMIT ?
+        """,
+        (workroot_id, f"%task:{scope_id}%", f"%{scope_id}%", limit),
+    )
+
+
+def _fetch_query_term_candidate_rows(
+    conn: sqlite3.Connection,
+    workroot_id: str,
+    query: str,
+    *,
+    limit: int,
+) -> list[sqlite3.Row]:
+    terms = _candidate_like_terms(query)
+    if not terms:
+        return []
+    clauses = " OR ".join("(LOWER(title) LIKE ? OR LOWER(summary) LIKE ? OR LOWER(domains) LIKE ?)" for _ in terms)
+    params: list[object] = [workroot_id]
+    for term in terms:
+        pattern = f"%{term.lower()}%"
+        params.extend([pattern, pattern, pattern])
+    params.append(limit)
+    return _fetch_rows(
+        conn,
+        f"""
+        SELECT *
+        FROM context_candidates
+        WHERE {SAFE_CANDIDATE_FILTER}
+          AND ({clauses})
+        ORDER BY {IMPORTANCE_ORDER}, updatedAt DESC, candidate_id ASC
+        LIMIT ?
+        """,
+        tuple(params),
+    )
+
+
+def _fetch_recent_candidate_rows(conn: sqlite3.Connection, workroot_id: str, *, limit: int) -> list[sqlite3.Row]:
+    return _fetch_rows(
+        conn,
+        f"""
+        SELECT *
+        FROM context_candidates
+        WHERE {SAFE_CANDIDATE_FILTER}
+        ORDER BY {IMPORTANCE_ORDER}, updatedAt DESC, candidate_id ASC
+        LIMIT ?
+        """,
+        (workroot_id, limit),
+    )
+
+
+def _candidate_fts_ids(conn: sqlite3.Connection, query: str, *, limit: int) -> set[str]:
     compiled_query = compile_safe_fts_query(query)
     if not compiled_query:
         return set()
     try:
-        rows = conn.execute(
-            "SELECT candidate_id FROM context_candidates_fts WHERE context_candidates_fts MATCH ?",
-            (compiled_query,),
-        ).fetchall()
+        rows = _fetch_rows(
+            conn,
+            """
+            SELECT candidate_id
+            FROM context_candidates_fts
+            WHERE context_candidates_fts MATCH ?
+            LIMIT ?
+            """,
+            (compiled_query, limit),
+        )
     except sqlite3.OperationalError:
         return set()
-    return {str(row[0]) for row in rows}
+    return {str(row["candidate_id"]) for row in rows}
+
+
+def _candidate_like_terms(query: str) -> tuple[str, ...]:
+    return fallback_text_terms(query, max_terms=16)
 
 
 def _candidate_text_term_score(row: sqlite3.Row, query: str) -> int:
@@ -258,13 +390,18 @@ def _ref_reasons(row: sqlite3.Row, parsed_scope: tuple[str, str]) -> tuple[str, 
     return ("ref-match",)
 
 
-def _source_refs(refs: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
-    values: list[tuple[str, str]] = []
+def _candidate_and_source_refs(refs: tuple[str, ...]) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...]]:
+    candidate_ids: list[str] = []
+    source_refs: list[tuple[str, str]] = []
     for ref in refs:
         source_type, separator, source_id = ref.partition(":")
-        if separator == ":" and source_type and source_id:
-            values.append((source_type, source_id))
-    return tuple(values)
+        if separator != ":" or not source_type or not source_id:
+            continue
+        if source_type == "candidate":
+            candidate_ids.append(source_id)
+            continue
+        source_refs.append((source_type, source_id))
+    return tuple(candidate_ids), tuple(source_refs)
 
 
 def _base_score(row: sqlite3.Row) -> float:

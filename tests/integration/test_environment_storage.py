@@ -8,7 +8,12 @@ from pathlib import Path
 from ai_workroot.capabilities.composition.projections import project_decision
 from ai_workroot.capabilities.retrieval.model import ContextRecallHint
 from ai_workroot.capabilities.retrieval.providers.context_recall_hint_provider import upsert_context_recall_hint
-from ai_workroot.state.environment import initialize_environment, register_workroot, unregister_workroot
+from ai_workroot.state.environment import (
+    initialize_environment,
+    register_workroot,
+    register_workroot_unlocked,
+    unregister_workroot,
+)
 from ai_workroot.state.jsonl import read_jsonl
 from ai_workroot.state.sqlite import SCHEMA, SQLITE_SCHEMA_MIGRATION_IDS, initialize_workroot_sqlite
 
@@ -57,6 +62,18 @@ class EnvironmentStorageTest(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 register_workroot(home, workroot_id="wr_other", name="Other", user_directory=user_dir)
+
+    def test_register_workroot_rejects_unsafe_workroot_id_at_state_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "ai-workroot-home"
+            user_dir = Path(tmp) / "project"
+            user_dir.mkdir()
+            initialize_environment(home)
+
+            for registrar in (register_workroot, register_workroot_unlocked):
+                with self.assertRaises(ValueError):
+                    registrar(home, workroot_id="../escape", name="Unsafe", user_directory=user_dir)
+                self.assertFalse((home / "escape").exists())
 
     def test_unregister_workroot_removes_target_registration_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

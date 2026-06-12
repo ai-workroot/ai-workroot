@@ -91,6 +91,20 @@ class ProtocolModelTest(unittest.TestCase):
         self.assertEqual(request.workroot_id, "wr_demo")
         self.assertEqual(request.events, [{"kind": "progress", "payload": {}}])
 
+    def test_commit_preserves_non_dict_event_items_for_validation(self) -> None:
+        request = CommitRequest.from_dict(
+            {
+                "protocol_version": "workroot.v1",
+                "request_id": "req-commit",
+                "workroot_id": "wr_demo",
+                "idempotency_key": "key-1",
+                "events": ["bad_event"],
+            }
+        )
+
+        self.assertEqual(request.raw_events, ["bad_event"])
+        self.assertEqual(request.events, [])
+
     def test_unknown_event_kind_rejected(self) -> None:
         with self.assertRaisesRegex(ProtocolError, "invalid_event_kind"):
             validate_event_envelope(
@@ -114,6 +128,7 @@ class WorkSignalTest(unittest.TestCase):
                 "phase": "executing",
                 "work_kind": "implementation",
                 "intended_action": "edit",
+                "boundary": "continue_current",
                 "focus": "Implement non-blocking protocol responses.",
                 "concerns": ["may_change_user_assets"],
             }
@@ -122,7 +137,24 @@ class WorkSignalTest(unittest.TestCase):
         self.assertEqual(signal.phase, "executing")
         self.assertEqual(signal.work_kind, "implementation")
         self.assertEqual(signal.intended_action, "edit")
+        self.assertEqual(signal.boundary, "continue_current")
         self.assertEqual(signal.concerns, ("may_change_user_assets",))
+
+    def test_work_signal_accepts_boundary_without_routing_it_through_concerns(self) -> None:
+        signal = WorkSignal.from_dict(
+            {
+                "phase": "starting",
+                "work_kind": "task",
+                "intended_action": "plan",
+                "boundary": "separate_work",
+                "focus": "Separate durable pricing strategy work.",
+                "concerns": ["new_task_boundary", "needs_evidence"],
+            }
+        )
+
+        self.assertEqual(signal.boundary, "separate_work")
+        self.assertEqual(signal.concerns, ("needs_evidence",))
+        self.assertEqual(signal.to_dict()["boundary"], "separate_work")
 
     def test_work_signal_accepts_preservation_semantics_without_handoff_protocol_wording(self) -> None:
         signal = WorkSignal.from_dict(
@@ -145,6 +177,7 @@ class WorkSignalTest(unittest.TestCase):
                 "phase": "too-specific",
                 "work_kind": "custom-kind",
                 "intended_action": "custom-action",
+                "boundary": "custom-boundary",
                 "focus": "Still help the user.",
                 "concerns": ["unknown", "needs_evidence"],
             }
@@ -153,6 +186,7 @@ class WorkSignalTest(unittest.TestCase):
         self.assertEqual(signal.phase, "")
         self.assertEqual(signal.work_kind, "")
         self.assertEqual(signal.intended_action, "")
+        self.assertEqual(signal.boundary, "")
         self.assertEqual(signal.focus, "Still help the user.")
         self.assertEqual(signal.concerns, ("needs_evidence",))
 

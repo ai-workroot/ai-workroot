@@ -142,7 +142,8 @@ class ReleaseProtectionTargetsNegativeTest(unittest.TestCase):
                 ai_workroot_home=home,
             )
 
-            self.assertIn("safe.md: file-fts-match", package)
+            self.assertIn("safe.md [Ref: chunk:chunk-safe]", package)
+            self.assertNotIn("safe.md: file-fts-match", package)
             self.assertIn("Safe indexed file", package)
             self.assertNotIn("protected.md", package)
             self.assertNotIn("Protected indexed file", package)

@@ -250,7 +250,8 @@ class ReleaseProtectionContextNegativeTest(unittest.TestCase):
 
             self.assertIn("Tombstone lesson", package)
             self.assertIn("tombstone", package)
-            self.assertIn("annotated-release-state", package)
+            self.assertIn("Status: tombstone", package)
+            self.assertNotIn("annotated-release-state", package)
 
     def test_redacted_task_and_deleted_work_action_candidates_are_resolved_and_dropped(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

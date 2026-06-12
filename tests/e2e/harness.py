@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 from ai_workroot.state.environment import ensure_environment_config, write_environment_config
 from tests.e2e.personas import Persona
@@ -22,6 +23,8 @@ class CommandResult:
     returncode: int
     stdout: str
     stderr: str
+    elapsed_ms: int = 0
+    timed_out: bool = False
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -30,6 +33,8 @@ class CommandResult:
             "returncode": self.returncode,
             "stdout": self.stdout,
             "stderr": self.stderr,
+            "elapsed_ms": self.elapsed_ms,
+            "timed_out": self.timed_out,
         }
 
 
@@ -67,23 +72,54 @@ def _enable_e2e_context_diagnostics(ai_workroot_home: Path) -> None:
     write_environment_config(ai_workroot_home / "config.json", config)
 
 
-def run_cli(args: tuple[str, ...], *, env: dict[str, str], cwd: Path = REPO_ROOT) -> CommandResult:
+def run_cli(
+    args: tuple[str, ...],
+    *,
+    env: dict[str, str],
+    cwd: Path = REPO_ROOT,
+    timeout_seconds: float = 60.0,
+) -> CommandResult:
     command = (sys.executable, "-m", "ai_workroot", *args)
-    completed = subprocess.run(
-        command,
-        cwd=cwd,
-        env=env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    started = time.perf_counter()
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        return CommandResult(
+            command=tuple(command),
+            cwd=str(cwd),
+            returncode=124,
+            stdout=_timeout_text(exc.output),
+            stderr=_timeout_text(exc.stderr) or f"command timed out after {timeout_seconds} seconds",
+            elapsed_ms=elapsed_ms,
+            timed_out=True,
+        )
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
     return CommandResult(
         command=tuple(command),
         cwd=str(cwd),
         returncode=completed.returncode,
         stdout=completed.stdout,
         stderr=completed.stderr,
+        elapsed_ms=elapsed_ms,
+        timed_out=False,
     )
+
+
+def _timeout_text(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
 
 
 def write_user_files(user_directory: Path, files: dict[str, str]) -> None:

@@ -111,6 +111,16 @@ def run_commit_shape(
     idempotency_key: Optional[str] = None,
     occurred_at: Optional[str] = None,
 ) -> dict[str, Any]:
+    requested_shape = _normalize_shape(shape)
+    effective_current_state = state or current_state
+    effective_next_action = next or next_action
+    recovered_checkpoint_fields = False
+    if requested_shape == "checkpoint" and not summary.strip() and (effective_current_state or effective_next_action):
+        summary = _checkpoint_summary_from_state_next(
+            current_state=effective_current_state,
+            next_action=effective_next_action,
+        )
+        recovered_checkpoint_fields = True
     try:
         request = build_commit_request_from_shape(
             shape=shape,
@@ -125,8 +135,8 @@ def run_commit_shape(
             workroot_id=workroot_id,
             title=title,
             summary=summary,
-            current_state=state or current_state,
-            next_action=next or next_action,
+            current_state=effective_current_state,
+            next_action=effective_next_action,
             task_id=task_id,
             run_id=run_id,
             parent_task_id=parent_task_id,
@@ -167,6 +177,20 @@ def run_commit_shape(
             details={"message": str(exc), "shape": shape},
             next_action="Sync before retrying durable persistence, then provide the required fields for this shape.",
             result_status="rejected",
+        )
+    if recovered_checkpoint_fields:
+        record_locatable_protocol_friction(
+            cwd=cwd,
+            workroot_id=workroot_id,
+            action="commit",
+            source_layer="cli_adapter",
+            stage="pre_request",
+            code="checkpoint_fields_recovered",
+            result_status="recovered",
+            request_id=request_id or request.get("request_id", ""),
+            lease_id=lease_id,
+            shape="checkpoint",
+            details={"recovered_from": "state_next"},
         )
     return controller.commit(request)
 
@@ -303,6 +327,15 @@ def invalid_exchange_action() -> dict[str, Any]:
         next_action="Use action=sync or action=commit.",
         result_status="rejected",
     )
+
+
+def _checkpoint_summary_from_state_next(*, current_state: str, next_action: str) -> str:
+    parts: list[str] = []
+    if current_state.strip():
+        parts.append(f"Current state: {current_state.strip()}")
+    if next_action.strip():
+        parts.append(f"Next action: {next_action.strip()}")
+    return " ".join(parts)
 
 
 def _shorthand_payload(

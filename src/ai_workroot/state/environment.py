@@ -493,7 +493,7 @@ def register_workroot_unlocked(home: Path, workroot_id: str, name: str, user_dir
                 f"user directory already registered as Workroot {record.get('workroot_id')}: {user_directory}"
             )
 
-    state_directory = home / "workroots" / workroot_id
+    state_directory = workroot_state_dir(home, workroot_id)
     for rel in PER_WORKROOT_DIRS:
         (state_directory / rel).mkdir(parents=True, exist_ok=True)
 

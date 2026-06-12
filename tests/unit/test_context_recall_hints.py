@@ -67,6 +67,33 @@ class ContextRecallHintsTest(unittest.TestCase):
         )
         self.assertEqual(fts_row[0], "hint-clean-mode")
 
+    def test_upsert_context_recall_hint_does_not_commit_caller_transaction(self) -> None:
+        conn = self.open_db()
+        hint = ContextRecallHint(
+            hint_id="hint-rollback",
+            workroot_id="wr_demo",
+            target_type="asset",
+            target_id="asset-rollback",
+            title="Rollback hint",
+            summary="This hint should remain under caller transaction control.",
+        )
+
+        conn.execute("BEGIN")
+        upsert_context_recall_hint(conn, hint)
+        conn.rollback()
+
+        hint_row = conn.execute(
+            "SELECT hint_id FROM context_recall_hints WHERE hint_id = ?",
+            (hint.hint_id,),
+        ).fetchone()
+        fts_row = conn.execute(
+            "SELECT hint_id FROM context_recall_hints_fts WHERE hint_id = ?",
+            (hint.hint_id,),
+        ).fetchone()
+
+        self.assertIsNone(hint_row)
+        self.assertIsNone(fts_row)
+
     def test_context_recall_hint_is_core_retrieval_model(self) -> None:
         from ai_workroot.capabilities.retrieval.model import ContextRecallHint as CoreContextRecallHint
 
